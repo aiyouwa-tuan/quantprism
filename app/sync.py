@@ -1,6 +1,6 @@
 """
 Goal-Driven Trading OS — Position Sync
-Syncs broker positions into local database
+Syncs broker positions into local database (supports stocks + options)
 """
 from datetime import datetime
 from sqlalchemy.orm import Session
@@ -10,9 +10,9 @@ from broker import get_ibkr_client, fetch_positions
 
 def sync_positions_from_broker(db: Session) -> dict:
     """
-    从券商同步持仓到本地数据库
+    从 IBKR 同步持仓到本地数据库
 
-    Returns: {synced, new, closed, error}
+    Returns: {synced, new, closed, error, details}
     """
     client = get_ibkr_client()
     if not client:
@@ -22,19 +22,23 @@ def sync_positions_from_broker(db: Session) -> dict:
     if not broker_positions:
         return {"synced": 0, "new": 0, "closed": 0, "error": None}
 
-    broker_symbols = set()
+    # Use display_name as unique key (handles same symbol with different options)
+    broker_keys = set()
     new_count = 0
     synced_count = 0
 
     for bp in broker_positions:
-        symbol = bp["symbol"]
-        broker_symbols.add(symbol)
+        display_name = bp.get("display_name", bp["symbol"])
+        broker_keys.add(display_name)
 
+        # Match by symbol + source=broker. For options, match by display_name in notes field
         existing = db.query(Position).filter(
-            Position.symbol == symbol,
+            Position.symbol == display_name,
             Position.is_open == True,
             Position.source == "broker",
         ).first()
+
+        market = bp.get("market", "stock")
 
         if existing:
             existing.current_price = bp["current_price"]
@@ -42,18 +46,20 @@ def sync_positions_from_broker(db: Session) -> dict:
             existing.quantity = bp["qty"]
             synced_count += 1
         else:
-            risk_per_share = abs(bp["avg_entry_price"] * 0.05)  # default 5% stop estimate
+            entry_price = bp["avg_entry_price"]
+            risk_est = abs(entry_price * 0.05)
+
             new_pos = Position(
-                symbol=symbol,
-                market="stock",
-                entry_price=bp["avg_entry_price"],
-                stop_loss=bp["avg_entry_price"] - risk_per_share if bp["side"] == "long" else bp["avg_entry_price"] + risk_per_share,
+                symbol=display_name,
+                market=market,
+                entry_price=entry_price,
+                stop_loss=entry_price - risk_est if bp["side"] == "long" else entry_price + risk_est,
                 quantity=bp["qty"],
                 source="broker",
                 current_price=bp["current_price"],
                 unrealized_pnl=bp["unrealized_pl"],
-                risk_amount=risk_per_share * bp["qty"],
-                risk_pct_of_account=0,  # will be recalculated on dashboard
+                risk_amount=risk_est * bp["qty"],
+                risk_pct_of_account=0,
                 account_balance_at_entry=0,
             )
             db.add(new_pos)
@@ -67,7 +73,7 @@ def sync_positions_from_broker(db: Session) -> dict:
     ).all()
 
     for pos in open_broker_positions:
-        if pos.symbol not in broker_symbols:
+        if pos.symbol not in broker_keys:
             pos.is_open = False
             pos.close_date = datetime.utcnow()
             closed_count += 1
@@ -78,5 +84,6 @@ def sync_positions_from_broker(db: Session) -> dict:
         "synced": synced_count,
         "new": new_count,
         "closed": closed_count,
+        "total": len(broker_positions),
         "error": None,
     }

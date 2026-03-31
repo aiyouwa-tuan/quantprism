@@ -1,6 +1,6 @@
 """
-Goal-Driven Trading OS — Broker API (IBKR via ib_insync)
-Graceful degradation: returns None if not connected
+Goal-Driven Trading OS — Broker API (IBKR)
+Priority: Web API (Client Portal) → ib_insync (TWS/Gateway) → None
 """
 import os
 import logging
@@ -8,6 +8,32 @@ import logging
 logger = logging.getLogger(__name__)
 
 _ib_client = None
+_connection_mode = None  # "web_api" or "ib_insync" or None
+
+
+def get_connection_mode() -> str:
+    """检测当前连接方式"""
+    global _connection_mode
+    if _connection_mode:
+        return _connection_mode
+
+    # Try Web API first
+    try:
+        from ibkr_web_api import check_auth_status
+        status = check_auth_status()
+        if status.get("authenticated"):
+            _connection_mode = "web_api"
+            return "web_api"
+    except Exception:
+        pass
+
+    # Try ib_insync
+    client = get_ibkr_client()
+    if client:
+        _connection_mode = "ib_insync"
+        return "ib_insync"
+
+    return "disconnected"
 
 
 def get_ibkr_client():
@@ -22,7 +48,7 @@ def get_ibkr_client():
     try:
         from ib_insync import IB
         host = os.getenv("IBKR_HOST", "127.0.0.1")
-        port = int(os.getenv("IBKR_PORT", "7497"))  # 7497=TWS Paper, 7496=TWS Live, 4002=Gateway Paper
+        port = int(os.getenv("IBKR_PORT", "7496"))  # 7496=TWS Live, 7497=TWS Paper, 4002=Gateway Paper
         client_id = int(os.getenv("IBKR_CLIENT_ID", "1"))
 
         ib = IB()
@@ -38,11 +64,21 @@ def get_ibkr_client():
 
 
 def fetch_account_info(client=None) -> dict:
-    """获取 IBKR 账户信息"""
+    """获取 IBKR 账户信息 (Web API → ib_insync → error)"""
+    # Try Web API first
+    try:
+        from ibkr_web_api import web_fetch_account
+        result = web_fetch_account()
+        if "error" not in result:
+            return result
+    except Exception:
+        pass
+
+    # Fall back to ib_insync
     if not client:
         client = get_ibkr_client()
     if not client:
-        return {"error": "IBKR not connected. Ensure TWS or IB Gateway is running."}
+        return {"error": "IBKR 未连接。方案 1: 启动 Client Portal Gateway。方案 2: 打开 TWS/IB Gateway。"}
     try:
         account_values = client.accountSummary()
         info = {}
@@ -61,26 +97,53 @@ def fetch_account_info(client=None) -> dict:
 
 
 def fetch_positions(client=None) -> list[dict]:
-    """获取 IBKR 所有持仓"""
+    """获取 IBKR 所有持仓 (Web API → ib_insync → empty)"""
+    # Try Web API first
+    try:
+        from ibkr_web_api import web_fetch_positions
+        result = web_fetch_positions()
+        if result:
+            return result
+    except Exception:
+        pass
+
+    # Fall back to ib_insync
     if not client:
         client = get_ibkr_client()
     if not client:
         return []
     try:
         positions = client.positions()
-        return [
-            {
+        result = []
+        for p in positions:
+            sec_type = p.contract.secType
+            qty = float(p.position)
+            avg_cost = float(p.avgCost)
+
+            entry = {
                 "symbol": p.contract.symbol,
-                "qty": float(p.position),
-                "avg_entry_price": float(p.avgCost) / 100 if p.contract.secType == "OPT" else float(p.avgCost),
-                "current_price": float(p.avgCost),  # will be updated via market data
-                "market_value": float(p.position * p.avgCost),
-                "unrealized_pl": 0,  # needs market data subscription
-                "side": "long" if p.position > 0 else "short",
-                "sec_type": p.contract.secType,  # STK, OPT, FUT, etc.
+                "qty": abs(qty),
+                "avg_entry_price": avg_cost,
+                "current_price": avg_cost,
+                "market_value": abs(qty) * avg_cost,
+                "unrealized_pl": 0,
+                "side": "long" if qty > 0 else "short",
+                "sec_type": sec_type,
             }
-            for p in positions
-        ]
+
+            if sec_type == "OPT":
+                right_label = "Call" if p.contract.right == "C" else "Put"
+                entry["market"] = "option"
+                entry["right"] = p.contract.right
+                entry["strike"] = float(p.contract.strike)
+                entry["expiry"] = p.contract.lastTradeDateOrContractMonth
+                entry["display_name"] = f"{p.contract.symbol} {right_label} ${p.contract.strike:.0f} {p.contract.lastTradeDateOrContractMonth}"
+            else:
+                entry["market"] = "stock"
+                entry["display_name"] = p.contract.symbol
+
+            result.append(entry)
+        return result
     except Exception as e:
         logger.error(f"IBKR fetch positions failed: {e}")
         return []
