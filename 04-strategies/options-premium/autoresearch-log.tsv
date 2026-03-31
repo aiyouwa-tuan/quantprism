@@ -1,0 +1,32 @@
+iteration	score	annual_return	max_drawdown	sharpe	trades	change_description	result
+0	81.19	4.81	-5.78	1.64	2201	baseline: $10k, $3 spread, delta 0.16, IBKR commission	baseline
+1	100.28	17.32	-7.02	2.65	2774	delta 0.20, spread $5, 3 positions, risk 3%	keep
+2	103.83	19.15	-7.15	2.66	2732	delta 0.22	keep
+3	104.46	21.02	-7.70	2.64	2675	delta 0.24	keep
+4	108.01	23.19	-8.00	2.71	2615	delta 0.26	keep
+5	103.86	21.49	-7.98	2.61	2650	delta 0.25	discard
+6	108.11	26.39	-9.49	-	-	profit target 50%	discard (DD>8%)
+7	105.83	24.70	-9.07	-	-	profit target 45%	discard (DD>8%)
+8	108.36	23.51	-8.07	-	-	drawdown pause 3%	marginal
+9	100.39	22.50	-9.06	-	-	drawdown pause 2.5%	discard
+10	104.69	22.79	-8.38	-	-	portfolio stop 2.5%	discard
+11	108.28	23.82	-8.21	-	-	VIX range 8-25	discard (DD>8%)
+12	108.28	23.82	-8.21	-	-	VIX range 9-25	discard
+13	102.97	22.74	-8.67	-	-	SMA50 trend filter	discard
+14	107.33	23.57	-8.26	-	-	resume after 7 days	discard
+15	112.63	25.29	-8.10	-	-	delta_high_VIX 0.10, VIX threshold 22	keep
+16	112.47	25.23	-8.10	-	-	delta_high_VIX 0.08	discard
+17	112.26	25.17	-8.11	-	-	delta_high_VIX 0.12	discard
+18	112.34	25.15	-8.09	-	-	individual stop loss 2x premium	discard
+19	112.17	25.09	-8.09	-	-	individual stop loss 1.5x premium	discard
+20	106.63	23.54	-8.37	-	-	dynamic VIX position limit	discard
+21	96.12	21.91	-9.68	-	-	$7 spread width	discard
+22	101.65	26.83	-11.57	-	-	DTE 5 days	discard
+23	52.47	13.55	-21.52	-	-	DTE 14 days	discard
+24	96.28	22.47	-9.98	-	-	IV skew put 1.12	discard
+25	95.10	21.06	-9.42	-	-	risk per trade 2.5%	discard
+26	96.84	23.40	-10.43	-	-	portfolio stop 2%, resume 14d	discard
+27	112.63	25.29	-8.10	-	-	crisis VIX 30	keep (no harm)
+28	113.09	25.46	-8.09	-	-	MAX_VIX 24	keep
+29	113.83	25.83	-8.12	-	-	MAX_VIX 25	keep (best)
+30	113.19	25.53	-8.10	-	-	drawdown pause 3.5%	discard
