@@ -1,0 +1,32 @@
+{% if positions %}
+<div class="mb-3 flex justify-between items-center">
+    <span class="text-sm text-gray-500">{{ positions|length }} 个持仓</span>
+    <span class="text-sm font-medium {{ 'text-red-600' if total_risk_pct > 0.08 else 'text-green-600' }}">
+        总风险: {{ "%.1f"|format(total_risk_pct * 100) }}%
+    </span>
+</div>
+{% for p in positions %}
+<div class="border rounded p-3 mb-2">
+    <div class="flex justify-between items-center">
+        <div>
+            <span class="font-bold">{{ p.symbol }}</span>
+            <span class="text-xs text-gray-400 ml-1">{{ p.market }}</span>
+        </div>
+        <span class="text-xs px-2 py-1 rounded {{ 'bg-red-100 text-red-700' if (p.risk_pct_of_account or 0) > 0.03 else 'bg-green-100 text-green-700' }}">
+            风险 {{ "%.1f"|format((p.risk_pct_of_account or 0) * 100) }}%
+        </span>
+    </div>
+    <div class="text-sm text-gray-600 mt-1">
+        入场 ${{ "%.2f"|format(p.entry_price) }} | 止损 ${{ "%.2f"|format(p.stop_loss) }} | {{ p.quantity }} 股
+    </div>
+    <form hx-post="/positions/{{ p.id }}/close" hx-target="#positions-list" hx-swap="innerHTML"
+          class="mt-2 flex gap-2">
+        <input type="number" name="close_price" step="0.01" min="0.01" placeholder="平仓价"
+               class="border rounded px-2 py-1 text-sm flex-1">
+        <button type="submit" class="text-xs bg-gray-200 px-3 py-1 rounded hover:bg-gray-300">平仓</button>
+    </form>
+</div>
+{% endfor %}
+{% else %}
+<p class="text-sm text-gray-400 text-center py-4">暂无持仓。使用下方表单添加第一笔持仓。</p>
+{% endif %}
