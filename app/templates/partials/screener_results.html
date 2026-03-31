@@ -1,49 +1,121 @@
-<!-- 组合推荐 -->
-{% if combo and combo.stocks %}
-<div class="bg-dark-700 rounded-xl border border-accent-green/30 p-5 mb-6">
-    <div class="flex justify-between items-center mb-4">
-        <div>
-            <h2 class="text-white font-semibold">AI 推荐组合</h2>
-            <p class="text-xs text-gray-400 mt-1">评分最高的 {{ combo.count }} 只标的组合</p>
-        </div>
-        <div class="text-right">
-            <div class="text-xs text-gray-500">预估收益</div>
-            <div class="text-2xl font-bold text-accent-green">{{ combo.estimated_return }}%</div>
-        </div>
+<!-- 汇总 -->
+<div class="bg-dark-800 rounded-lg p-4 flex justify-between items-center mb-4">
+    <div>
+        <span class="text-white font-medium">{{ sector_name }} 板块扫描完成</span>
+        <span class="text-gray-400 text-sm ml-3">{{ results|length }} 只标的</span>
     </div>
+    <div class="flex gap-4 text-sm">
+        <span class="text-accent-green">{{ total_compatible }} 个交易机会</span>
+        <span class="text-gray-500">{{ total_strategies }} 种策略测试</span>
+    </div>
+</div>
 
-    <div class="grid grid-cols-{{ combo.count }} gap-3 mb-4">
-        {% for s in combo.stocks %}
-        <a href="/diagnose/{{ s.symbol }}" class="bg-dark-800 rounded-lg p-4 border border-dark-600 hover:border-accent-green/50 transition block">
-            <div class="flex justify-between items-center">
-                <span class="text-white font-bold">{{ s.symbol }}</span>
-                <span class="text-xs text-accent-green">+${{ "%.0f"|format(s.premium_est) }}</span>
-            </div>
-            <div class="text-xs text-gray-400 mt-2">{{ s.contracts }} 张 · Strike ${{ s.strike }}</div>
-            <div class="text-xs text-gray-500 mt-1">
-                <span class="{{ 'text-accent-green' if s.trend == 'bullish' else 'text-accent-red' if s.trend == 'bearish' else 'text-gray-400' }}">
-                    {{ '上升' if s.trend == 'bullish' else '下降' if s.trend == 'bearish' else '震荡' }}
+<!-- 交易机会（多策略） -->
+{% if opportunities %}
+<div class="mb-6">
+    <h2 class="text-sm font-semibold text-white mb-3">交易机会</h2>
+    <div class="space-y-2">
+    {% for opp in opportunities %}
+    <div class="bg-dark-700 rounded-xl border {{ 'border-accent-green/30' if opp.score >= 60 else 'border-dark-600' }} p-4 hover:border-gray-500 transition cursor-pointer"
+         onclick="window.location='/diagnose/{{ opp.symbol }}'">
+        <div class="flex justify-between items-start">
+            <div class="flex items-center gap-3">
+                <span class="text-white font-bold">{{ opp.symbol }}</span>
+                <span class="text-xs px-2 py-0.5 rounded
+                    {{ 'bg-accent-green/20 text-accent-green' if opp.strategy == 'sell_put'
+                       else 'bg-accent-blue/20 text-accent-blue' if opp.strategy in ('buy_stock', 'buy_call')
+                       else 'bg-purple-500/20 text-purple-400' if opp.strategy == 'covered_call'
+                       else 'bg-accent-red/20 text-accent-red' if opp.strategy == 'buy_put'
+                       else 'bg-gray-600/30 text-gray-400' }}">
+                    {{ opp.strategy_name }}
                 </span>
-                · 评分 {{ s.score }}
+                <span class="text-xs text-gray-500">{{ opp.direction }}</span>
             </div>
-        </a>
-        {% endfor %}
-    </div>
+            <div class="flex items-center gap-3">
+                <span class="text-xs px-2 py-1 rounded {{ 'bg-accent-green/20 text-accent-green' if opp.risk_level == 'low' else 'bg-accent-yellow/20 text-accent-yellow' if opp.risk_level == 'medium' else 'bg-accent-red/20 text-accent-red' }}">
+                    {{ '低风险' if opp.risk_level == 'low' else '中风险' if opp.risk_level == 'medium' else '高风险' }}
+                </span>
+                <span class="text-sm font-bold {{ 'text-accent-green' if opp.score >= 60 else 'text-accent-yellow' if opp.score >= 40 else 'text-gray-400' }}">{{ opp.score }}分</span>
+            </div>
+        </div>
 
-    <div class="flex justify-between text-xs text-gray-500">
-        <span>总占用: ${{ "%.0f"|format(combo.total_capital) }}</span>
-        <span>预估权利金: ${{ "%.2f"|format(combo.total_premium) }}</span>
+        <div class="grid grid-cols-5 gap-3 mt-3 text-center text-xs">
+            <div>
+                <div class="text-gray-500">预估收益</div>
+                <div class="text-accent-green font-medium">{{ "%.1f"|format(opp.est_return_pct * 100) }}%</div>
+                <div class="text-gray-600">${{ "{:,.0f}".format(opp.est_return_usd) }}</div>
+            </div>
+            <div>
+                <div class="text-gray-500">最大亏损</div>
+                <div class="text-accent-red font-medium">{{ "%.1f"|format(opp.max_loss_pct * 100) }}%</div>
+                <div class="text-gray-600">${{ "{:,.0f}".format(opp.max_loss_usd) }}</div>
+            </div>
+            <div>
+                <div class="text-gray-500">入场价</div>
+                <div class="text-white">${{ "%.2f"|format(opp.entry_price) }}</div>
+                {% if opp.strike %}<div class="text-gray-600">Strike ${{ "%.0f"|format(opp.strike) }}</div>{% endif %}
+            </div>
+            <div>
+                <div class="text-gray-500">所需资金</div>
+                <div class="text-white">${{ "{:,.0f}".format(opp.capital_required) }}</div>
+            </div>
+            <div>
+                <div class="text-gray-500">数量</div>
+                <div class="text-white">{{ opp.shares_or_contracts }} {{ '张' if 'call' in opp.strategy or 'put' in opp.strategy else '股' }}</div>
+            </div>
+        </div>
+
+        <div class="text-xs text-gray-400 mt-2">{{ opp.reason }}</div>
+    </div>
+    {% endfor %}
     </div>
 </div>
 {% endif %}
 
-<!-- 候选标的列表 -->
+<!-- 组合推荐 -->
+{% if combos %}
+<div class="mb-6">
+    <h2 class="text-sm font-semibold text-white mb-3">组合策略推荐</h2>
+    {% for combo in combos %}
+    <div class="bg-dark-700 rounded-xl border {{ 'border-accent-green/30' if combo.compatible else 'border-dark-600' }} p-5 mb-3">
+        <div class="flex justify-between items-start mb-3">
+            <div>
+                <span class="text-white font-bold">{{ combo.name }}</span>
+                <span class="text-xs text-gray-400 ml-2">{{ combo.count }} 个标的</span>
+                {% if combo.compatible %}
+                <span class="text-xs bg-accent-green/20 text-accent-green px-2 py-0.5 rounded ml-2">符合目标</span>
+                {% endif %}
+            </div>
+            <div class="text-right">
+                <div class="text-xs text-gray-500">组合预估收益</div>
+                <div class="text-lg font-bold text-accent-green">{{ combo.total_return_pct }}%</div>
+            </div>
+        </div>
+        <p class="text-xs text-gray-400 mb-3">{{ combo.description }}</p>
+        <div class="flex gap-2 flex-wrap">
+            {% for item in combo.parts %}
+            <div class="bg-dark-800 rounded-lg px-3 py-2 text-xs">
+                <span class="text-white font-medium">{{ item.symbol }}</span>
+                <span class="text-gray-500 ml-1">{{ item.strategy_name }}</span>
+                <span class="text-accent-green ml-1">+${{ "{:,.0f}".format(item.est_return_usd) }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="flex justify-between mt-3 text-xs text-gray-500">
+            <span>总资金: ${{ "{:,.0f}".format(combo.total_capital) }}</span>
+            <span>风险: {{ combo.total_risk_pct }}%</span>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- 标的明细表 -->
 <div class="bg-dark-700 rounded-xl border border-dark-600">
     <div class="px-5 py-3 border-b border-dark-600 flex justify-between items-center">
-        <h2 class="text-white font-semibold">{{ sector_name }} 板块标的</h2>
-        <span class="text-xs text-gray-400">{{ results|length }} 只</span>
+        <h2 class="text-white font-semibold text-sm">标的明细</h2>
+        <span class="text-xs text-gray-500">点击查看诊断详情和期权链</span>
     </div>
-
     <table class="w-full text-sm">
         <thead>
             <tr class="text-gray-500 text-xs border-b border-dark-600">
@@ -52,55 +124,36 @@
                 <th class="text-center">趋势</th>
                 <th class="text-right">支撑位</th>
                 <th class="text-right">安全边际</th>
-                <th class="text-right">ATR%</th>
                 <th class="text-right">RSI</th>
-                <th class="text-right">IV Rank</th>
                 <th class="text-center">评分</th>
-                <th class="text-right px-5">建议行权价</th>
+                <th class="text-right px-5">建议</th>
             </tr>
         </thead>
         <tbody>
         {% for d in results %}
         <tr class="border-b border-dark-600/50 hover:bg-dark-600/30 cursor-pointer"
             onclick="window.location='/diagnose/{{ d.symbol }}'">
-            <td class="px-5 py-3">
-                <span class="text-white font-medium">{{ d.symbol }}</span>
-            </td>
+            <td class="px-5 py-2.5 font-medium text-white">{{ d.symbol }}</td>
             <td class="text-right text-gray-300">${{ "%.2f"|format(d.current_price) }}</td>
             <td class="text-center">
                 <span class="text-xs px-2 py-0.5 rounded-full
                     {{ 'bg-accent-green/20 text-accent-green' if d.trend == 'bullish'
                        else 'bg-accent-red/20 text-accent-red' if d.trend == 'bearish'
                        else 'bg-gray-600/30 text-gray-400' }}">
-                    {{ '上升' if d.trend == 'bullish' else '下降' if d.trend == 'bearish' else '震荡' }}
+                    {{ '↑' if d.trend == 'bullish' else '↓' if d.trend == 'bearish' else '→' }}
                 </span>
             </td>
-            <td class="text-right text-accent-blue">${{ "%.2f"|format(d.support_level) }}</td>
+            <td class="text-right text-accent-blue">${{ "%.0f"|format(d.support_level) }}</td>
             <td class="text-right {{ 'text-accent-green' if d.safety_margin > 0.1 else 'text-accent-yellow' if d.safety_margin > 0.05 else 'text-accent-red' }}">
-                {{ "%.1f"|format(d.safety_margin * 100) }}%
+                {{ "%.0f"|format(d.safety_margin * 100) }}%
             </td>
-            <td class="text-right text-gray-400">{{ "%.1f"|format(d.atr_pct * 100) }}%</td>
             <td class="text-right {{ 'text-accent-green' if d.rsi < 35 else 'text-accent-red' if d.rsi > 70 else 'text-gray-300' }}">{{ "%.0f"|format(d.rsi) }}</td>
-            <td class="text-right {{ 'text-accent-green' if d.iv_rank > 60 else 'text-gray-400' }}">{{ "%.0f"|format(d.iv_rank) }}</td>
             <td class="text-center">
-                <span class="inline-block w-8 text-center text-xs font-bold py-0.5 rounded
-                    {{ 'bg-accent-green/20 text-accent-green' if d.score >= 70
-                       else 'bg-accent-yellow/20 text-accent-yellow' if d.score >= 50
-                       else 'bg-accent-red/20 text-accent-red' }}">
-                    {{ d.score }}
-                </span>
+                <span class="text-xs font-bold {{ 'text-accent-green' if d.score >= 60 else 'text-accent-yellow' if d.score >= 40 else 'text-gray-500' }}">{{ d.score }}</span>
             </td>
-            <td class="text-right px-5 text-white font-medium">${{ "%.0f"|format(d.suggested_strike) }}</td>
+            <td class="text-right px-5 text-xs text-gray-400">{{ d.recommendation[:8] }}</td>
         </tr>
         {% endfor %}
         </tbody>
     </table>
-</div>
-
-<!-- 术语说明 -->
-<div class="mt-4 bg-dark-800/50 rounded-lg p-3 text-xs text-gray-500 grid grid-cols-4 gap-3">
-    <div><span class="text-gray-300">支撑位</span> — MA200 或半年低点（取较高者）减去 ATR 波动冗余</div>
-    <div><span class="text-gray-300">安全边际</span> — 现价与支撑位的距离百分比，越大越安全</div>
-    <div><span class="text-gray-300">IV Rank</span> — 当前波动率在过去一年中的百分位，越高权利金越多</div>
-    <div><span class="text-gray-300">评分</span> — 0-100 综合评分，考虑趋势+安全边际+RSI+IV</div>
 </div>

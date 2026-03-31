@@ -340,7 +340,7 @@ def _score_combo(name, desc, items, account, goals_return, goals_drawdown) -> di
     return {
         "name": name,
         "description": desc,
-        "items": items,
+        "parts": items,
         "total_return_usd": round(total_return, 2),
         "total_return_pct": round(combo_return_pct * 100, 2),
         "total_capital": round(total_capital, 2),

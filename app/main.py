@@ -63,12 +63,8 @@ def opportunities_page(request: Request, sector: str = "TECH", db: Session = Dep
 def positions_page(request: Request, db: Session = Depends(get_db)):
     goals = db.query(UserGoals).order_by(UserGoals.updated_at.desc()).first()
 
-    from broker import fetch_account_info
-    account = fetch_account_info()
-    if "error" not in account:
-        sync_result = sync_positions_from_broker(db)
-    else:
-        account = {}
+    # Don't auto-sync on load (too slow). User clicks "刷新" button to sync.
+    account = {}
 
     positions = db.query(Position).filter(Position.is_open == True).all()
     closed = db.query(Position).filter(Position.is_open == False).order_by(Position.close_date.desc()).limit(10).all()
@@ -508,12 +504,35 @@ def screener_page(request: Request, sector: str = "TECH", db: Session = Depends(
 
 @app.post("/screener/scan", response_class=HTMLResponse)
 def scan_sector(request: Request, sector: str = Form("TECH"), db: Session = Depends(get_db)):
+    goals = db.query(UserGoals).first()
+
+    # Use multi-strategy opportunity engine if goals set
+    from opportunity_engine import find_opportunities
+    account_balance = 100000
+    if goals:
+        from broker import fetch_account_info
+        acct = fetch_account_info()
+        if "equity" in acct:
+            account_balance = acct["equity"]
+
+    opps = find_opportunities(
+        goals_return=goals.annual_return_target if goals else 0.15,
+        goals_drawdown=goals.max_drawdown if goals else 0.10,
+        risk_per_trade=goals.risk_per_trade if goals else 0.02,
+        account_balance=account_balance,
+        sectors=[sector],
+    )
+
+    # Also get stock diagnostics for the table
     results = screen_sector(sector)
-    combo = build_combo(results)
+
     return templates.TemplateResponse("partials/screener_results.html", {
         "request": request,
         "results": results,
-        "combo": combo,
+        "opportunities": opps.get("opportunities", [])[:15],
+        "combos": opps.get("combos", [])[:3],
+        "total_strategies": opps.get("total_strategies", 0),
+        "total_compatible": opps.get("total_compatible", 0),
         "sector_name": SECTORS.get(sector, {}).get("name", sector),
     })
 
