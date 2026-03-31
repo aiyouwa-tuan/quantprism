@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block content %}
+<!-- 标题 -->
+<div class="flex justify-between items-center mb-6">
+    <div class="flex items-center gap-4">
+        <a href="/screener" class="text-gray-500 hover:text-white">&larr;</a>
+        <div>
+            <h1 class="text-2xl font-bold text-white">{{ diag.symbol }}</h1>
+            <span class="text-gray-400 text-sm">${{ "%.2f"|format(diag.current_price) }}</span>
+        </div>
+        <span class="inline-block text-sm px-3 py-1 rounded-full font-medium
+            {{ 'bg-accent-green/20 text-accent-green' if diag.score >= 70
+               else 'bg-accent-yellow/20 text-accent-yellow' if diag.score >= 50
+               else 'bg-accent-red/20 text-accent-red' }}">
+            评分 {{ diag.score }} / 100
+        </span>
+    </div>
+    <div class="text-sm text-gray-400">{{ diag.recommendation }}</div>
+</div>
+
+<!-- 顶部状态卡片 -->
+<div class="grid grid-cols-6 gap-3 mb-6">
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
+        <div class="text-xs text-gray-500">趋势</div>
+        <div class="text-lg font-bold {{ 'text-accent-green' if diag.trend == 'bullish' else 'text-accent-red' if diag.trend == 'bearish' else 'text-gray-400' }}">
+            {{ '上升' if diag.trend == 'bullish' else '下降' if diag.trend == 'bearish' else '震荡' }}
+        </div>
+    </div>
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
+        <div class="text-xs text-gray-500">支撑位</div>
+        <div class="text-lg font-bold text-accent-blue">${{ "%.2f"|format(diag.support_level) }}</div>
+    </div>
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
+        <div class="text-xs text-gray-500">安全边际</div>
+        <div class="text-lg font-bold {{ 'text-accent-green' if diag.safety_margin > 0.1 else 'text-accent-yellow' if diag.safety_margin > 0.05 else 'text-accent-red' }}">{{ "%.1f"|format(diag.safety_margin * 100) }}%</div>
+    </div>
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
+        <div class="text-xs text-gray-500">RSI</div>
+        <div class="text-lg font-bold {{ 'text-accent-green' if diag.rsi < 35 else 'text-accent-red' if diag.rsi > 70 else 'text-white' }}">{{ "%.0f"|format(diag.rsi) }}</div>
+    </div>
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
+        <div class="text-xs text-gray-500">IV Rank</div>
+        <div class="text-lg font-bold {{ 'text-accent-green' if diag.iv_rank > 60 else 'text-white' }}">{{ "%.0f"|format(diag.iv_rank) }}</div>
+    </div>
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
+        <div class="text-xs text-gray-500">建议行权价</div>
+        <div class="text-lg font-bold text-white">${{ "%.0f"|format(diag.suggested_strike) }}</div>
+        <div class="text-xs text-gray-500">{{ diag.suggested_dte }} DTE</div>
+    </div>
+</div>
+
+<div class="grid grid-cols-2 gap-6">
+    <!-- 左：AI 诊断详情 -->
+    <div class="space-y-4">
+        <!-- 支撑位推演 -->
+        <div class="bg-dark-700 rounded-xl border border-accent-blue/30 p-5">
+            <h2 class="text-sm font-semibold text-accent-blue mb-3">支撑位推演</h2>
+            <div class="space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-gray-400">当前股价</span>
+                    <span class="text-white">${{ "%.2f"|format(diag.current_price) }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-400">趋势判定</span>
+                    <span class="text-xs text-gray-300">{{ diag.trend_reason }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-400">价格 vs MA200</span>
+                    <span class="{{ 'text-accent-green' if diag.price_vs_ma200 > 0 else 'text-accent-red' }}">
+                        {{ "%.1f"|format(diag.price_vs_ma200 * 100) }}%
+                        (MA200: ${{ "%.2f"|format(diag.sma_200) }})
+                    </span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-400">ATR(14)</span>
+                    <span class="text-white">${{ "%.2f"|format(diag.atr_14) }} ({{ "%.1f"|format(diag.atr_pct * 100) }}%)</span>
+                </div>
+                <hr class="border-dark-600">
+                <div class="bg-dark-800 rounded-lg p-3 text-xs text-gray-300">
+                    <div class="font-medium text-accent-blue mb-1">推演过程：</div>
+                    {{ diag.support_method }}
+                </div>
+                <div class="flex justify-between font-medium">
+                    <span class="text-gray-300">最终支撑位</span>
+                    <span class="text-accent-blue text-lg">${{ "%.2f"|format(diag.support_level) }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-400">安全边际</span>
+                    <span class="{{ 'text-accent-green' if diag.safety_margin > 0.1 else 'text-accent-yellow' }}">
+                        {{ "%.1f"|format(diag.safety_margin * 100) }}% (距现价 ${{ "%.2f"|format(diag.current_price - diag.support_level) }})
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 均线和布林带 -->
+        <div class="bg-dark-700 rounded-xl border border-dark-600 p-5">
+            <h2 class="text-sm font-semibold text-white mb-3">技术指标</h2>
+            <div class="grid grid-cols-2 gap-3 text-sm">
+                <div class="flex justify-between"><span class="text-gray-400">SMA20</span><span class="text-white">${{ "%.2f"|format(diag.sma_20) }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">SMA50</span><span class="text-white">${{ "%.2f"|format(diag.sma_50) }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">SMA200</span><span class="text-white">${{ "%.2f"|format(diag.sma_200) }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">BB位置</span><span class="text-white">{{ diag.bb_position }}</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右：期权链 -->
+    <div class="space-y-4">
+        <div class="bg-dark-700 rounded-xl border border-dark-600">
+            <div class="px-5 py-3 border-b border-dark-600 flex justify-between items-center">
+                <h2 class="text-sm font-semibold text-white">Sell Put 候选合约</h2>
+                <span class="text-xs text-gray-500">行权价 &lt; 支撑位的 Put 期权</span>
+            </div>
+            {% if options %}
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-gray-500 text-xs border-b border-dark-600">
+                        <th class="text-left px-5 py-2">行权价</th>
+                        <th class="text-right">DELTA</th>
+                        <th class="text-right">IV</th>
+                        <th class="text-right">Bid</th>
+                        <th class="text-right">Ask</th>
+                        <th class="text-right">Mid</th>
+                        <th class="text-right px-5">到期 / DTE</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for opt in options %}
+                <tr class="border-b border-dark-600/50 hover:bg-dark-600/30">
+                    <td class="px-5 py-2.5">
+                        <span class="text-white font-medium">${{ "%.0f"|format(opt.strike) }}</span>
+                        {% if opt.strike <= diag.support_level %}
+                        <span class="text-xs text-accent-green ml-1">支撑下方</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-right text-gray-300">{{ "%.2f"|format(opt.delta) }}</td>
+                    <td class="text-right text-gray-300">{{ "%.1f"|format(opt.iv * 100) }}%</td>
+                    <td class="text-right text-gray-400">${{ "%.2f"|format(opt.bid) }}</td>
+                    <td class="text-right text-gray-400">${{ "%.2f"|format(opt.ask) }}</td>
+                    <td class="text-right text-accent-green font-medium">${{ "%.2f"|format(opt.mid) }}</td>
+                    <td class="text-right px-5 text-gray-400">
+                        {{ opt.expiry[:4] }}-{{ opt.expiry[4:6] }}-{{ opt.expiry[6:] }}
+                        <span class="text-xs ml-1">({{ opt.dte }}天)</span>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="text-center text-gray-500 py-8 text-sm">
+                未找到合适的 Put 期权。
+                {% if not options %}可能 IBKR 未连接或该标的无期权数据。{% endif %}
+            </p>
+            {% endif %}
+        </div>
+
+        <!-- 完整期权链 -->
+        {% if all_options %}
+        <div class="bg-dark-700 rounded-xl border border-dark-600">
+            <details>
+                <summary class="px-5 py-3 text-sm text-gray-400 cursor-pointer hover:text-white">查看完整期权链 ({{ all_options|length }} 个合约)</summary>
+                <table class="w-full text-xs">
+                    <thead><tr class="text-gray-500 border-b border-dark-600">
+                        <th class="text-left px-5 py-1">合约代码</th><th class="text-right">行权价</th><th class="text-right">Delta</th><th class="text-right">Mid</th><th class="text-right px-5">DTE</th>
+                    </tr></thead>
+                    <tbody>
+                    {% for opt in all_options %}
+                    <tr class="border-b border-dark-600/30"><td class="px-5 py-1 text-gray-500 font-mono">{{ opt.contract_code }}</td><td class="text-right text-white">${{ "%.0f"|format(opt.strike) }}</td><td class="text-right text-gray-400">{{ "%.2f"|format(opt.delta) }}</td><td class="text-right text-accent-green">${{ "%.2f"|format(opt.mid) }}</td><td class="text-right px-5 text-gray-500">{{ opt.dte }}</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </details>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -18,6 +18,8 @@ from calculator import calculate_position_size, derive_constraints, check_can_op
 from schemas import GoalsCreate, PositionCreate, CalculateRequest, PositionClose
 from market_data import fetch_current_price, fetch_vix, detect_market_regime, fetch_stock_history, compute_technicals
 from sync import sync_positions_from_broker
+from stock_screener import SECTORS, diagnose_stock, screen_sector, build_combo
+from ibkr_options import fetch_ibkr_options_chain, filter_options_for_sell_put
 
 app = FastAPI(title="Goal-Driven Trading OS", version="0.1.0")
 
@@ -459,6 +461,65 @@ def refresh_leaderboard(request: Request, db: Session = Depends(get_db)):
         "request": request,
         "leaderboard": leaderboard,
     })
+
+
+# ===== 标的筛选 + AI 诊断 + 组合推荐 + 期权链 =====
+
+@app.get("/screener", response_class=HTMLResponse)
+def screener_page(request: Request, sector: str = "TECH", db: Session = Depends(get_db)):
+    goals = db.query(UserGoals).first()
+    regime = detect_market_regime()
+    return templates.TemplateResponse("screener.html", {
+        "request": request,
+        "sectors": SECTORS,
+        "current_sector": sector,
+        "goals": goals,
+        "regime": regime,
+    })
+
+
+@app.post("/screener/scan", response_class=HTMLResponse)
+def scan_sector(request: Request, sector: str = Form("TECH"), db: Session = Depends(get_db)):
+    results = screen_sector(sector)
+    combo = build_combo(results)
+    return templates.TemplateResponse("partials/screener_results.html", {
+        "request": request,
+        "results": results,
+        "combo": combo,
+        "sector_name": SECTORS.get(sector, {}).get("name", sector),
+    })
+
+
+@app.get("/diagnose/{symbol}", response_class=HTMLResponse)
+def diagnose_page(request: Request, symbol: str, db: Session = Depends(get_db)):
+    diag = diagnose_stock(symbol.upper())
+    # Fetch options chain
+    options = fetch_ibkr_options_chain(symbol.upper(), right="P", dte_min=20, dte_max=60)
+    sell_put_options = filter_options_for_sell_put(options, diag.current_price)
+    return templates.TemplateResponse("diagnose.html", {
+        "request": request,
+        "diag": diag,
+        "options": sell_put_options[:10],
+        "all_options": options[:20],
+    })
+
+
+@app.get("/api/diagnose/{symbol}")
+def diagnose_api(symbol: str):
+    diag = diagnose_stock(symbol.upper())
+    return {
+        "symbol": diag.symbol, "price": diag.current_price, "score": diag.score,
+        "trend": diag.trend, "support": diag.support_level, "safety_margin": diag.safety_margin,
+        "recommendation": diag.recommendation, "suggested_strike": diag.suggested_strike,
+    }
+
+
+@app.get("/api/options/{symbol}")
+def options_chain_api(symbol: str, right: str = "P", dte_min: int = 20, dte_max: int = 60):
+    options = fetch_ibkr_options_chain(symbol.upper(), right, dte_min, dte_max)
+    return [{"strike": o.strike, "expiry": o.expiry, "delta": o.delta, "iv": o.iv,
+             "bid": o.bid, "ask": o.ask, "mid": o.mid, "dte": o.dte, "code": o.contract_code}
+            for o in options[:30]]
 
 
 # ===== Phase 3: Multi-Market =====

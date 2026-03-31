@@ -63,11 +63,39 @@
         <div class="text-xs text-gray-500">总风险</div>
         <div class="text-xl font-bold {{ 'text-accent-red' if total_risk_pct > 0.08 else 'text-accent-green' }}">{{ "%.1f"|format(total_risk_pct * 100) }}%</div>
     </div>
-    <a href="/strategies" class="bg-accent-green/10 border border-accent-green/30 rounded-xl p-4 hover:bg-accent-green/20 transition">
-        <div class="text-xs text-accent-green">AI 策略</div>
-        <div class="text-sm font-bold text-accent-green mt-1">搜索策略 →</div>
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
+        <div class="text-xs text-gray-500">市场</div>
+        <div class="flex items-center gap-2 mt-1">
+            <span class="w-2.5 h-2.5 rounded-full {{ 'bg-accent-green' if regime.regime in ['low_vol','normal'] else 'bg-accent-yellow' if regime.regime == 'mid_vol' else 'bg-accent-red' }}"></span>
+            <span class="text-sm font-bold text-white">VIX {{ regime.vix }}</span>
+        </div>
+    </div>
+</div>
+
+<!-- 持仓卡片 (视频风格) -->
+{% if positions %}
+<div class="flex gap-3 mb-4 overflow-x-auto pb-2">
+    {% for p in positions %}
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-4 min-w-48 flex-shrink-0">
+        <div class="flex justify-between items-center">
+            <span class="text-white font-bold">{{ p.symbol }}</span>
+            <span class="text-xs px-1.5 py-0.5 rounded {{ 'bg-accent-blue/20 text-accent-blue' if p.market == 'stock' else 'bg-accent-yellow/20 text-accent-yellow' }}">{{ p.market }}</span>
+        </div>
+        <div class="text-xs text-gray-500 mt-1">{{ p.quantity }} 股 · ${{ "%.2f"|format(p.entry_price) }}</div>
+        {% if p.unrealized_pnl %}
+        <div class="mt-2 text-sm font-bold {{ 'text-accent-green' if p.unrealized_pnl >= 0 else 'text-accent-red' }}">
+            {{ '+' if p.unrealized_pnl >= 0 else '' }}${{ "%.2f"|format(p.unrealized_pnl) }}
+        </div>
+        {% else %}
+        <div class="mt-2 text-xs text-gray-500">风险 {{ "%.1f"|format((p.risk_pct_of_account or 0) * 100) }}%</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+    <a href="/screener" class="bg-dark-700/50 rounded-xl border border-dashed border-dark-500 p-4 min-w-40 flex-shrink-0 flex items-center justify-center hover:border-accent-green/50 transition">
+        <span class="text-gray-500 text-sm">+ 选股</span>
     </a>
 </div>
+{% endif %}
 
 <!-- 持仓表格 -->
 <div class="bg-dark-700 rounded-xl border border-dark-600 mb-4">
