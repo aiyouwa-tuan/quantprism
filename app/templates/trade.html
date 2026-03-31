@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-xl font-bold text-white">交易</h1>
+    <button hx-post="/execution/generate" hx-target="#signals" hx-swap="innerHTML"
+            class="bg-accent-blue text-white px-5 py-2 rounded-lg text-sm font-medium hover:brightness-110">生成策略信号</button>
+</div>
+
+<div class="grid grid-cols-3 gap-6">
+    <!-- 左：信号 + 执行 -->
+    <div class="col-span-2 space-y-4">
+        <div class="bg-dark-700 rounded-xl border border-dark-600">
+            <div class="px-5 py-3 border-b border-dark-600"><h2 class="text-sm font-semibold text-white">待处理信号</h2></div>
+            <div id="signals" class="p-5">{% include "partials/signal_list.html" %}</div>
+        </div>
+
+        <div class="bg-dark-700 rounded-xl border border-dark-600">
+            <div class="px-5 py-3 border-b border-dark-600"><h2 class="text-sm font-semibold text-white">最近执行</h2></div>
+            <div class="p-5">
+                {% if recent_executed %}
+                {% for s in recent_executed %}
+                <div class="flex justify-between items-center border-b border-dark-600/50 py-2">
+                    <span class="text-white text-sm font-medium">{{ s.symbol }} · {{ s.direction }}</span>
+                    <div class="text-xs text-gray-400">
+                        ${{ "%.2f"|format(s.execution_price or 0) }} × {{ s.execution_quantity or 0 }}
+                        <span class="ml-2">{{ s.execution_time.strftime('%m/%d %H:%M') if s.execution_time else '' }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}<p class="text-gray-500 text-sm text-center py-4">还没有执行记录</p>{% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 右：仓位计算器 + 交易日志 -->
+    <div class="space-y-4">
+        <!-- 仓位计算器 -->
+        <div class="bg-dark-700 rounded-xl border border-dark-600 p-5">
+            <h3 class="text-sm font-semibold text-white mb-3">仓位计算器</h3>
+            <p class="text-xs text-gray-500 mb-2" title="根据你的账户资金和风险设置，计算每笔交易应该买多少股">输入账户资金、入场价和止损价，计算建议股数</p>
+            <form hx-post="/calculate" hx-target="#calc-result" hx-swap="innerHTML" class="space-y-2">
+                <input type="number" name="account_balance" step="0.01" placeholder="账户资金 $"
+                       class="w-full bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white">
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="number" name="entry_price" step="0.01" placeholder="入场价"
+                           class="bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white">
+                    <input type="number" name="stop_loss" step="0.01" placeholder="止损价"
+                           class="bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white">
+                </div>
+                <button type="submit" class="w-full bg-accent-blue text-white py-2 rounded text-sm hover:brightness-110">计算</button>
+            </form>
+            <div id="calc-result" class="mt-2"></div>
+        </div>
+
+        <!-- 交易日志 -->
+        <div class="bg-dark-700 rounded-xl border border-dark-600 p-5">
+            <h3 class="text-sm font-semibold text-white mb-3">交易日志</h3>
+            <p class="text-xs text-gray-500 mb-2">记录每次交易的理由和情绪，积累数据发现你的交易模式</p>
+            <form hx-post="/journal" hx-target="#journal-list" hx-swap="innerHTML" class="space-y-2">
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="text" name="symbol" placeholder="代码" class="bg-dark-800 border border-dark-500 rounded px-2 py-1.5 text-sm text-white" required>
+                    <select name="action" class="bg-dark-800 border border-dark-500 rounded px-2 py-1.5 text-sm text-white">
+                        <option value="buy">买入</option><option value="sell">卖出</option><option value="close">平仓</option>
+                    </select>
+                </div>
+                <input type="text" name="entry_reason" placeholder="为什么做这个操作？" class="w-full bg-dark-800 border border-dark-500 rounded px-2 py-1.5 text-sm text-white">
+                <div class="flex gap-2">
+                    <select name="emotional_state" class="flex-1 bg-dark-800 border border-dark-500 rounded px-2 py-1.5 text-sm text-white">
+                        <option value="">情绪</option><option value="confident">自信</option><option value="calm">冷静</option>
+                        <option value="uncertain">犹豫</option><option value="rushing">赶入</option><option value="fearful">恐惧</option>
+                    </select>
+                    <button type="submit" class="bg-purple-600 text-white px-4 py-1.5 rounded text-sm hover:brightness-110">记录</button>
+                </div>
+            </form>
+            <div id="journal-list" class="mt-3">
+                {% include "partials/journal_list.html" %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -25,7 +25,7 @@
                 {% if svc.fields|length >= 1 %}
                 <div>
                     <label class="block text-xs text-gray-500 mb-1">{{ svc.fields[0] }}</label>
-                    <input type="password" name="api_key" value="{{ cfg.api_key or '' if cfg else '' }}"
+                    <input type="{{ 'text' if 'Host' in svc.fields[0] or 'Port' in svc.fields[0] or 'URL' in svc.fields[0] else 'password' }}" name="api_key" value="{{ cfg.api_key or '' if cfg else '' }}"
                            placeholder="输入 {{ svc.fields[0] }}"
                            class="w-full bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white focus:border-accent-blue focus:outline-none">
                 </div>
@@ -33,7 +33,7 @@
                 {% if svc.fields|length >= 2 %}
                 <div>
                     <label class="block text-xs text-gray-500 mb-1">{{ svc.fields[1] }}</label>
-                    <input type="password" name="api_secret" value="{{ cfg.api_secret or '' if cfg else '' }}"
+                    <input type="{{ 'text' if 'Port' in svc.fields[1] or 'URL' in svc.fields[1] else 'password' }}" name="api_secret" value="{{ cfg.api_secret or '' if cfg else '' }}"
                            placeholder="输入 {{ svc.fields[1] }}"
                            class="w-full bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white focus:border-accent-blue focus:outline-none">
                 </div>

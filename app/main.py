@@ -57,6 +57,9 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     if compliance and compliance.trades_without_journal >= 3:
         show_journal_reminder = True
 
+    # Risk info for unified dashboard
+    regime = detect_market_regime()
+
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "goals": goals,
@@ -64,6 +67,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "positions": positions,
         "closed_positions": closed,
         "total_risk_pct": total_risk_pct,
+        "regime": regime,
         "show_journal_reminder": show_journal_reminder,
         "compliance": compliance,
         "recent_journals": recent_journals,
@@ -481,19 +485,28 @@ def portfolio_page(request: Request, db: Session = Depends(get_db)):
     })
 
 
-# ===== Phase 4: Execution =====
+# ===== 交易 (merged: execution + journal + calculator) =====
 
-@app.get("/execution", response_class=HTMLResponse)
-def execution_page(request: Request, db: Session = Depends(get_db)):
+@app.get("/trade", response_class=HTMLResponse)
+def trade_page(request: Request, db: Session = Depends(get_db)):
     pending = db.query(TradeSignal).filter(TradeSignal.status == "pending").all()
     confirmed = db.query(TradeSignal).filter(TradeSignal.status == "confirmed").all()
     recent_executed = db.query(TradeSignal).filter(TradeSignal.status == "executed").order_by(TradeSignal.execution_time.desc()).limit(10).all()
-    return templates.TemplateResponse("execution.html", {
+    goals = db.query(UserGoals).first()
+    recent_journals = db.query(TradeJournal).order_by(TradeJournal.created_at.desc()).limit(5).all()
+    return templates.TemplateResponse("trade.html", {
         "request": request,
         "pending": pending,
         "confirmed": confirmed,
         "recent_executed": recent_executed,
+        "goals": goals,
+        "recent_journals": recent_journals,
     })
+
+# Keep /execution as alias
+@app.get("/execution", response_class=HTMLResponse)
+def execution_page(request: Request, db: Session = Depends(get_db)):
+    return trade_page(request, db)
 
 
 @app.post("/execution/generate", response_class=HTMLResponse)
@@ -639,7 +652,7 @@ def check_risk(request: Request, db: Session = Depends(get_db)):
 # ===== 设置：API 配置 =====
 
 API_SERVICES = [
-    {"name": "alpaca", "display": "Alpaca (美股券商)", "desc": "用于同步持仓、执行交易。推荐 Paper Trading 模式先练手。", "fields": ["API Key", "Secret Key"], "env_keys": ["ALPACA_API_KEY", "ALPACA_SECRET_KEY"]},
+    {"name": "ibkr", "display": "IBKR 盈透证券 (美股/期权)", "desc": "通过 TWS 或 IB Gateway 连接。用于同步持仓、获取行情、执行交易。默认 Paper Trading 端口 7497。", "fields": ["Host (默认 127.0.0.1)", "Port (默认 7497)"], "env_keys": ["IBKR_HOST", "IBKR_PORT"]},
     {"name": "ccxt_binance", "display": "Binance (加密货币)", "desc": "获取加密货币行情和交易。公开行情不需要 API Key。", "fields": ["API Key", "Secret Key"], "env_keys": ["CCXT_BINANCE_API_KEY", "CCXT_BINANCE_SECRET"]},
     {"name": "ccxt_okx", "display": "OKX (加密货币)", "desc": "获取 OKX 交易所行情和交易数据。", "fields": ["API Key", "Secret Key"], "env_keys": ["CCXT_OKX_API_KEY", "CCXT_OKX_SECRET"]},
     {"name": "feishu", "display": "飞书 (告警通知)", "desc": "通过飞书机器人 Webhook 接收风险告警推送。", "fields": ["Webhook URL"], "env_keys": ["FEISHU_WEBHOOK_URL"]},
