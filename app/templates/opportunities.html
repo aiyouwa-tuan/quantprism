@@ -1,30 +1,55 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="flex justify-between items-center mb-6">
+<div class="flex justify-between items-center mb-4">
     <div>
         <h1 class="text-xl font-bold text-white">交易机会</h1>
-        <p class="text-sm text-gray-500 mt-1">AI 筛选高评分标的，查看支撑位和期权链</p>
+        <p class="text-sm text-gray-500 mt-1">通过策略引擎筛选出的高评分标的</p>
     </div>
     <div class="flex items-center gap-3">
         {% if regime %}
-        <div class="flex items-center gap-2 bg-dark-700 border border-dark-600 rounded-lg px-4 py-2">
-            <span class="w-2.5 h-2.5 rounded-full {{ 'bg-accent-green' if regime.regime in ['low_vol', 'normal'] else 'bg-accent-yellow' if regime.regime == 'mid_vol' else 'bg-accent-red' }}"></span>
-            <span class="text-sm text-gray-300">VIX {{ regime.vix }} · {{ regime.description }}</span>
+        <div class="flex items-center gap-2 bg-dark-700 border border-dark-600 rounded-lg px-3 py-1.5">
+            <span class="w-2 h-2 rounded-full {{ 'bg-accent-green' if regime.regime in ['low_vol', 'normal'] else 'bg-accent-yellow' if regime.regime == 'mid_vol' else 'bg-accent-red' }}"></span>
+            <span class="text-xs text-gray-300">VIX {{ regime.vix }}</span>
         </div>
         {% endif %}
     </div>
 </div>
 
-<!-- 板块选择 -->
-<div class="flex gap-2 mb-6">
+<!-- 板块标签 -->
+<div class="flex gap-2 mb-4">
     {% for key, sec in sectors.items() %}
     <button hx-post="/screener/scan" hx-target="#results" hx-swap="innerHTML"
             hx-vals='{"sector": "{{ key }}"}'
-            class="px-4 py-2 rounded-lg text-sm font-medium transition
-            {{ 'bg-accent-green text-dark-900' if key == current_sector else 'bg-dark-700 border border-dark-600 text-gray-300 hover:border-gray-500' }}">
-        {{ sec.name }} <span class="text-xs opacity-70">{{ sec.symbols|length }}</span>
+            class="px-3 py-1.5 rounded-lg text-xs font-medium transition
+            {{ 'bg-accent-green text-dark-900' if key == current_sector else 'bg-dark-700 border border-dark-600 text-gray-400 hover:text-white hover:border-gray-500' }}">
+        {{ sec.name }} <span class="opacity-60">{{ sec.symbols|length }}</span>
     </button>
     {% endfor %}
+</div>
+
+<!-- 筛选工具栏 -->
+<div class="bg-dark-700 rounded-lg border border-dark-600 p-3 mb-4 flex gap-3 items-center flex-wrap" id="filters">
+    <span class="text-xs text-gray-500">筛选:</span>
+    <button onclick="filterStrategy('all')" class="filter-btn text-xs px-2.5 py-1 rounded bg-dark-500 text-white" data-filter="all">全部</button>
+    <button onclick="filterStrategy('sell_put')" class="filter-btn text-xs px-2.5 py-1 rounded bg-dark-600 text-gray-400 hover:text-white" data-filter="sell_put">Sell Put</button>
+    <button onclick="filterStrategy('buy_stock')" class="filter-btn text-xs px-2.5 py-1 rounded bg-dark-600 text-gray-400 hover:text-white" data-filter="buy_stock">买正股</button>
+    <button onclick="filterStrategy('buy_call')" class="filter-btn text-xs px-2.5 py-1 rounded bg-dark-600 text-gray-400 hover:text-white" data-filter="buy_call">买 Call</button>
+    <button onclick="filterStrategy('covered_call')" class="filter-btn text-xs px-2.5 py-1 rounded bg-dark-600 text-gray-400 hover:text-white" data-filter="covered_call">Covered Call</button>
+    <button onclick="filterStrategy('buy_put')" class="filter-btn text-xs px-2.5 py-1 rounded bg-dark-600 text-gray-400 hover:text-white" data-filter="buy_put">买 Put</button>
+    <div class="flex-1"></div>
+    <span class="text-xs text-gray-500">排序:</span>
+    <select onchange="sortOpportunities(this.value)" class="bg-dark-800 border border-dark-500 rounded px-2 py-1 text-xs text-white">
+        <option value="score">评分</option>
+        <option value="return">收益</option>
+        <option value="risk">低风险</option>
+    </select>
+    <span class="text-xs text-gray-500">风险:</span>
+    <select onchange="filterRisk(this.value)" class="bg-dark-800 border border-dark-500 rounded px-2 py-1 text-xs text-white">
+        <option value="all">全部</option>
+        <option value="low">低风险</option>
+        <option value="medium">中风险</option>
+        <option value="high">高风险</option>
+    </select>
 </div>
 
 <!-- 结果 -->
@@ -34,8 +59,37 @@
         <div class="text-center py-16">
             <div class="inline-block w-8 h-8 border-2 border-accent-green border-t-transparent rounded-full animate-spin mb-4"></div>
             <div class="text-white">正在分析 {{ sectors[current_sector].name }} 板块...</div>
-            <div class="text-sm text-gray-500 mt-2">对每只标的进行趋势判定、支撑位推演、波动率分析</div>
+            <div class="text-sm text-gray-500 mt-2">对每只标的评估 5 种策略（正股 / Call / Put / Sell Put / Covered Call）</div>
         </div>
     </div>
 </div>
+
+<script>
+function filterStrategy(type) {
+    document.querySelectorAll('.filter-btn').forEach(b => {
+        b.className = b.dataset.filter === type
+            ? 'filter-btn text-xs px-2.5 py-1 rounded bg-dark-500 text-white'
+            : 'filter-btn text-xs px-2.5 py-1 rounded bg-dark-600 text-gray-400 hover:text-white';
+    });
+    document.querySelectorAll('.opp-card').forEach(card => {
+        card.style.display = (type === 'all' || card.dataset.strategy === type) ? '' : 'none';
+    });
+}
+function sortOpportunities(by) {
+    const container = document.getElementById('opp-list');
+    if (!container) return;
+    const cards = Array.from(container.querySelectorAll('.opp-card'));
+    cards.sort((a, b) => {
+        if (by === 'score') return (b.dataset.score || 0) - (a.dataset.score || 0);
+        if (by === 'return') return (b.dataset.returnPct || 0) - (a.dataset.returnPct || 0);
+        if (by === 'risk') return (a.dataset.riskPct || 0) - (b.dataset.riskPct || 0);
+    });
+    cards.forEach(card => container.appendChild(card));
+}
+function filterRisk(level) {
+    document.querySelectorAll('.opp-card').forEach(card => {
+        card.style.display = (level === 'all' || card.dataset.risk === level) ? '' : 'none';
+    });
+}
+</script>
 {% endblock %}

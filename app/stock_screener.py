@@ -68,6 +68,10 @@ class StockDiagnosis:
     suggested_dte: int  # 建议到期天数
 
 
+_diag_cache: dict = {}
+_DIAG_CACHE_TTL = 1800  # 30 minutes
+
+
 def diagnose_stock(symbol: str) -> StockDiagnosis:
     """
     AI 个股诊断：趋势 + 支撑位 + 波动率 + 综合评分
@@ -79,6 +83,14 @@ def diagnose_stock(symbol: str) -> StockDiagnosis:
     4. 最终支撑位 = 基准 - ATR
     5. 安全触发：如果支撑位距离现价 < 5%，强制回退至 10% 安全边际
     """
+    # Check cache
+    from datetime import datetime as _dt
+    now = _dt.now().timestamp()
+    if symbol in _diag_cache:
+        cached_time, cached_result = _diag_cache[symbol]
+        if now - cached_time < _DIAG_CACHE_TTL:
+            return cached_result
+
     df = fetch_stock_history(symbol, period="1y")
     if df.empty or len(df) < 50:
         return _empty_diagnosis(symbol)
@@ -200,7 +212,7 @@ def diagnose_stock(symbol: str) -> StockDiagnosis:
     suggested_strike = round(support_level / 5) * 5  # 对齐到 $5
     suggested_dte = 30 if iv_rank > 50 else 45  # 高 IV 短期，低 IV 长期
 
-    return StockDiagnosis(
+    result = StockDiagnosis(
         symbol=symbol,
         current_price=round(price, 2),
         trend=trend,
@@ -222,22 +234,28 @@ def diagnose_stock(symbol: str) -> StockDiagnosis:
         suggested_strike=suggested_strike,
         suggested_dte=suggested_dte,
     )
+    _diag_cache[symbol] = (now, result)
+    return result
 
 
 def screen_sector(sector_key: str, min_score: int = 0) -> list[StockDiagnosis]:
-    """筛选板块内所有标的并评分排序"""
+    """筛选板块内所有标的并评分排序 (并行加速)"""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     sector = SECTORS.get(sector_key)
     if not sector:
         return []
 
     results = []
-    for symbol in sector["symbols"]:
-        try:
-            diag = diagnose_stock(symbol)
-            if diag.score >= min_score:
-                results.append(diag)
-        except Exception:
-            continue
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = {executor.submit(diagnose_stock, sym): sym for sym in sector["symbols"]}
+        for future in as_completed(futures):
+            try:
+                diag = future.result()
+                if diag.score >= min_score and diag.current_price > 0:
+                    results.append(diag)
+            except Exception:
+                continue
 
     results.sort(key=lambda x: x.score, reverse=True)
     return results

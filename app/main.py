@@ -561,6 +561,26 @@ def diagnose_api(symbol: str):
     }
 
 
+@app.get("/api/ai-analyze/{symbol}", response_class=HTMLResponse)
+def ai_analyze(request: Request, symbol: str):
+    """AI 智能分析一只标的"""
+    from ai_analysis import analyze_stock
+    diag = diagnose_stock(symbol.upper())
+    diag_dict = {
+        "current_price": diag.current_price, "trend": diag.trend,
+        "rsi": diag.rsi, "support_level": diag.support_level,
+        "safety_margin": diag.safety_margin, "score": diag.score,
+    }
+    result = analyze_stock(symbol.upper(), diag_dict)
+    if result.get("analysis"):
+        analysis_html = result["analysis"].replace("\n", "<br>")
+        provider = result.get("provider", "unknown")
+        return HTMLResponse(f'<div class="bg-dark-800 rounded-lg p-4 border border-accent-blue/30"><div class="text-xs text-accent-blue mb-2">AI 分析 ({provider})</div><div class="text-sm text-gray-300 leading-relaxed">{analysis_html}</div></div>')
+    else:
+        error = result.get("error", "未知错误")
+        return HTMLResponse(f'<div class="bg-dark-800 rounded-lg p-3 text-xs text-accent-yellow">{error}</div>')
+
+
 @app.get("/api/options/{symbol}")
 def options_chain_api(symbol: str, right: str = "P", dte_min: int = 20, dte_max: int = 60):
     options = fetch_ibkr_options_chain(symbol.upper(), right, dte_min, dte_max)
@@ -774,6 +794,10 @@ API_SERVICES = [
     {"name": "ibkr", "display": "IBKR 盈透证券 (美股/期权)", "desc": "通过 TWS 或 IB Gateway 连接。用于同步持仓、获取行情、执行交易。默认 Paper Trading 端口 7497。", "fields": ["Host (默认 127.0.0.1)", "Port (默认 7497)"], "env_keys": ["IBKR_HOST", "IBKR_PORT"]},
     {"name": "ccxt_binance", "display": "Binance (加密货币)", "desc": "获取加密货币行情和交易。公开行情不需要 API Key。", "fields": ["API Key", "Secret Key"], "env_keys": ["CCXT_BINANCE_API_KEY", "CCXT_BINANCE_SECRET"]},
     {"name": "ccxt_okx", "display": "OKX (加密货币)", "desc": "获取 OKX 交易所行情和交易数据。", "fields": ["API Key", "Secret Key"], "env_keys": ["CCXT_OKX_API_KEY", "CCXT_OKX_SECRET"]},
+    {"name": "deepseek", "display": "DeepSeek (AI 分析, 推荐)", "desc": "用于 AI 智能分析标的，生成交易建议。免费额度充足，延迟低。", "fields": ["API Key"], "env_keys": ["DEEPSEEK_API_KEY"]},
+    {"name": "anthropic", "display": "Claude (AI 分析)", "desc": "Anthropic Claude 模型，分析质量最高。", "fields": ["API Key"], "env_keys": ["ANTHROPIC_API_KEY"]},
+    {"name": "openai", "display": "ChatGPT (AI 分析)", "desc": "OpenAI GPT-4o 模型。", "fields": ["API Key"], "env_keys": ["OPENAI_API_KEY"]},
+    {"name": "gemini", "display": "Google Gemini (AI 分析)", "desc": "Google Gemini 模型，免费额度大。", "fields": ["API Key"], "env_keys": ["GEMINI_API_KEY"]},
     {"name": "feishu", "display": "飞书 (告警通知)", "desc": "通过飞书机器人 Webhook 接收风险告警推送。", "fields": ["Webhook URL"], "env_keys": ["FEISHU_WEBHOOK_URL"]},
     {"name": "twilio", "display": "Twilio (短信告警)", "desc": "通过短信接收风险告警。需要 Twilio 账号。", "fields": ["Account SID", "Auth Token", "发送号码", "接收号码"], "env_keys": ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_FROM_NUMBER", "TWILIO_TO_NUMBER"]},
 ]

@@ -14,9 +14,10 @@
 {% if opportunities %}
 <div class="mb-6">
     <h2 class="text-sm font-semibold text-white mb-3">交易机会</h2>
-    <div class="space-y-2">
+    <div class="space-y-2" id="opp-list">
     {% for opp in opportunities %}
-    <div class="bg-dark-700 rounded-xl border {{ 'border-accent-green/30' if opp.score >= 60 else 'border-dark-600' }} p-4 hover:border-gray-500 transition cursor-pointer"
+    <div class="opp-card bg-dark-700 rounded-xl border {{ 'border-accent-green/30' if opp.score >= 60 else 'border-dark-600' }} p-4 hover:border-gray-500 transition cursor-pointer"
+         data-strategy="{{ opp.strategy }}" data-score="{{ opp.score }}" data-return-pct="{{ (opp.est_return_pct * 100)|round(1) }}" data-risk-pct="{{ (opp.max_loss_pct * 100)|round(1) }}" data-risk="{{ opp.risk_level }}"
          onclick="window.location='/diagnose/{{ opp.symbol }}'">
         <div class="flex justify-between items-start">
             <div class="flex items-center gap-3">

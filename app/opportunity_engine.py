@@ -68,21 +68,25 @@ def find_opportunities(
         sec = SECTORS.get(sec_key, {})
         all_symbols.update(sec.get("symbols", []))
 
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     opportunities = []
     diagnostics = {}
 
-    for symbol in sorted(all_symbols):
-        try:
-            diag = diagnose_stock(symbol)
-            if diag.current_price <= 0:
-                continue
-            diagnostics[symbol] = diag
+    def _process_symbol(symbol):
+        diag = diagnose_stock(symbol)
+        if diag.current_price <= 0:
+            return []
+        return _evaluate_all_strategies(diag, goals_return, goals_drawdown, risk_per_trade, account_balance)
 
-            # 评估每种策略
-            opps = _evaluate_all_strategies(diag, goals_return, goals_drawdown, risk_per_trade, account_balance)
-            opportunities.extend(opps)
-        except Exception:
-            continue
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = {executor.submit(_process_symbol, sym): sym for sym in sorted(all_symbols)}
+        for future in as_completed(futures):
+            try:
+                opps = future.result()
+                opportunities.extend(opps)
+            except Exception:
+                continue
 
     # 按评分排序
     opportunities.sort(key=lambda x: x.score, reverse=True)

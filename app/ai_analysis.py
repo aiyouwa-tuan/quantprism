@@ -1,0 +1,141 @@
+"""
+Goal-Driven Trading OS — AI Analysis
+接入大模型进行智能分析（DeepSeek / Claude / Gemini / ChatGPT）
+"""
+import os
+import json
+import logging
+
+logger = logging.getLogger(__name__)
+
+# 支持的 AI 提供商
+AI_PROVIDERS = {
+    "deepseek": {
+        "name": "DeepSeek",
+        "base_url": "https://api.deepseek.com/v1",
+        "model": "deepseek-chat",
+        "env_key": "DEEPSEEK_API_KEY",
+    },
+    "claude": {
+        "name": "Claude (Anthropic)",
+        "base_url": "https://api.anthropic.com/v1",
+        "model": "claude-sonnet-4-20250514",
+        "env_key": "ANTHROPIC_API_KEY",
+    },
+    "gemini": {
+        "name": "Google Gemini",
+        "base_url": "https://generativelanguage.googleapis.com/v1beta",
+        "model": "gemini-2.0-flash",
+        "env_key": "GEMINI_API_KEY",
+    },
+    "openai": {
+        "name": "ChatGPT (OpenAI)",
+        "base_url": "https://api.openai.com/v1",
+        "model": "gpt-4o",
+        "env_key": "OPENAI_API_KEY",
+    },
+}
+
+
+def get_active_provider() -> str:
+    """检测哪个 AI 提供商有 API key 可用"""
+    preferred = os.getenv("AI_PROVIDER", "deepseek")
+    if preferred in AI_PROVIDERS:
+        key = os.getenv(AI_PROVIDERS[preferred]["env_key"])
+        if key:
+            return preferred
+
+    # Fallback: 试所有提供商
+    for name, config in AI_PROVIDERS.items():
+        if os.getenv(config["env_key"]):
+            return name
+
+    return None
+
+
+def analyze_stock(symbol: str, diagnosis: dict, context: str = "") -> dict:
+    """
+    用 AI 分析一只标的
+
+    Returns: {analysis, provider, model, error}
+    """
+    provider = get_active_provider()
+    if not provider:
+        return {"analysis": None, "error": "未配置 AI API Key。请在设置中配置 DeepSeek/Claude/Gemini/ChatGPT 的 API Key。"}
+
+    config = AI_PROVIDERS[provider]
+    api_key = os.getenv(config["env_key"])
+
+    prompt = f"""分析以下股票的交易机会，用中文简洁回答：
+
+标的: {symbol}
+当前价格: ${diagnosis.get('current_price', 0):.2f}
+趋势: {diagnosis.get('trend', 'unknown')}
+RSI: {diagnosis.get('rsi', 0):.0f}
+支撑位: ${diagnosis.get('support_level', 0):.2f}
+安全边际: {diagnosis.get('safety_margin', 0)*100:.1f}%
+评分: {diagnosis.get('score', 0)}/100
+
+{context}
+
+请回答：
+1. 当前适合什么策略？（买正股/买Call/Sell Put/Covered Call/观望）
+2. 如果做 Sell Put，建议什么行权价和到期日？
+3. 主要风险是什么？
+4. 一句话总结"""
+
+    try:
+        if provider == "deepseek" or provider == "openai":
+            return _call_openai_compatible(config["base_url"], api_key, config["model"], prompt, provider)
+        elif provider == "claude":
+            return _call_claude(api_key, config["model"], prompt)
+        elif provider == "gemini":
+            return _call_gemini(api_key, config["model"], prompt)
+        else:
+            return {"analysis": None, "error": f"Unknown provider: {provider}"}
+    except Exception as e:
+        return {"analysis": None, "error": str(e), "provider": provider}
+
+
+def _call_openai_compatible(base_url: str, api_key: str, model: str, prompt: str, provider: str) -> dict:
+    """调用 OpenAI 兼容 API (DeepSeek, ChatGPT)"""
+    import httpx
+    resp = httpx.post(
+        f"{base_url}/chat/completions",
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        json={"model": model, "messages": [{"role": "user", "content": prompt}], "max_tokens": 500, "temperature": 0.3},
+        timeout=30,
+    )
+    data = resp.json()
+    if "choices" in data:
+        return {"analysis": data["choices"][0]["message"]["content"], "provider": provider, "model": model}
+    return {"analysis": None, "error": data.get("error", {}).get("message", "Unknown error"), "provider": provider}
+
+
+def _call_claude(api_key: str, model: str, prompt: str) -> dict:
+    """调用 Claude API"""
+    import httpx
+    resp = httpx.post(
+        "https://api.anthropic.com/v1/messages",
+        headers={"x-api-key": api_key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"},
+        json={"model": model, "max_tokens": 500, "messages": [{"role": "user", "content": prompt}]},
+        timeout=30,
+    )
+    data = resp.json()
+    if "content" in data:
+        return {"analysis": data["content"][0]["text"], "provider": "claude", "model": model}
+    return {"analysis": None, "error": data.get("error", {}).get("message", "Unknown error"), "provider": "claude"}
+
+
+def _call_gemini(api_key: str, model: str, prompt: str) -> dict:
+    """调用 Gemini API"""
+    import httpx
+    resp = httpx.post(
+        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}",
+        json={"contents": [{"parts": [{"text": prompt}]}]},
+        timeout=30,
+    )
+    data = resp.json()
+    if "candidates" in data:
+        return {"analysis": data["candidates"][0]["content"]["parts"][0]["text"], "provider": "gemini", "model": model}
+    return {"analysis": None, "error": str(data), "provider": "gemini"}
