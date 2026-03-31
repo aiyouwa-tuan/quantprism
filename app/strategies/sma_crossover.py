@@ -17,6 +17,8 @@ class SMACrossover(StrategyBase):
     }
 
     def generate_signals(self, df: pd.DataFrame) -> list[Signal]:
+        if df.empty or "close" not in df.columns:
+            return []
         signals = []
         fast = self.params["fast_period"]
         slow = self.params["slow_period"]
