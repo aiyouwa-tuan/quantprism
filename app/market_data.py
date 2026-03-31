@@ -12,6 +12,11 @@ from ta.volatility import BollingerBands, AverageTrueRange
 from ta.trend import SMAIndicator
 
 
+# In-memory cache: {symbol_period: (timestamp, dataframe)}
+_cache: dict = {}
+_CACHE_TTL = 3600  # 1 hour
+
+
 def fetch_stock_history(
     symbol: str,
     start: str = None,
@@ -20,10 +25,19 @@ def fetch_stock_history(
     period: str = "2y",
 ) -> pd.DataFrame:
     """
-    获取股票历史数据
+    获取股票历史数据（带 1 小时内存缓存）
 
     Returns DataFrame with columns: open, high, low, close, volume, returns
     """
+    cache_key = f"{symbol}_{start}_{end}_{period}"
+    now = datetime.now().timestamp()
+
+    # Check cache
+    if cache_key in _cache:
+        cached_time, cached_df = _cache[cache_key]
+        if now - cached_time < _CACHE_TTL:
+            return cached_df.copy()
+
     ticker = yf.Ticker(symbol)
     if start and end:
         df = ticker.history(start=start, end=end, interval=interval, auto_adjust=True)
@@ -36,6 +50,10 @@ def fetch_stock_history(
     df.columns = [c.lower() for c in df.columns]
     df = df[["open", "high", "low", "close", "volume"]].copy()
     df["returns"] = df["close"].pct_change()
+
+    # Store in cache
+    _cache[cache_key] = (now, df.copy())
+
     return df
 
 

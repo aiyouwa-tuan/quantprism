@@ -78,9 +78,9 @@
 
 <!-- 持仓卡片 (视频风格) -->
 {% if positions %}
-<div class="flex gap-3 mb-4 overflow-x-auto pb-2">
-    {% for p in positions %}
-    <div class="bg-dark-700 rounded-xl border border-dark-600 p-4 min-w-48 flex-shrink-0">
+<div class="grid grid-cols-6 gap-2 mb-4">
+    {% for p in positions[:12] %}
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-3">
         <div class="flex justify-between items-center">
             <span class="text-white font-bold">{{ p.symbol }}</span>
             <span class="text-xs px-1.5 py-0.5 rounded {{ 'bg-accent-blue/20 text-accent-blue' if p.market == 'stock' else 'bg-accent-yellow/20 text-accent-yellow' }}">{{ p.market }}</span>
@@ -95,7 +95,12 @@
         {% endif %}
     </div>
     {% endfor %}
-    <a href="/screener" class="bg-dark-700/50 rounded-xl border border-dashed border-dark-500 p-4 min-w-40 flex-shrink-0 flex items-center justify-center hover:border-accent-green/50 transition">
+    {% if positions|length > 12 %}
+    <div class="bg-dark-700/50 rounded-xl border border-dark-600 p-3 flex items-center justify-center text-xs text-gray-500">
+        +{{ positions|length - 12 }} 更多
+    </div>
+    {% endif %}
+    <a href="/screener" class="bg-dark-700/50 rounded-xl border border-dashed border-dark-500 p-3 flex items-center justify-center hover:border-accent-green/50 transition">
         <span class="text-gray-500 text-sm">+ 选股</span>
     </a>
 </div>
