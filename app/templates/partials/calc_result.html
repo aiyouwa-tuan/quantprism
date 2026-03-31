@@ -1,34 +1,27 @@
 {% if result.shares > 0 %}
-<div class="bg-blue-50 rounded p-4 space-y-2">
+<div class="bg-dark-800 rounded-lg p-3 space-y-1.5">
     <div class="flex justify-between text-sm">
-        <span class="text-gray-600">建议股数</span>
-        <span class="font-bold text-blue-700 text-lg">{{ result.shares }} 股</span>
+        <span class="text-gray-400">建议股数</span>
+        <span class="text-xl font-bold text-accent-green">{{ result.shares }} 股</span>
     </div>
-    <div class="flex justify-between text-sm">
-        <span class="text-gray-600">仓位市值</span>
-        <span class="font-medium">${{ "%.2f"|format(result.position_value) }}</span>
+    <div class="flex justify-between text-xs">
+        <span class="text-gray-500">仓位市值</span>
+        <span class="text-gray-300">${{ "%.2f"|format(result.position_value) }}</span>
     </div>
-    <div class="flex justify-between text-sm">
-        <span class="text-gray-600">风险金额</span>
-        <span class="font-medium text-red-600">${{ "%.2f"|format(result.risk_amount) }}</span>
+    <div class="flex justify-between text-xs">
+        <span class="text-gray-500">风险金额</span>
+        <span class="text-accent-red">${{ "%.2f"|format(result.risk_amount) }}</span>
     </div>
-    <div class="flex justify-between text-sm">
-        <span class="text-gray-600">风险占账户</span>
-        <span class="font-medium">{{ "%.2f"|format(result.risk_pct_of_account * 100) }}%</span>
-    </div>
-    <div class="flex justify-between text-sm">
-        <span class="text-gray-600">仓位占账户</span>
-        <span class="font-medium">{{ "%.2f"|format(result.position_pct_of_account * 100) }}%</span>
+    <div class="flex justify-between text-xs">
+        <span class="text-gray-500">风险占账户</span>
+        <span>{{ "%.2f"|format(result.risk_pct_of_account * 100) }}%</span>
     </div>
     {% if result.is_capped %}
-    <div class="text-xs text-orange-600 mt-2">* 已触发仓位上限，股数已调整</div>
+    <div class="text-xs text-accent-yellow mt-1">* 已触发仓位上限</div>
     {% endif %}
-    <div class="text-xs text-gray-400 mt-2">
-        每股风险: ${{ "%.2f"|format(entry_price - stop_loss if entry_price > stop_loss else stop_loss - entry_price) }}
-    </div>
 </div>
 {% else %}
-<div class="bg-yellow-50 rounded p-4 text-sm text-yellow-700">
-    无法计算有效仓位。请检查输入：入场价和止损价不能相同，账户余额和风险比例必须大于 0。
+<div class="bg-accent-yellow/10 rounded-lg p-3 text-xs text-accent-yellow">
+    无法计算。检查：入场价 ≠ 止损价，账户和风险 > 0。
 </div>
 {% endif %}

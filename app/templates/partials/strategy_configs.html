@@ -1,18 +1,18 @@
 {% if configs %}
 {% for c in configs %}
-<div class="border rounded p-3 mb-2">
-    <div class="flex justify-between items-center">
-        <span class="font-medium text-sm">{{ c.strategy_name }}</span>
-        <span class="text-xs text-gray-400">{{ c.symbol }}</span>
+<div class="bg-dark-800 rounded-lg p-3 mb-2 flex justify-between items-center">
+    <div>
+        <span class="text-sm text-white">{{ c.strategy_name }}</span>
+        <span class="text-xs text-gray-500 ml-2">{{ c.symbol }}</span>
     </div>
-    <div class="mt-2 flex gap-2">
-        <button hx-post="/strategies/{{ c.id }}/backtest" hx-target="#match-results"
-                class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200">回测</button>
-        <button hx-post="/strategies/{{ c.id }}/stress-test" hx-target="#match-results"
-                class="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200">压力测试</button>
+    <div class="flex gap-1">
+        <button hx-post="/strategies/{{ c.id }}/backtest" hx-target="#results"
+                class="text-xs bg-accent-blue/20 text-accent-blue px-2 py-1 rounded hover:bg-accent-blue/30">回测</button>
+        <button hx-post="/strategies/{{ c.id }}/stress-test" hx-target="#results"
+                class="text-xs bg-accent-red/20 text-accent-red px-2 py-1 rounded hover:bg-accent-red/30">压力</button>
     </div>
 </div>
 {% endfor %}
 {% else %}
-<p class="text-sm text-gray-400">还没有配置策略</p>
+<p class="text-xs text-gray-500">无</p>
 {% endif %}

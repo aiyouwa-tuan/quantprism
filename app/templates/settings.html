@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="text-xl font-bold text-white mb-6">设置</h1>
+
+<!-- API 配置 -->
+<div class="space-y-4 mb-8">
+    <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wide">API 连接</h2>
+
+    {% for svc in services %}
+    {% set cfg = configs.get(svc.name) %}
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-5">
+        <div class="flex justify-between items-start mb-3">
+            <div>
+                <h3 class="text-white font-medium">{{ svc.display }}</h3>
+                <p class="text-xs text-gray-500 mt-0.5">{{ svc.desc }}</p>
+            </div>
+            <span class="text-xs px-2 py-0.5 rounded-full
+                {{ 'bg-accent-green/20 text-accent-green' if cfg and cfg.is_active else 'bg-dark-500 text-gray-500' }}">
+                {{ cfg.status if cfg else '未配置' }}
+            </span>
+        </div>
+
+        <form hx-post="/settings/api/{{ svc.name }}" hx-target="#save-{{ svc.name }}" hx-swap="innerHTML">
+            <div class="grid grid-cols-2 gap-3">
+                {% if svc.fields|length >= 1 %}
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">{{ svc.fields[0] }}</label>
+                    <input type="password" name="api_key" value="{{ cfg.api_key or '' if cfg else '' }}"
+                           placeholder="输入 {{ svc.fields[0] }}"
+                           class="w-full bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white focus:border-accent-blue focus:outline-none">
+                </div>
+                {% endif %}
+                {% if svc.fields|length >= 2 %}
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">{{ svc.fields[1] }}</label>
+                    <input type="password" name="api_secret" value="{{ cfg.api_secret or '' if cfg else '' }}"
+                           placeholder="输入 {{ svc.fields[1] }}"
+                           class="w-full bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white focus:border-accent-blue focus:outline-none">
+                </div>
+                {% endif %}
+                {% if svc.fields|length >= 3 %}
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">{{ svc.fields[2] }}</label>
+                    <input type="text" name="extra_1" placeholder="输入 {{ svc.fields[2] }}"
+                           class="w-full bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white focus:border-accent-blue focus:outline-none">
+                </div>
+                {% endif %}
+                {% if svc.fields|length >= 4 %}
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">{{ svc.fields[3] }}</label>
+                    <input type="text" name="extra_2" placeholder="输入 {{ svc.fields[3] }}"
+                           class="w-full bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white focus:border-accent-blue focus:outline-none">
+                </div>
+                {% endif %}
+            </div>
+            <div class="flex items-center gap-3 mt-3">
+                <button type="submit" class="bg-accent-blue text-white px-4 py-1.5 rounded text-sm hover:brightness-110">保存</button>
+                <div id="save-{{ svc.name }}"></div>
+            </div>
+        </form>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- 告警配置 -->
+<div class="space-y-4">
+    <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wide">告警设置</h2>
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-5">
+        <form hx-post="/alerts/config" hx-target="#alert-save-result" hx-swap="innerHTML" class="space-y-3">
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1" title="账户回撤达到此百分比时发送预警">回撤预警线 (%)</label>
+                    <input type="number" name="drawdown_warn_pct" step="0.1"
+                           value="{{ "%.1f"|format(alert_config.drawdown_warn_pct * 100) if alert_config and alert_config.drawdown_warn_pct else '5' }}"
+                           class="w-full bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1" title="账户回撤达到此百分比时发送严重告警">回撤临界线 (%)</label>
+                    <input type="number" name="drawdown_critical_pct" step="0.1"
+                           value="{{ "%.1f"|format(alert_config.drawdown_critical_pct * 100) if alert_config and alert_config.drawdown_critical_pct else '8' }}"
+                           class="w-full bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">单仓位亏损告警 (%)</label>
+                    <input type="number" name="single_position_loss_pct" step="0.1"
+                           value="{{ "%.1f"|format(alert_config.single_position_loss_pct * 100) if alert_config and alert_config.single_position_loss_pct else '3' }}"
+                           class="w-full bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1" title="同一类型告警的最小间隔">频率限制 (分钟)</label>
+                    <input type="number" name="rate_limit_minutes"
+                           value="{{ alert_config.rate_limit_minutes if alert_config else 60 }}"
+                           class="w-full bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white">
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <button type="submit" class="bg-accent-green text-dark-900 px-4 py-1.5 rounded text-sm font-bold hover:brightness-110">保存告警设置</button>
+                <button type="button" hx-post="/alerts/test" hx-target="#alert-save-result" class="bg-dark-500 text-white px-4 py-1.5 rounded text-sm hover:bg-dark-600">发送测试</button>
+                <div id="alert-save-result"></div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

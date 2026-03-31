@@ -1,56 +1,56 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="max-w-2xl mx-auto">
-    <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-lg font-semibold mb-4">告警配置</h2>
+    <h1 class="text-xl font-bold text-white mb-6">告警配置</h1>
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-6">
         <form hx-post="/alerts/config" hx-target="#save-result" hx-swap="innerHTML" class="space-y-4">
             <div>
-                <label class="block text-sm font-medium text-gray-700">飞书 Webhook URL</label>
+                <label class="block text-sm text-gray-400 mb-1">飞书 Webhook URL</label>
                 <input type="text" name="feishu_webhook_url" value="{{ config.feishu_webhook_url or '' if config else '' }}"
                        placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/xxx"
-                       class="w-full border rounded px-3 py-2 mt-1 text-sm">
+                       class="w-full bg-dark-800 border border-dark-500 rounded-lg px-4 py-2.5 text-sm text-white">
             </div>
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">短信通知</label>
-                    <select name="sms_enabled" class="w-full border rounded px-3 py-2 mt-1">
-                        <option value="false" {{ 'selected' if not config or not config.sms_enabled else '' }}>关闭</option>
-                        <option value="true" {{ 'selected' if config and config.sms_enabled else '' }}>开启</option>
+                    <label class="block text-sm text-gray-400 mb-1">短信通知</label>
+                    <select name="sms_enabled" class="w-full bg-dark-800 border border-dark-500 rounded-lg px-4 py-2.5 text-sm text-white">
+                        <option value="false" {{ 'selected' if not config or not config.sms_enabled }}>关闭</option>
+                        <option value="true" {{ 'selected' if config and config.sms_enabled }}>开启</option>
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">手机号</label>
+                    <label class="block text-sm text-gray-400 mb-1">手机号</label>
                     <input type="text" name="sms_phone" value="{{ config.sms_phone or '' if config else '' }}"
-                           placeholder="+86138xxxx" class="w-full border rounded px-3 py-2 mt-1 text-sm">
+                           placeholder="+86138xxxx" class="w-full bg-dark-800 border border-dark-500 rounded-lg px-4 py-2.5 text-sm text-white">
                 </div>
             </div>
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">回撤预警线 (%)</label>
+                    <label class="block text-sm text-gray-400 mb-1" title="账户回撤达到此百分比时发送预警">回撤预警线 (%)</label>
                     <input type="number" name="drawdown_warn_pct" step="0.1" value="{{ "%.1f"|format(config.drawdown_warn_pct * 100) if config and config.drawdown_warn_pct else '5' }}"
-                           class="w-full border rounded px-3 py-2 mt-1">
+                           class="w-full bg-dark-800 border border-dark-500 rounded-lg px-4 py-2.5 text-sm text-white">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">回撤临界线 (%)</label>
+                    <label class="block text-sm text-gray-400 mb-1" title="账户回撤达到此百分比时发送严重告警">回撤临界线 (%)</label>
                     <input type="number" name="drawdown_critical_pct" step="0.1" value="{{ "%.1f"|format(config.drawdown_critical_pct * 100) if config and config.drawdown_critical_pct else '8' }}"
-                           class="w-full border rounded px-3 py-2 mt-1">
+                           class="w-full bg-dark-800 border border-dark-500 rounded-lg px-4 py-2.5 text-sm text-white">
                 </div>
             </div>
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">单仓位亏损告警 (%)</label>
+                    <label class="block text-sm text-gray-400 mb-1">单仓位亏损告警 (%)</label>
                     <input type="number" name="single_position_loss_pct" step="0.1" value="{{ "%.1f"|format(config.single_position_loss_pct * 100) if config and config.single_position_loss_pct else '3' }}"
-                           class="w-full border rounded px-3 py-2 mt-1">
+                           class="w-full bg-dark-800 border border-dark-500 rounded-lg px-4 py-2.5 text-sm text-white">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">告警频率限制 (分钟)</label>
+                    <label class="block text-sm text-gray-400 mb-1" title="同一类型告警的最小间隔时间">频率限制 (分钟)</label>
                     <input type="number" name="rate_limit_minutes" value="{{ config.rate_limit_minutes if config else 60 }}"
-                           class="w-full border rounded px-3 py-2 mt-1">
+                           class="w-full bg-dark-800 border border-dark-500 rounded-lg px-4 py-2.5 text-sm text-white">
                 </div>
             </div>
             <div class="flex gap-3">
-                <button type="submit" class="bg-gray-900 text-white px-6 py-2 rounded hover:bg-gray-700">保存配置</button>
-                <button type="button" hx-post="/alerts/test" hx-target="#save-result" class="bg-blue-100 text-blue-700 px-6 py-2 rounded hover:bg-blue-200">发送测试告警</button>
+                <button type="submit" class="bg-accent-green text-dark-900 px-6 py-2.5 rounded-lg font-bold hover:brightness-110">保存配置</button>
+                <button type="button" hx-post="/alerts/test" hx-target="#save-result" class="bg-dark-500 text-white px-6 py-2.5 rounded-lg hover:bg-dark-600">发送测试告警</button>
             </div>
         </form>
         <div id="save-result" class="mt-4"></div>

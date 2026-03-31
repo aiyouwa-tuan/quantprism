@@ -1,213 +1,178 @@
 {% extends "base.html" %}
 {% block content %}
 
-<!-- 日志填写提醒 -->
-{% if show_journal_reminder %}
-<div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
-    <p class="text-sm text-yellow-700">
-        你已经连续 {{ compliance.trades_without_journal }} 笔交易没有写日志了。
-        记录交易理由和情绪状态，3 个月后才能分析你的个人交易模式。
-    </p>
-</div>
-{% endif %}
-
 {% if not goals %}
-<!-- ==================== 第一次使用：引导设定目标 ==================== -->
-<div class="max-w-xl mx-auto mt-12">
+<!-- ==================== 首次使用 ==================== -->
+<div class="max-w-lg mx-auto mt-16">
     <div class="text-center mb-8">
-        <h1 class="text-2xl font-bold">欢迎使用 Goal-Driven Trading OS</h1>
-        <p class="text-gray-500 mt-2">第一步：设定你的收益和风险目标，系统会自动帮你找到合适的策略。</p>
+        <h1 class="text-2xl font-bold text-white">Goal-Driven Trading OS</h1>
+        <p class="text-gray-400 mt-2">设定你的目标，系统自动帮你找策略。</p>
     </div>
-    <div class="bg-white rounded-lg shadow p-8">
-        <h2 class="text-lg font-semibold mb-6">设定你的交易目标</h2>
-        <form hx-post="/goals" hx-target="#page-body" hx-swap="innerHTML" class="space-y-5">
+    <div class="bg-dark-700 rounded-xl p-8 border border-dark-600">
+        <form hx-post="/goals" hx-target="body" class="space-y-5">
             <div>
-                <label class="block text-sm font-medium text-gray-700">你期望的年化收益率是多少？(%)</label>
-                <input type="number" name="annual_return_target" step="0.1" min="1" max="500" value="15"
-                       class="w-full border-2 rounded-lg px-4 py-3 mt-1 text-lg focus:border-blue-500 focus:outline-none">
-                <p class="text-xs text-gray-400 mt-1">一般 10-20% 是合理目标，超过 30% 风险很高</p>
+                <label class="block text-sm text-gray-400 mb-1">年化收益目标 (%)</label>
+                <input type="number" name="annual_return_target" step="0.1" value="15"
+                       class="w-full bg-dark-800 border border-dark-500 rounded-lg px-4 py-3 text-lg text-white focus:border-accent-blue focus:outline-none">
+                <p class="text-xs text-gray-500 mt-1">10-20% 合理，超过 30% 风险很高</p>
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700">你最多能接受多大的亏损？(%)</label>
-                <input type="number" name="max_drawdown" step="0.1" min="1" max="100" value="10"
-                       class="w-full border-2 rounded-lg px-4 py-3 mt-1 text-lg focus:border-blue-500 focus:outline-none">
-                <p class="text-xs text-gray-400 mt-1">这是你账户从最高点下跌的最大百分比。10% 表示 $10,000 账户最多亏 $1,000</p>
+                <label class="block text-sm text-gray-400 mb-1">最大可接受亏损 (%)</label>
+                <input type="number" name="max_drawdown" step="0.1" value="10"
+                       class="w-full bg-dark-800 border border-dark-500 rounded-lg px-4 py-3 text-lg text-white focus:border-accent-blue focus:outline-none">
+                <p class="text-xs text-gray-500 mt-1">$10,000 账户设 10% = 最多亏 $1,000</p>
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700">每笔交易愿意冒多大风险？(%)</label>
-                <input type="number" name="risk_per_trade" step="0.1" min="0.5" max="10" value="2"
-                       class="w-full border-2 rounded-lg px-4 py-3 mt-1 text-lg focus:border-blue-500 focus:outline-none">
-                <p class="text-xs text-gray-400 mt-1">建议 1-3%。2% 表示每笔交易最多亏掉账户的 2%</p>
+                <label class="block text-sm text-gray-400 mb-1">单笔风险 (%)</label>
+                <input type="number" name="risk_per_trade" step="0.1" value="2"
+                       class="w-full bg-dark-800 border border-dark-500 rounded-lg px-4 py-3 text-lg text-white focus:border-accent-blue focus:outline-none">
+                <p class="text-xs text-gray-500 mt-1">建议 1-3%</p>
             </div>
-            <button type="submit" class="w-full bg-green-600 text-white py-3 rounded-lg text-lg font-medium hover:bg-green-500">
-                设定目标，开始搜索策略 →
+            <button type="submit" class="w-full bg-accent-green text-dark-900 py-3 rounded-lg text-lg font-bold hover:brightness-110">
+                开始 →
             </button>
         </form>
     </div>
 </div>
 
 {% else %}
-<!-- ==================== 已设定目标：正常仪表盘 ==================== -->
-<div id="page-body">
+<!-- ==================== 仪表盘 ==================== -->
 
-    <!-- 顶部状态栏 -->
-    <div class="grid grid-cols-4 gap-4 mb-6">
-        <div class="bg-white rounded-lg shadow p-4">
-            <div class="text-xs text-gray-500">收益目标</div>
-            <div class="text-xl font-bold">{{ "%.0f"|format(goals.annual_return_target * 100) }}%</div>
-        </div>
-        <div class="bg-white rounded-lg shadow p-4">
-            <div class="text-xs text-gray-500">最大回撤</div>
-            <div class="text-xl font-bold text-red-600">{{ "%.0f"|format(goals.max_drawdown * 100) }}%</div>
-        </div>
-        <div class="bg-white rounded-lg shadow p-4">
-            <div class="text-xs text-gray-500">持仓</div>
-            <div class="text-xl font-bold">{{ positions|length }} / {{ constraints.max_positions }}</div>
-        </div>
-        <div class="bg-white rounded-lg shadow p-4">
-            <div class="text-xs text-gray-500">总风险</div>
-            <div class="text-xl font-bold {{ 'text-red-600' if total_risk_pct > 0.08 else 'text-green-600' }}">{{ "%.1f"|format(total_risk_pct * 100) }}%</div>
-        </div>
-    </div>
-
-    <!-- 主内容区 -->
-    <div class="grid grid-cols-3 gap-6">
-
-        <!-- 左：当前持仓 -->
-        <div class="col-span-2 space-y-4">
-            <div class="bg-white rounded-lg shadow p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-lg font-semibold">当前持仓</h2>
-                    <div class="flex gap-2">
-                        <button hx-post="/sync-positions" hx-target="#positions-list" hx-swap="innerHTML"
-                                class="text-xs bg-gray-100 px-3 py-1 rounded hover:bg-gray-200">从券商同步</button>
-                        <a href="/strategies" class="text-xs bg-green-100 text-green-700 px-3 py-1 rounded hover:bg-green-200">AI 搜索策略</a>
-                    </div>
-                </div>
-                <div id="positions-list">
-                    {% include "partials/positions_list.html" %}
-                </div>
-            </div>
-
-            <!-- 快速添加持仓 -->
-            <div class="bg-white rounded-lg shadow p-6">
-                <details>
-                    <summary class="text-sm font-semibold cursor-pointer hover:text-blue-600">+ 手动添加持仓</summary>
-                    <form hx-post="/positions" hx-target="#positions-list" hx-swap="innerHTML" class="mt-4 space-y-3">
-                        <div class="grid grid-cols-6 gap-2">
-                            <input type="text" name="symbol" placeholder="代码 AAPL" class="border rounded px-2 py-1.5 text-sm" required>
-                            <select name="market" class="border rounded px-2 py-1.5 text-sm">
-                                <option value="stock">美股</option>
-                                <option value="crypto">加密</option>
-                                <option value="option">期权</option>
-                            </select>
-                            <input type="number" name="entry_price" step="0.01" placeholder="入场价" class="border rounded px-2 py-1.5 text-sm" required>
-                            <input type="number" name="stop_loss" step="0.01" placeholder="止损价" class="border rounded px-2 py-1.5 text-sm" required>
-                            <input type="number" name="quantity" step="0.01" placeholder="数量" class="border rounded px-2 py-1.5 text-sm" required>
-                            <input type="number" name="account_balance" step="0.01" placeholder="账户资金" class="border rounded px-2 py-1.5 text-sm" required>
-                        </div>
-                        <div class="flex gap-2">
-                            <input type="text" name="entry_reason" placeholder="进场理由（推荐填写）" class="flex-1 border rounded px-2 py-1.5 text-sm">
-                            <select name="emotional_state" class="border rounded px-2 py-1.5 text-sm w-24">
-                                <option value="">情绪</option>
-                                <option value="confident">自信</option>
-                                <option value="calm">冷静</option>
-                                <option value="uncertain">犹豫</option>
-                                <option value="rushing">赶入</option>
-                                <option value="chasing">追涨</option>
-                                <option value="fearful">恐惧</option>
-                            </select>
-                            <button type="submit" class="bg-green-600 text-white px-4 py-1.5 rounded text-sm hover:bg-green-500">添加</button>
-                        </div>
-                    </form>
-                </details>
-            </div>
-
-            <!-- 已平仓 -->
-            {% if closed_positions %}
-            <div class="bg-white rounded-lg shadow p-6">
-                <h2 class="text-sm font-semibold mb-3">已平仓 (最近 10 笔)</h2>
-                {% for p in closed_positions %}
-                <div class="flex justify-between items-center border-b py-1.5 text-sm">
-                    <span class="font-medium">{{ p.symbol }}</span>
-                    <span class="text-gray-500">{{ "%.2f"|format(p.entry_price) }} → {{ "%.2f"|format(p.close_price) }}</span>
-                    {% set pnl = (p.close_price - p.entry_price) * p.quantity %}
-                    <span class="{{ 'text-green-600' if pnl >= 0 else 'text-red-600' }} font-medium">${{ "%.2f"|format(pnl) }}</span>
-                </div>
-                {% endfor %}
-            </div>
-            {% endif %}
-        </div>
-
-        <!-- 右：工具 -->
-        <div class="space-y-4">
-            <!-- 仓位计算器 -->
-            <div class="bg-white rounded-lg shadow p-5">
-                <h2 class="text-sm font-semibold mb-3">仓位计算器</h2>
-                <form hx-post="/calculate" hx-target="#calc-result" hx-swap="innerHTML" class="space-y-2">
-                    <input type="number" name="account_balance" step="0.01" placeholder="账户资金 $" class="w-full border rounded px-3 py-1.5 text-sm">
-                    <div class="grid grid-cols-2 gap-2">
-                        <input type="number" name="entry_price" step="0.01" placeholder="入场价" class="border rounded px-3 py-1.5 text-sm">
-                        <input type="number" name="stop_loss" step="0.01" placeholder="止损价" class="border rounded px-3 py-1.5 text-sm">
-                    </div>
-                    <button type="submit" class="w-full bg-blue-600 text-white py-1.5 rounded text-sm hover:bg-blue-500">计算建议股数</button>
-                </form>
-                <div id="calc-result" class="mt-2"></div>
-            </div>
-
-            <!-- 修改目标 -->
-            <div class="bg-white rounded-lg shadow p-5">
-                <details>
-                    <summary class="text-sm font-semibold cursor-pointer hover:text-blue-600">修改目标</summary>
-                    <form hx-post="/goals" hx-target="#page-body" hx-swap="innerHTML" class="mt-3 space-y-2">
-                        <div>
-                            <label class="block text-xs text-gray-500">年化收益 (%)</label>
-                            <input type="number" name="annual_return_target" step="0.1" value="{{ (goals.annual_return_target * 100)|round(1) }}" class="w-full border rounded px-3 py-1.5 text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-gray-500">最大回撤 (%)</label>
-                            <input type="number" name="max_drawdown" step="0.1" value="{{ (goals.max_drawdown * 100)|round(1) }}" class="w-full border rounded px-3 py-1.5 text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-gray-500">单笔风险 (%)</label>
-                            <input type="number" name="risk_per_trade" step="0.1" value="{{ (goals.risk_per_trade * 100)|round(1) }}" class="w-full border rounded px-3 py-1.5 text-sm">
-                        </div>
-                        <button type="submit" class="w-full bg-gray-900 text-white py-1.5 rounded text-sm">更新目标</button>
-                    </form>
-                </details>
-            </div>
-
-            <!-- 快速记录日志 -->
-            <div class="bg-white rounded-lg shadow p-5">
-                <h2 class="text-sm font-semibold mb-3">交易日志</h2>
-                <form hx-post="/journal" hx-target="#journal-list" hx-swap="innerHTML" class="space-y-2">
-                    <div class="grid grid-cols-2 gap-2">
-                        <input type="text" name="symbol" placeholder="代码" class="border rounded px-2 py-1.5 text-sm" required>
-                        <select name="action" class="border rounded px-2 py-1.5 text-sm">
-                            <option value="buy">买入</option>
-                            <option value="sell">卖出</option>
-                            <option value="close">平仓</option>
-                        </select>
-                    </div>
-                    <textarea name="entry_reason" rows="2" placeholder="为什么做这个操作？" class="w-full border rounded px-2 py-1.5 text-sm"></textarea>
-                    <select name="emotional_state" class="w-full border rounded px-2 py-1.5 text-sm">
-                        <option value="">情绪状态</option>
-                        <option value="confident">自信</option>
-                        <option value="calm">冷静</option>
-                        <option value="uncertain">犹豫</option>
-                        <option value="rushing">赶入</option>
-                        <option value="chasing">追涨</option>
-                        <option value="fearful">恐惧</option>
-                    </select>
-                    <button type="submit" class="w-full bg-purple-600 text-white py-1.5 rounded text-sm hover:bg-purple-500">记录</button>
-                </form>
-                <div id="journal-list" class="mt-3">
-                    {% include "partials/journal_list.html" %}
-                </div>
-            </div>
-        </div>
-    </div>
+<!-- 日志提醒 -->
+{% if show_journal_reminder %}
+<div class="bg-accent-yellow/10 border border-accent-yellow/30 rounded-lg p-3 mb-4 text-sm text-accent-yellow">
+    连续 {{ compliance.trades_without_journal }} 笔交易没写日志。记录理由和情绪 → 3 个月后出个人交易模式分析。
 </div>
 {% endif %}
 
+<!-- 顶部状态卡片 -->
+<div class="grid grid-cols-5 gap-3 mb-6">
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
+        <div class="text-xs text-gray-500">收益目标</div>
+        <div class="text-xl font-bold text-accent-green">{{ "%.0f"|format(goals.annual_return_target * 100) }}%</div>
+    </div>
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
+        <div class="text-xs text-gray-500">最大回撤</div>
+        <div class="text-xl font-bold text-accent-red">{{ "%.0f"|format(goals.max_drawdown * 100) }}%</div>
+    </div>
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
+        <div class="text-xs text-gray-500">持仓</div>
+        <div class="text-xl font-bold text-white">{{ positions|length }} <span class="text-sm text-gray-500">/ {{ constraints.max_positions }}</span></div>
+    </div>
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
+        <div class="text-xs text-gray-500">总风险</div>
+        <div class="text-xl font-bold {{ 'text-accent-red' if total_risk_pct > 0.08 else 'text-accent-green' }}">{{ "%.1f"|format(total_risk_pct * 100) }}%</div>
+    </div>
+    <a href="/strategies" class="bg-accent-green/10 border border-accent-green/30 rounded-xl p-4 hover:bg-accent-green/20 transition">
+        <div class="text-xs text-accent-green">AI 策略</div>
+        <div class="text-sm font-bold text-accent-green mt-1">搜索策略 →</div>
+    </a>
+</div>
+
+<!-- 持仓表格 -->
+<div class="bg-dark-700 rounded-xl border border-dark-600 mb-4">
+    <div class="flex justify-between items-center px-5 py-3 border-b border-dark-600">
+        <h2 class="font-semibold text-white">当前持仓</h2>
+        <button hx-post="/sync-positions" hx-target="#positions-area" hx-swap="innerHTML"
+                class="text-xs text-gray-400 hover:text-white px-3 py-1 rounded bg-dark-600 hover:bg-dark-500">从券商同步</button>
+    </div>
+    <div id="positions-area" class="p-5">
+        {% include "partials/positions_list.html" %}
+    </div>
+</div>
+
+<!-- 添加持仓 (折叠) -->
+<div class="bg-dark-700 rounded-xl border border-dark-600 mb-4">
+    <details>
+        <summary class="px-5 py-3 text-sm text-gray-400 cursor-pointer hover:text-white">+ 手动添加持仓</summary>
+        <form hx-post="/positions" hx-target="#positions-area" hx-swap="innerHTML" class="px-5 pb-5 space-y-3">
+            <div class="grid grid-cols-6 gap-2">
+                <input type="text" name="symbol" placeholder="代码" class="bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white" required>
+                <select name="market" class="bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white">
+                    <option value="stock">美股</option>
+                    <option value="crypto">加密</option>
+                    <option value="option">期权</option>
+                </select>
+                <input type="number" name="entry_price" step="0.01" placeholder="入场价" class="bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white" required>
+                <input type="number" name="stop_loss" step="0.01" placeholder="止损价" class="bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white" required>
+                <input type="number" name="quantity" step="0.01" placeholder="数量" class="bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white" required>
+                <input type="number" name="account_balance" step="0.01" placeholder="账户资金" class="bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white" required>
+            </div>
+            <div class="flex gap-2">
+                <input type="text" name="entry_reason" placeholder="进场理由" class="flex-1 bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white">
+                <select name="emotional_state" class="bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white w-24">
+                    <option value="">情绪</option>
+                    <option value="confident">自信</option>
+                    <option value="calm">冷静</option>
+                    <option value="uncertain">犹豫</option>
+                    <option value="rushing">赶入</option>
+                    <option value="chasing">追涨</option>
+                    <option value="fearful">恐惧</option>
+                </select>
+                <button type="submit" class="bg-accent-green text-dark-900 px-5 py-2 rounded text-sm font-bold hover:brightness-110">添加</button>
+            </div>
+        </form>
+    </details>
+</div>
+
+<!-- 下方两栏：计算器 + 日志 -->
+<div class="grid grid-cols-2 gap-4">
+    <!-- 仓位计算器 -->
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-5">
+        <h3 class="text-sm font-semibold text-white mb-3">仓位计算器</h3>
+        <form hx-post="/calculate" hx-target="#calc-result" hx-swap="innerHTML" class="space-y-2">
+            <input type="number" name="account_balance" step="0.01" placeholder="账户资金 $"
+                   class="w-full bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white">
+            <div class="grid grid-cols-2 gap-2">
+                <input type="number" name="entry_price" step="0.01" placeholder="入场价"
+                       class="bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white">
+                <input type="number" name="stop_loss" step="0.01" placeholder="止损价"
+                       class="bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white">
+            </div>
+            <button type="submit" class="w-full bg-accent-blue text-white py-2 rounded text-sm font-medium hover:brightness-110">计算建议股数</button>
+        </form>
+        <div id="calc-result" class="mt-3"></div>
+    </div>
+
+    <!-- 交易日志 + 已平仓 -->
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-5">
+        <h3 class="text-sm font-semibold text-white mb-3">交易日志</h3>
+        <form hx-post="/journal" hx-target="#journal-list" hx-swap="innerHTML" class="space-y-2">
+            <div class="grid grid-cols-2 gap-2">
+                <input type="text" name="symbol" placeholder="代码" class="bg-dark-800 border border-dark-500 rounded px-2 py-1.5 text-sm text-white" required>
+                <select name="action" class="bg-dark-800 border border-dark-500 rounded px-2 py-1.5 text-sm text-white">
+                    <option value="buy">买入</option><option value="sell">卖出</option><option value="close">平仓</option>
+                </select>
+            </div>
+            <input type="text" name="entry_reason" placeholder="为什么做这个操作？" class="w-full bg-dark-800 border border-dark-500 rounded px-2 py-1.5 text-sm text-white">
+            <div class="flex gap-2">
+                <select name="emotional_state" class="flex-1 bg-dark-800 border border-dark-500 rounded px-2 py-1.5 text-sm text-white">
+                    <option value="">情绪</option><option value="confident">自信</option><option value="calm">冷静</option>
+                    <option value="uncertain">犹豫</option><option value="rushing">赶入</option><option value="fearful">恐惧</option>
+                </select>
+                <button type="submit" class="bg-purple-600 text-white px-4 py-1.5 rounded text-sm hover:brightness-110">记录</button>
+            </div>
+        </form>
+        <div id="journal-list" class="mt-3">
+            {% include "partials/journal_list.html" %}
+        </div>
+    </div>
+</div>
+
+<!-- 已平仓 -->
+{% if closed_positions %}
+<div class="bg-dark-700 rounded-xl border border-dark-600 mt-4 p-5">
+    <h3 class="text-sm font-semibold text-white mb-3">已平仓</h3>
+    {% for p in closed_positions %}
+    <div class="flex justify-between items-center border-b border-dark-600 py-2 text-sm">
+        <span class="font-medium text-white">{{ p.symbol }}</span>
+        <span class="text-gray-400">${{ "%.2f"|format(p.entry_price) }} → ${{ "%.2f"|format(p.close_price) }}</span>
+        {% set pnl = (p.close_price - p.entry_price) * p.quantity %}
+        <span class="{{ 'text-accent-green' if pnl >= 0 else 'text-accent-red' }} font-medium">${{ "%.2f"|format(pnl) }}</span>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% endif %}
 {% endblock %}

@@ -1,18 +1,17 @@
 {% if results %}
-<div class="space-y-3">
-    <h3 class="font-semibold text-sm">{{ config.strategy_name }} 压力测试</h3>
+<div class="space-y-2">
+    <h3 class="text-sm font-semibold text-white">{{ config.strategy_name }} 压力测试</h3>
+    <p class="text-xs text-gray-500 mb-2" title="在历史上最极端的市场时期测试策略表现">测试策略在金融危机、疫情崩盘等极端行情下的表现</p>
     {% for r in results %}
-    <div class="border rounded p-3 {{ 'border-red-200 bg-red-50' if r.metrics and r.metrics.max_drawdown < -0.1 else 'border-green-200 bg-green-50' if r.metrics else 'bg-gray-50' }}">
-        <div class="font-medium text-sm">{{ r.period }}</div>
-        {% if r.error %}
-        <div class="text-xs text-gray-500">{{ r.error }}</div>
-        {% elif r.metrics %}
-        <div class="grid grid-cols-3 gap-1 text-xs mt-1">
-            <div>收益: {{ "%.1f"|format(r.metrics.total_return * 100) }}%</div>
-            <div>回撤: {{ "%.1f"|format(r.metrics.max_drawdown * 100) }}%</div>
-            <div>交易: {{ r.metrics.total_trades }}</div>
+    <div class="bg-dark-800 rounded-lg p-3 border {{ 'border-accent-red/30' if r.metrics and r.metrics.max_drawdown < -0.1 else 'border-dark-600' }}">
+        <div class="flex justify-between text-sm">
+            <span class="text-white">{{ r.period }}</span>
+            {% if r.metrics %}
+            <span class="{{ 'text-accent-green' if r.metrics.total_return >= 0 else 'text-accent-red' }}">{{ "%.1f"|format(r.metrics.total_return * 100) }}%</span>
+            {% endif %}
         </div>
-        {% endif %}
+        {% if r.error %}<div class="text-xs text-gray-500">{{ r.error }}</div>
+        {% elif r.metrics %}<div class="text-xs text-gray-500">回撤 {{ "%.1f"|format(r.metrics.max_drawdown * 100) }}% | {{ r.metrics.total_trades }} 笔</div>{% endif %}
     </div>
     {% endfor %}
 </div>

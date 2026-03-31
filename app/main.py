@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from models import (init_db, get_db, UserGoals, Position, TradeJournal, JournalCompliance,
                      StrategyConfig, BacktestRun, TradeSignal, StrategyLeaderboard,
-                     AlertConfig, AlertHistory, ExecutionLog, Base, engine)
+                     AlertConfig, AlertHistory, ExecutionLog, ApiConfig, Base, engine)
 from calculator import calculate_position_size, derive_constraints, check_can_open_position
 from schemas import GoalsCreate, PositionCreate, CalculateRequest, PositionClose
 from market_data import fetch_current_price, fetch_vix, detect_market_regime, fetch_stock_history, compute_technicals
@@ -634,3 +634,67 @@ def check_risk(request: Request, db: Session = Depends(get_db)):
     from alerts import check_and_fire_alerts
     fired = check_and_fire_alerts(db)
     return HTMLResponse(f'<div class="p-3 text-sm text-blue-600">检查完成。触发了 {len(fired)} 条告警。</div>')
+
+
+# ===== 设置：API 配置 =====
+
+API_SERVICES = [
+    {"name": "alpaca", "display": "Alpaca (美股券商)", "desc": "用于同步持仓、执行交易。推荐 Paper Trading 模式先练手。", "fields": ["API Key", "Secret Key"], "env_keys": ["ALPACA_API_KEY", "ALPACA_SECRET_KEY"]},
+    {"name": "ccxt_binance", "display": "Binance (加密货币)", "desc": "获取加密货币行情和交易。公开行情不需要 API Key。", "fields": ["API Key", "Secret Key"], "env_keys": ["CCXT_BINANCE_API_KEY", "CCXT_BINANCE_SECRET"]},
+    {"name": "ccxt_okx", "display": "OKX (加密货币)", "desc": "获取 OKX 交易所行情和交易数据。", "fields": ["API Key", "Secret Key"], "env_keys": ["CCXT_OKX_API_KEY", "CCXT_OKX_SECRET"]},
+    {"name": "feishu", "display": "飞书 (告警通知)", "desc": "通过飞书机器人 Webhook 接收风险告警推送。", "fields": ["Webhook URL"], "env_keys": ["FEISHU_WEBHOOK_URL"]},
+    {"name": "twilio", "display": "Twilio (短信告警)", "desc": "通过短信接收风险告警。需要 Twilio 账号。", "fields": ["Account SID", "Auth Token", "发送号码", "接收号码"], "env_keys": ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_FROM_NUMBER", "TWILIO_TO_NUMBER"]},
+]
+
+
+@app.get("/settings", response_class=HTMLResponse)
+def settings_page(request: Request, db: Session = Depends(get_db)):
+    configs = {}
+    for svc in API_SERVICES:
+        cfg = db.query(ApiConfig).filter(ApiConfig.service_name == svc["name"]).first()
+        configs[svc["name"]] = cfg
+    alert_cfg = db.query(AlertConfig).first()
+    return templates.TemplateResponse("settings.html", {
+        "request": request,
+        "services": API_SERVICES,
+        "configs": configs,
+        "alert_config": alert_cfg,
+    })
+
+
+@app.post("/settings/api/{service_name}", response_class=HTMLResponse)
+def save_api_config(
+    request: Request,
+    service_name: str,
+    db: Session = Depends(get_db),
+    api_key: str = Form(None),
+    api_secret: str = Form(None),
+    extra_1: str = Form(None),
+    extra_2: str = Form(None),
+):
+    import json, os
+    cfg = db.query(ApiConfig).filter(ApiConfig.service_name == service_name).first()
+    if not cfg:
+        svc = next((s for s in API_SERVICES if s["name"] == service_name), None)
+        cfg = ApiConfig(service_name=service_name, display_name=svc["display"] if svc else service_name)
+        db.add(cfg)
+
+    cfg.api_key = api_key
+    cfg.api_secret = api_secret
+    cfg.extra_config = json.dumps({"extra_1": extra_1, "extra_2": extra_2}) if extra_1 or extra_2 else None
+    cfg.is_active = bool(api_key)
+    cfg.status = "已配置" if api_key else "未配置"
+
+    # Write to environment for immediate use
+    svc = next((s for s in API_SERVICES if s["name"] == service_name), None)
+    if svc and api_key:
+        os.environ[svc["env_keys"][0]] = api_key
+        if api_secret and len(svc["env_keys"]) > 1:
+            os.environ[svc["env_keys"][1]] = api_secret
+        if extra_1 and len(svc["env_keys"]) > 2:
+            os.environ[svc["env_keys"][2]] = extra_1
+        if extra_2 and len(svc["env_keys"]) > 3:
+            os.environ[svc["env_keys"][3]] = extra_2
+
+    db.commit()
+    return HTMLResponse(f'<div class="text-accent-green text-xs py-2">{cfg.display_name} 配置已保存</div>')

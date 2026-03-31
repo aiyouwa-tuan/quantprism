@@ -1,25 +1,23 @@
 {% if recent_journals %}
-<div class="space-y-2 mt-2">
-    {% for j in recent_journals %}
-    <div class="border-l-2 {{ 'border-green-400' if j.action == 'buy' else 'border-red-400' if j.action == 'sell' else 'border-gray-400' }} pl-3 py-1">
-        <div class="flex justify-between text-sm">
-            <span class="font-medium">{{ j.symbol }} - {{ j.action }}</span>
-            <span class="text-xs text-gray-400">{{ j.created_at.strftime('%m/%d %H:%M') }}</span>
-        </div>
-        {% if j.entry_reason %}
-        <p class="text-xs text-gray-600 mt-1">{{ j.entry_reason[:80] }}{{ '...' if j.entry_reason|length > 80 else '' }}</p>
-        {% endif %}
-        {% if j.emotional_state %}
-        <span class="inline-block text-xs mt-1 px-2 py-0.5 rounded
-            {{ 'bg-green-100 text-green-700' if j.emotional_state in ['confident', 'calm'] else
-               'bg-yellow-100 text-yellow-700' if j.emotional_state == 'uncertain' else
-               'bg-red-100 text-red-700' }}">
-            {{ j.emotional_state }}
-        </span>
-        {% endif %}
+<div class="space-y-2">
+{% for j in recent_journals %}
+<div class="border-l-2 {{ 'border-accent-green' if j.action == 'buy' else 'border-accent-red' if j.action == 'sell' else 'border-gray-600' }} pl-3 py-1">
+    <div class="flex justify-between text-xs">
+        <span class="text-white font-medium">{{ j.symbol }} · {{ j.action }}</span>
+        <span class="text-gray-500">{{ j.created_at.strftime('%m/%d %H:%M') }}</span>
     </div>
-    {% endfor %}
+    {% if j.entry_reason %}
+    <p class="text-xs text-gray-400 mt-0.5">{{ j.entry_reason[:60] }}</p>
+    {% endif %}
+    {% if j.emotional_state %}
+    <span class="inline-block text-xs mt-0.5 px-1.5 py-0.5 rounded
+        {{ 'bg-accent-green/20 text-accent-green' if j.emotional_state in ['confident', 'calm'] else
+           'bg-accent-yellow/20 text-accent-yellow' if j.emotional_state == 'uncertain' else
+           'bg-accent-red/20 text-accent-red' }}">{{ j.emotional_state }}</span>
+    {% endif %}
+</div>
+{% endfor %}
 </div>
 {% else %}
-<p class="text-sm text-gray-400 text-center py-4">暂无日志记录</p>
+<p class="text-xs text-gray-500 text-center py-3">暂无日志</p>
 {% endif %}

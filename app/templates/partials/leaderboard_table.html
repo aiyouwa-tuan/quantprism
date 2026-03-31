@@ -1,20 +1,18 @@
 {% if leaderboard %}
 <table class="w-full text-xs">
-    <thead><tr class="border-b text-gray-500">
+    <thead><tr class="text-gray-500 border-b border-dark-600">
         <th class="text-left py-1">策略</th><th>Sharpe</th><th>年化</th><th>回撤</th><th>胜率</th>
     </tr></thead>
     <tbody>
     {% for l in leaderboard %}
-    <tr class="border-b">
-        <td class="py-1 font-medium">{{ l.strategy_name }}</td>
+    <tr class="border-b border-dark-600/50">
+        <td class="py-1 text-white">{{ l.strategy_name }}</td>
         <td class="text-center">{{ l.sharpe_ratio }}</td>
-        <td class="text-center {{ 'text-green-600' if l.annual_return and l.annual_return > 0 else 'text-red-600' }}">{{ "%.1f"|format((l.annual_return or 0) * 100) }}%</td>
-        <td class="text-center text-red-600">{{ "%.1f"|format((l.max_drawdown or 0) * 100) }}%</td>
+        <td class="text-center {{ 'text-accent-green' if l.annual_return and l.annual_return > 0 else 'text-accent-red' }}">{{ "%.1f"|format((l.annual_return or 0) * 100) }}%</td>
+        <td class="text-center text-accent-red">{{ "%.1f"|format((l.max_drawdown or 0) * 100) }}%</td>
         <td class="text-center">{{ "%.0f"|format((l.win_rate or 0) * 100) }}%</td>
     </tr>
     {% endfor %}
     </tbody>
 </table>
-{% else %}
-<p class="text-sm text-gray-400">点击"刷新"生成排行榜</p>
-{% endif %}
+{% else %}<p class="text-xs text-gray-500">暂无数据</p>{% endif %}

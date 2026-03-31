@@ -1,77 +1,71 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
-    <div class="bg-white rounded-lg shadow p-6">
-        <h3 class="text-sm text-gray-500">总风险敞口</h3>
-        <p class="text-2xl font-bold {{ 'text-red-600' if risk.total_risk_pct > 0.08 else 'text-green-600' }}">{{ "%.1f"|format(risk.total_risk_pct * 100) }}%</p>
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-xl font-bold text-white">风险监控</h1>
+    <button hx-post="/risk/check" hx-target="#alert-result" class="bg-accent-red/20 text-accent-red px-4 py-2 rounded-lg text-sm hover:bg-accent-red/30">手动检查</button>
+</div>
+<div id="alert-result"></div>
+
+<div class="grid grid-cols-4 gap-3 mb-6">
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
+        <div class="text-xs text-gray-500" title="所有持仓风险占账户的百分比之和">总风险敞口</div>
+        <div class="text-xl font-bold {{ 'text-accent-red' if risk.total_risk_pct > 0.08 else 'text-accent-green' }}">{{ "%.1f"|format(risk.total_risk_pct * 100) }}%</div>
     </div>
-    <div class="bg-white rounded-lg shadow p-6">
-        <h3 class="text-sm text-gray-500">当前回撤</h3>
-        <p class="text-2xl font-bold {{ 'text-red-600' if risk.current_drawdown > risk.drawdown_limit * 0.8 else '' }}">{{ "%.1f"|format(risk.current_drawdown * 100) }}%</p>
-        <p class="text-xs text-gray-400">上限 {{ "%.1f"|format(risk.drawdown_limit * 100) }}% | 余量 {{ "%.1f"|format(risk.drawdown_headroom * 100) }}%</p>
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
+        <div class="text-xs text-gray-500" title="当前账户从最高点下跌的百分比">当前回撤</div>
+        <div class="text-xl font-bold text-white">{{ "%.1f"|format(risk.current_drawdown * 100) }}%</div>
+        <div class="text-xs text-gray-500">上限 {{ "%.0f"|format(risk.drawdown_limit * 100) }}% | 余量 {{ "%.1f"|format(risk.drawdown_headroom * 100) }}%</div>
     </div>
-    <div class="bg-white rounded-lg shadow p-6">
-        <h3 class="text-sm text-gray-500">市场环境</h3>
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
+        <div class="text-xs text-gray-500" title="VIX 衡量市场恐慌程度。< 20 正常，> 30 危险">市场环境</div>
         <div class="flex items-center gap-2 mt-1">
-            <span class="w-3 h-3 rounded-full {{ 'bg-green-500' if risk.regime.regime in ['low_vol','normal'] else 'bg-yellow-500' if risk.regime.regime == 'mid_vol' else 'bg-red-500' }}"></span>
-            <span class="text-lg font-bold">VIX {{ risk.regime.vix }}</span>
+            <span class="w-2.5 h-2.5 rounded-full {{ 'bg-accent-green' if risk.regime.regime in ['low_vol','normal'] else 'bg-accent-yellow' if risk.regime.regime == 'mid_vol' else 'bg-accent-red' }}"></span>
+            <span class="text-lg font-bold text-white">VIX {{ risk.regime.vix }}</span>
         </div>
-        <p class="text-xs text-gray-400">{{ risk.regime.description }}</p>
+        <div class="text-xs text-gray-500">{{ risk.regime.description }}</div>
     </div>
-    <div class="bg-white rounded-lg shadow p-6">
-        <h3 class="text-sm text-gray-500">持仓</h3>
-        <p class="text-2xl font-bold">{{ risk.position_count }} / {{ risk.max_positions }}</p>
-        <button hx-post="/risk/check" hx-target="#alert-result" class="mt-2 text-xs bg-red-100 text-red-700 px-3 py-1 rounded hover:bg-red-200">手动检查风险</button>
-        <div id="alert-result"></div>
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
+        <div class="text-xs text-gray-500">持仓</div>
+        <div class="text-xl font-bold text-white">{{ risk.position_count }} / {{ risk.max_positions }}</div>
     </div>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-lg font-semibold mb-4">高风险持仓</h2>
+<div class="grid grid-cols-2 gap-6">
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-5">
+        <h2 class="text-sm font-semibold text-white mb-3" title="风险超过 3% 的持仓">高风险持仓</h2>
         {% if risk.positions_at_risk %}
         {% for p in risk.positions_at_risk %}
-        <div class="flex justify-between items-center border-b py-2">
-            <span class="font-medium text-sm">{{ p.symbol }}</span>
-            <div class="text-sm">
-                <span class="text-red-600">风险 {{ "%.1f"|format((p.risk_pct or 0) * 100) }}%</span>
-                {% if p.unrealized_pnl %}<span class="ml-2 {{ 'text-green-600' if p.unrealized_pnl >= 0 else 'text-red-600' }}">${{ "%.2f"|format(p.unrealized_pnl) }}</span>{% endif %}
-            </div>
+        <div class="flex justify-between items-center border-b border-dark-600/50 py-2 text-sm">
+            <span class="text-white font-medium">{{ p.symbol }}</span>
+            <span class="text-accent-red">风险 {{ "%.1f"|format((p.risk_pct or 0) * 100) }}%</span>
         </div>
         {% endfor %}
-        {% else %}
-        <p class="text-sm text-green-600">没有高风险持仓 (风险 > 3%)</p>
-        {% endif %}
+        {% else %}<p class="text-accent-green text-sm">没有高风险持仓</p>{% endif %}
     </div>
 
-    <div class="bg-white rounded-lg shadow p-6">
-        <div class="flex justify-between items-center mb-4">
-            <h2 class="text-lg font-semibold">告警配置</h2>
-            <a href="/alerts/config" class="text-xs text-blue-600 hover:underline">编辑配置</a>
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-5">
+        <div class="flex justify-between items-center mb-3">
+            <h2 class="text-sm font-semibold text-white">告警</h2>
+            <a href="/alerts/config" class="text-xs text-accent-blue hover:underline">配置</a>
         </div>
         {% if alert_config %}
-        <div class="space-y-1 text-sm">
-            <div class="flex justify-between"><span class="text-gray-600">飞书</span><span>{{ '已配置' if alert_config.feishu_webhook_url else '未配置' }}</span></div>
-            <div class="flex justify-between"><span class="text-gray-600">短信</span><span>{{ '已开启' if alert_config.sms_enabled else '未开启' }}</span></div>
-            <div class="flex justify-between"><span class="text-gray-600">回撤预警线</span><span>{{ "%.0f"|format(alert_config.drawdown_warn_pct * 100) }}%</span></div>
-            <div class="flex justify-between"><span class="text-gray-600">回撤临界线</span><span class="text-red-600">{{ "%.0f"|format(alert_config.drawdown_critical_pct * 100) }}%</span></div>
+        <div class="text-xs space-y-1">
+            <div class="flex justify-between"><span class="text-gray-500">飞书</span><span class="{{ 'text-accent-green' if alert_config.feishu_webhook_url else 'text-gray-600' }}">{{ '已配置' if alert_config.feishu_webhook_url else '未配置' }}</span></div>
+            <div class="flex justify-between"><span class="text-gray-500">短信</span><span class="{{ 'text-accent-green' if alert_config.sms_enabled else 'text-gray-600' }}">{{ '已开启' if alert_config.sms_enabled else '未开启' }}</span></div>
+            <div class="flex justify-between"><span class="text-gray-500">回撤预警</span><span>{{ "%.0f"|format(alert_config.drawdown_warn_pct * 100) }}%</span></div>
         </div>
-        {% else %}
-        <p class="text-sm text-gray-400">未配置。<a href="/alerts/config" class="text-blue-600">去配置</a></p>
-        {% endif %}
+        {% else %}<p class="text-gray-500 text-sm"><a href="/alerts/config" class="text-accent-blue">去配置告警</a></p>{% endif %}
 
-        <h3 class="font-semibold text-sm mt-6 mb-2">最近告警</h3>
         {% if recent_alerts %}
-        {% for a in recent_alerts[:5] %}
-        <div class="border-b py-1 text-xs">
-            <div class="flex justify-between">
-                <span class="{{ 'text-red-600' if 'critical' in (a.alert_type or '') else 'text-yellow-600' }}">{{ a.title }}</span>
-                <span class="text-gray-400">{{ a.created_at.strftime('%m/%d %H:%M') }}</span>
+        <div class="mt-3 pt-3 border-t border-dark-600">
+            <div class="text-xs text-gray-500 mb-2">最近告警</div>
+            {% for a in recent_alerts[:3] %}
+            <div class="text-xs border-b border-dark-600/50 py-1">
+                <span class="{{ 'text-accent-red' if 'critical' in (a.alert_type or '') else 'text-accent-yellow' }}">{{ a.title }}</span>
+                <span class="text-gray-600 float-right">{{ a.created_at.strftime('%m/%d %H:%M') }}</span>
             </div>
+            {% endfor %}
         </div>
-        {% endfor %}
-        {% else %}
-        <p class="text-xs text-gray-400">暂无告警记录</p>
         {% endif %}
     </div>
 </div>

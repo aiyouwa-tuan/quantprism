@@ -224,6 +224,21 @@ class AlertHistory(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class ApiConfig(Base):
+    """API 配置 (统一管理所有外部服务密钥)"""
+    __tablename__ = "api_config"
+
+    id = Column(Integer, primary_key=True)
+    service_name = Column(String(50), nullable=False, unique=True)  # alpaca / ccxt_binance / feishu / twilio
+    display_name = Column(String(100))
+    api_key = Column(Text, nullable=True)
+    api_secret = Column(Text, nullable=True)
+    extra_config = Column(Text, nullable=True)  # JSON for additional fields
+    is_active = Column(Boolean, default=False)
+    status = Column(String(20), default="未配置")  # 未配置 / 已配置 / 已验证 / 错误
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 def init_db():
     """创建所有表"""
     Base.metadata.create_all(engine)

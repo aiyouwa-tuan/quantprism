@@ -1,24 +1,18 @@
 {% if matches %}
 <div class="space-y-3">
-    <h3 class="font-semibold text-sm">目标匹配结果 ({{ "%.0f"|format(goals.annual_return_target * 100) }}% 收益 / {{ "%.0f"|format(goals.max_drawdown * 100) }}% 回撤)</h3>
     {% for m in matches %}
-    <div class="border rounded p-3 {{ 'border-green-300 bg-green-50' if m.compatible else 'border-red-200 bg-red-50' }}">
+    <div class="bg-dark-800 rounded-lg p-4 border {{ 'border-accent-green/30' if m.compatible else 'border-dark-600' }}">
         <div class="flex justify-between items-center">
-            <span class="font-medium text-sm">{{ m.strategy_name }}</span>
-            <span class="text-xs px-2 py-0.5 rounded {{ 'bg-green-200 text-green-800' if m.compatible else 'bg-red-200 text-red-800' }}">
-                {{ '兼容' if m.compatible else '不兼容' }}
-            </span>
+            <span class="text-white font-medium">{{ m.strategy_name }}</span>
+            <span class="text-xs px-2 py-0.5 rounded {{ 'bg-accent-green/20 text-accent-green' if m.compatible else 'bg-accent-red/20 text-accent-red' }}">{{ '兼容' if m.compatible else '不兼容' }}</span>
         </div>
-        <p class="text-xs text-gray-600 mt-1">{{ m.description }}</p>
-        <div class="grid grid-cols-3 gap-1 text-xs mt-2">
-            <div>Sharpe: {{ m.metrics.sharpe_ratio }}</div>
-            <div>年化: {{ "%.1f"|format(m.metrics.annual_return * 100) }}%</div>
-            <div>回撤: {{ "%.1f"|format(m.metrics.max_drawdown * 100) }}%</div>
+        <div class="grid grid-cols-3 gap-2 text-xs mt-2 text-center">
+            <div><span class="text-gray-500">Sharpe</span><div class="text-white">{{ m.metrics.sharpe_ratio }}</div></div>
+            <div><span class="text-gray-500">年化</span><div class="{{ 'text-accent-green' if m.metrics.annual_return > 0 else 'text-accent-red' }}">{{ "%.1f"|format(m.metrics.annual_return * 100) }}%</div></div>
+            <div><span class="text-gray-500">回撤</span><div class="text-accent-red">{{ "%.1f"|format(m.metrics.max_drawdown * 100) }}%</div></div>
         </div>
-        <p class="text-xs mt-1 {{ 'text-green-700' if m.compatible else 'text-red-600' }}">{{ m.recommendation }}</p>
+        <p class="text-xs mt-2 {{ 'text-accent-green' if m.compatible else 'text-accent-red' }}">{{ m.recommendation }}</p>
     </div>
     {% endfor %}
 </div>
-{% else %}
-<p class="text-sm text-gray-400">未找到匹配策略</p>
 {% endif %}

@@ -1,59 +1,56 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-    <!-- 汇总卡片 -->
-    <div class="bg-white rounded-lg shadow p-6">
-        <h3 class="text-sm text-gray-500">总持仓</h3>
-        <p class="text-2xl font-bold">{{ positions|length }}</p>
-        {% if goals %}<p class="text-xs text-gray-400">上限 {{ goals.max_positions }}</p>{% endif %}
+<h1 class="text-xl font-bold text-white mb-6">投资组合</h1>
+
+<div class="grid grid-cols-4 gap-3 mb-6">
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
+        <div class="text-xs text-gray-500">持仓数</div>
+        <div class="text-xl font-bold text-white">{{ positions|length }}{% if goals %} <span class="text-sm text-gray-500">/ {{ goals.max_positions }}</span>{% endif %}</div>
     </div>
-    <div class="bg-white rounded-lg shadow p-6">
-        <h3 class="text-sm text-gray-500">总风险</h3>
-        <p class="text-2xl font-bold {{ 'text-red-600' if total_risk_pct > 0.08 else 'text-green-600' }}">{{ "%.1f"|format(total_risk_pct * 100) }}%</p>
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
+        <div class="text-xs text-gray-500">总风险</div>
+        <div class="text-xl font-bold {{ 'text-accent-red' if total_risk_pct > 0.08 else 'text-accent-green' }}">{{ "%.1f"|format(total_risk_pct * 100) }}%</div>
     </div>
-    <div class="bg-white rounded-lg shadow p-6">
-        <h3 class="text-sm text-gray-500">市场环境</h3>
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
+        <div class="text-xs text-gray-500">VIX</div>
         <div class="flex items-center gap-2 mt-1">
-            <span class="w-3 h-3 rounded-full {{ 'bg-green-500' if regime.regime in ['low_vol','normal'] else 'bg-yellow-500' if regime.regime == 'mid_vol' else 'bg-red-500' }}"></span>
-            <span class="text-lg font-bold">VIX {{ regime.vix }}</span>
+            <span class="w-2.5 h-2.5 rounded-full {{ 'bg-accent-green' if regime.regime in ['low_vol','normal'] else 'bg-accent-yellow' if regime.regime == 'mid_vol' else 'bg-accent-red' }}"></span>
+            <span class="text-lg font-bold text-white">{{ regime.vix }}</span>
         </div>
-        <p class="text-xs text-gray-400">{{ regime.description }}</p>
     </div>
-    <div class="bg-white rounded-lg shadow p-6">
-        <h3 class="text-sm text-gray-500">按市场分布</h3>
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
+        <div class="text-xs text-gray-500">市场分布</div>
         {% for market, pos_list in by_market.items() %}
-        <div class="flex justify-between text-sm mt-1">
-            <span>{{ market }}</span><span class="font-medium">{{ pos_list|length }}</span>
-        </div>
+        <span class="text-sm text-gray-300">{{ market }}: {{ pos_list|length }}</span>{{ "  " if not loop.last }}
         {% endfor %}
-        {% if not by_market %}<p class="text-xs text-gray-400 mt-1">暂无持仓</p>{% endif %}
     </div>
 </div>
 
-<!-- 持仓明细 -->
-<div class="mt-6 bg-white rounded-lg shadow p-6">
-    <h2 class="text-lg font-semibold mb-4">所有持仓</h2>
+<div class="bg-dark-700 rounded-xl border border-dark-600">
+    <div class="px-5 py-3 border-b border-dark-600">
+        <h2 class="font-semibold text-white">所有持仓</h2>
+    </div>
     {% if positions %}
     <table class="w-full text-sm">
-        <thead><tr class="border-b text-gray-500 text-xs">
-            <th class="text-left py-2">代码</th><th>市场</th><th>入场价</th><th>止损</th><th>数量</th><th>风险%</th><th>来源</th>
+        <thead><tr class="text-gray-500 text-xs border-b border-dark-600">
+            <th class="text-left px-5 py-2">代码</th><th class="text-left">市场</th><th class="text-right">入场价</th><th class="text-right">止损</th><th class="text-right">数量</th><th class="text-right">风险%</th><th class="text-right px-5">来源</th>
         </tr></thead>
         <tbody>
         {% for p in positions %}
-        <tr class="border-b hover:bg-gray-50">
-            <td class="py-2 font-medium">{{ p.symbol }}</td>
-            <td class="text-center"><span class="text-xs px-2 py-0.5 rounded {{ 'bg-blue-100' if p.market == 'stock' else 'bg-orange-100' if p.market == 'crypto' else 'bg-purple-100' }}">{{ p.market }}</span></td>
-            <td class="text-center">${{ "%.2f"|format(p.entry_price) }}</td>
-            <td class="text-center">${{ "%.2f"|format(p.stop_loss) }}</td>
-            <td class="text-center">{{ p.quantity }}</td>
-            <td class="text-center {{ 'text-red-600' if (p.risk_pct_of_account or 0) > 0.03 else '' }}">{{ "%.1f"|format((p.risk_pct_of_account or 0) * 100) }}%</td>
-            <td class="text-center text-xs text-gray-400">{{ p.source or 'manual' }}</td>
+        <tr class="border-b border-dark-600/50 hover:bg-dark-600/30">
+            <td class="px-5 py-2.5 font-medium text-white">{{ p.symbol }}</td>
+            <td><span class="text-xs px-1.5 py-0.5 rounded {{ 'bg-accent-blue/20 text-accent-blue' if p.market == 'stock' else 'bg-accent-yellow/20 text-accent-yellow' if p.market == 'crypto' else 'bg-purple-500/20 text-purple-400' }}">{{ p.market }}</span></td>
+            <td class="text-right text-gray-300">${{ "%.2f"|format(p.entry_price) }}</td>
+            <td class="text-right text-gray-400">${{ "%.2f"|format(p.stop_loss) }}</td>
+            <td class="text-right text-gray-300">{{ p.quantity }}</td>
+            <td class="text-right {{ 'text-accent-red' if (p.risk_pct_of_account or 0) > 0.03 else 'text-gray-300' }}">{{ "%.1f"|format((p.risk_pct_of_account or 0) * 100) }}%</td>
+            <td class="text-right px-5 text-xs text-gray-500">{{ p.source or 'manual' }}</td>
         </tr>
         {% endfor %}
         </tbody>
     </table>
     {% else %}
-    <p class="text-gray-400 text-center py-8">暂无持仓。前往 <a href="/" class="text-blue-600">Dashboard</a> 添加。</p>
+    <p class="text-center text-gray-500 py-10">暂无持仓。前往 <a href="/" class="text-accent-blue hover:underline">Dashboard</a> 添加。</p>
     {% endif %}
 </div>
 {% endblock %}
