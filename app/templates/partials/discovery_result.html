@@ -1,0 +1,66 @@
+<div class="space-y-4">
+    <div class="bg-blue-50 rounded p-3 text-sm">
+        <div class="font-semibold">AI 策略搜索完成</div>
+        <div class="text-gray-600 mt-1">
+            测试了 {{ discovery.total_tested }} 种策略组合 |
+            {{ discovery.total_compatible }} 个兼容你的目标 |
+            自动保存了 {{ discovery.auto_saved }} 个最佳策略
+        </div>
+        <div class="text-xs text-gray-400 mt-1">目标: {{ "%.0f"|format(goals.annual_return_target * 100) }}% 年化收益 / {{ "%.0f"|format(goals.max_drawdown * 100) }}% 最大回撤</div>
+    </div>
+
+    {% for r in discovery.results[:10] %}
+    <div class="border rounded p-4 {{ 'border-green-300 bg-green-50' if r.quality >= 2 else 'border-yellow-200 bg-yellow-50' if r.compatible else 'border-gray-200' }}">
+        <div class="flex justify-between items-start">
+            <div>
+                <span class="text-xs text-gray-400">#{{ r.rank }}</span>
+                <span class="font-bold text-sm ml-1">{{ r.strategy_name }}</span>
+                <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded ml-2">{{ r.symbol }}</span>
+                {% if r.auto_saved %}
+                <span class="text-xs bg-green-200 text-green-800 px-2 py-0.5 rounded ml-1">已自动保存</span>
+                {% endif %}
+            </div>
+            <span class="text-xs px-2 py-1 rounded {{ 'bg-green-200 text-green-800' if r.quality >= 2 else 'bg-yellow-200 text-yellow-800' if r.compatible else 'bg-red-200 text-red-800' }}">
+                {{ '强烈推荐' if r.quality >= 3 else '兼容' if r.compatible else '不兼容' }}
+            </span>
+        </div>
+
+        <div class="text-xs text-gray-600 mt-1">{{ r.param_desc }}</div>
+
+        <div class="grid grid-cols-4 gap-2 text-xs mt-2">
+            <div>
+                <span class="text-gray-500">年化</span>
+                <span class="block font-medium {{ 'text-green-600' if r.metrics.annual_return > 0 else 'text-red-600' }}">{{ "%.1f"|format(r.metrics.annual_return * 100) }}%</span>
+            </div>
+            <div>
+                <span class="text-gray-500">最大回撤</span>
+                <span class="block font-medium text-red-600">{{ "%.1f"|format(r.metrics.max_drawdown * 100) }}%</span>
+            </div>
+            <div>
+                <span class="text-gray-500">Sharpe</span>
+                <span class="block font-medium">{{ r.metrics.sharpe_ratio }}</span>
+            </div>
+            <div>
+                <span class="text-gray-500">胜率</span>
+                <span class="block font-medium">{{ "%.0f"|format(r.metrics.win_rate * 100) }}%</span>
+            </div>
+        </div>
+
+        <div class="text-xs mt-2 {{ 'text-green-700' if r.quality >= 2 else 'text-yellow-700' if r.compatible else 'text-red-600' }}">
+            {{ r.recommendation }}
+        </div>
+
+        {% if r.metrics.total_trades < 3 %}
+        <div class="text-xs text-gray-400 mt-1">仅 {{ r.metrics.total_trades }} 笔交易，样本量不足</div>
+        {% else %}
+        <div class="text-xs text-gray-400 mt-1">{{ r.metrics.total_trades }} 笔交易 | 盈亏比 {{ r.metrics.profit_factor }}</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    {% if discovery.total_compatible == 0 %}
+    <div class="bg-red-50 rounded p-4 text-sm text-red-700">
+        没有找到完全兼容你目标的策略。建议放宽最大回撤到 15-20%，或者降低收益目标。
+    </div>
+    {% endif %}
+</div>

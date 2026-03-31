@@ -24,6 +24,9 @@
         <span class="font-medium">{{ "%.1f"|format(constraints.max_position_pct * 100) }}%</span>
     </div>
     {% endif %}
+    <a href="/strategies" class="block mt-3 text-center bg-green-600 text-white py-2 rounded hover:bg-green-500 text-sm">
+        下一步：根据目标匹配策略 →
+    </a>
 </div>
 {% else %}
 <p class="text-sm text-gray-400">尚未设定目标</p>

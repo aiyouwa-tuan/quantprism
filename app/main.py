@@ -349,6 +349,23 @@ def strategies_page(request: Request, db: Session = Depends(get_db)):
     })
 
 
+@app.post("/strategies/discover", response_class=HTMLResponse)
+def discover_strategies_endpoint(request: Request, db: Session = Depends(get_db)):
+    """AI 自动搜索：遍历所有策略×参数×标的，找到符合目标的最佳策略"""
+    goals = db.query(UserGoals).first()
+    if not goals:
+        return HTMLResponse('<div class="text-yellow-600 p-4">请先设定目标再搜索策略。</div>')
+
+    from strategy_discovery import discover_strategies
+    discovery = discover_strategies(goals, db)
+
+    return templates.TemplateResponse("partials/discovery_result.html", {
+        "request": request,
+        "discovery": discovery,
+        "goals": goals,
+    })
+
+
 @app.post("/strategies/configure", response_class=HTMLResponse)
 def configure_strategy(
     request: Request,
