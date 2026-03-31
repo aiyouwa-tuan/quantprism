@@ -110,7 +110,13 @@ class TestRegistry:
         assert "sma_crossover" in all_s
         assert "rsi_momentum" in all_s
         assert "bollinger_reversion" in all_s
-        assert len(all_s) == 3
+        assert "m7_leaps" in all_s
+        assert "tqqq_dip" in all_s
+        assert "qqq_leaps" in all_s
+        assert "waiting_strike" in all_s
+        assert "dip_watch" in all_s
+        assert "top_prediction" in all_s
+        assert len(all_s) == 10
 
     def test_get_strategy(self):
         from strategies.base import get_strategy
