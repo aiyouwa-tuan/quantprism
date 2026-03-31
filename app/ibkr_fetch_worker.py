@@ -17,7 +17,7 @@ def main():
         from ib_insync import IB
 
         host = os.getenv("IBKR_HOST", "127.0.0.1")
-        port = int(os.getenv("IBKR_PORT", "7496"))
+        port = int(os.getenv("IBKR_PORT", "4001"))
         import random
         client_id = random.randint(100, 999)
 
