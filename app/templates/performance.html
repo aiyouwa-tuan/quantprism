@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-sm text-gray-500">总盈亏</h3>
+        <p class="text-2xl font-bold {{ 'text-green-600' if perf.total_pnl >= 0 else 'text-red-600' }}">${{ "%.2f"|format(perf.total_pnl) }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-sm text-gray-500">胜率</h3>
+        <p class="text-2xl font-bold">{{ "%.0f"|format(perf.win_rate * 100) }}%</p>
+        <p class="text-xs text-gray-400">{{ perf.total_trades }} 笔交易</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-sm text-gray-500">盈亏比</h3>
+        <p class="text-2xl font-bold">{{ perf.profit_factor }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-sm text-gray-500">平均盈/亏</h3>
+        <p class="text-sm mt-1"><span class="text-green-600">${{ perf.avg_win }}</span> / <span class="text-red-600">${{ perf.avg_loss }}</span></p>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold mb-4">按市场分布</h2>
+        {% if perf.by_market %}
+        {% for market, data in perf.by_market.items() %}
+        <div class="flex justify-between items-center border-b py-2">
+            <span class="text-sm font-medium">{{ market }}</span>
+            <div class="text-sm">
+                <span class="{{ 'text-green-600' if data.pnl >= 0 else 'text-red-600' }}">${{ "%.2f"|format(data.pnl) }}</span>
+                <span class="text-gray-400 ml-2">{{ data.count }} 笔</span>
+                <span class="text-gray-400 ml-2">胜率 {{ "%.0f"|format(data.wins / data.count * 100) if data.count > 0 else 0 }}%</span>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="text-sm text-gray-400">暂无数据</p>
+        {% endif %}
+    </div>
+
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold mb-4">月度收益</h2>
+        {% if perf.monthly_returns %}
+        {% for m in perf.monthly_returns %}
+        <div class="flex justify-between items-center border-b py-1 text-sm">
+            <span>{{ m.month }}</span>
+            <span class="{{ 'text-green-600' if m.pnl >= 0 else 'text-red-600' }} font-medium">${{ "%.2f"|format(m.pnl) }}</span>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="text-sm text-gray-400">需要先平仓才有绩效数据</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

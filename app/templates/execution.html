@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="space-y-6">
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-semibold">交易信号</h2>
+                <button hx-post="/execution/generate" hx-target="#signal-list" hx-swap="innerHTML"
+                        class="text-sm bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-500">生成信号</button>
+            </div>
+            <div id="signal-list">
+                {% include "partials/signal_list.html" %}
+            </div>
+        </div>
+    </div>
+    <div class="space-y-6">
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-lg font-semibold mb-4">最近执行</h2>
+            {% if recent_executed %}
+            {% for s in recent_executed %}
+            <div class="border-b py-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="font-medium">{{ s.symbol }} — {{ s.direction }}</span>
+                    <span class="text-xs text-gray-400">{{ s.execution_time.strftime('%m/%d %H:%M') if s.execution_time else '-' }}</span>
+                </div>
+                <div class="text-xs text-gray-500">价格: ${{ "%.2f"|format(s.execution_price or 0) }} | 数量: {{ s.execution_quantity or 0 }}</div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <p class="text-sm text-gray-400">还没有执行记录</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

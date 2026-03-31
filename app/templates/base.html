@@ -13,8 +13,15 @@
 </head>
 <body class="bg-gray-50 text-gray-900 min-h-screen">
     <nav class="bg-gray-900 text-white px-6 py-3 flex items-center justify-between">
-        <h1 class="text-lg font-bold">Goal-Driven Trading OS</h1>
-        <span class="text-gray-400 text-sm">Phase 1 | Risk First</span>
+        <h1 class="text-lg font-bold"><a href="/">Goal-Driven Trading OS</a></h1>
+        <div class="flex gap-4 text-sm">
+            <a href="/" class="hover:text-blue-300">Dashboard</a>
+            <a href="/strategies" class="hover:text-blue-300">Strategies</a>
+            <a href="/portfolio" class="hover:text-blue-300">Portfolio</a>
+            <a href="/execution" class="hover:text-blue-300">Execution</a>
+            <a href="/performance" class="hover:text-blue-300">Performance</a>
+            <a href="/risk" class="hover:text-blue-300">Risk</a>
+        </div>
     </nav>
     <main class="max-w-7xl mx-auto px-4 py-6">
         {% block content %}{% endblock %}

@@ -1,0 +1,19 @@
+{% if results %}
+<div class="space-y-3">
+    <h3 class="font-semibold text-sm">{{ config.strategy_name }} 压力测试</h3>
+    {% for r in results %}
+    <div class="border rounded p-3 {{ 'border-red-200 bg-red-50' if r.metrics and r.metrics.max_drawdown < -0.1 else 'border-green-200 bg-green-50' if r.metrics else 'bg-gray-50' }}">
+        <div class="font-medium text-sm">{{ r.period }}</div>
+        {% if r.error %}
+        <div class="text-xs text-gray-500">{{ r.error }}</div>
+        {% elif r.metrics %}
+        <div class="grid grid-cols-3 gap-1 text-xs mt-1">
+            <div>收益: {{ "%.1f"|format(r.metrics.total_return * 100) }}%</div>
+            <div>回撤: {{ "%.1f"|format(r.metrics.max_drawdown * 100) }}%</div>
+            <div>交易: {{ r.metrics.total_trades }}</div>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}

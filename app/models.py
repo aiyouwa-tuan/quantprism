@@ -1,9 +1,9 @@
 """
 Goal-Driven Trading OS — Data Models
-SQLAlchemy ORM models for Phase 1
+SQLAlchemy ORM models for all phases
 """
 from datetime import datetime
-from sqlalchemy import create_engine, Column, Integer, Float, String, DateTime, Text, Boolean
+from sqlalchemy import create_engine, Column, Integer, Float, String, DateTime, Text, Boolean, UniqueConstraint, JSON
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 DATABASE_URL = "sqlite:///trading_os.db"
@@ -46,6 +46,10 @@ class Position(Base):
     risk_amount = Column(Float)                    # 该仓位的风险金额
     risk_pct_of_account = Column(Float)            # 该仓位风险占总资金百分比
     account_balance_at_entry = Column(Float)       # 入场时账户总资金
+    # Phase 1.5: Broker sync
+    source = Column(String(20), default="manual")  # manual / broker
+    current_price = Column(Float, nullable=True)
+    unrealized_pnl = Column(Float, nullable=True)
 
 
 class TradeJournal(Base):
@@ -76,8 +80,152 @@ class JournalCompliance(Base):
     total_journaled = Column(Integer, default=0)
 
 
+class MarketDataCache(Base):
+    """市场数据缓存 (Phase 1.5)"""
+    __tablename__ = "market_data_cache"
+    __table_args__ = (UniqueConstraint("symbol", "date", name="uq_symbol_date"),)
+
+    id = Column(Integer, primary_key=True)
+    symbol = Column(String(20), nullable=False, index=True)
+    date = Column(DateTime, nullable=False)
+    open = Column(Float)
+    high = Column(Float)
+    low = Column(Float)
+    close = Column(Float)
+    volume = Column(Float)
+    source = Column(String(20), default="yfinance")
+
+
+class StrategyConfig(Base):
+    """策略配置 (Phase 2)"""
+    __tablename__ = "strategy_configs"
+
+    id = Column(Integer, primary_key=True)
+    strategy_name = Column(String(50), nullable=False)
+    symbol = Column(String(20), default="SPY")
+    params_yaml = Column(Text)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class BacktestRun(Base):
+    """回测运行记录 (Phase 2)"""
+    __tablename__ = "backtest_runs"
+
+    id = Column(Integer, primary_key=True)
+    strategy_config_id = Column(Integer, nullable=False)
+    run_type = Column(String(20))  # full / walk_forward / stress_test
+    period_label = Column(String(50))
+    start_date = Column(String(20))
+    end_date = Column(String(20))
+    total_return = Column(Float)
+    annual_return = Column(Float)
+    max_drawdown = Column(Float)
+    sharpe_ratio = Column(Float)
+    sortino_ratio = Column(Float)
+    win_rate = Column(Float)
+    total_trades = Column(Integer)
+    profit_factor = Column(Float)
+    equity_curve_json = Column(Text)
+    trades_json = Column(Text)
+    compatible_with_goals = Column(Boolean)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class TradeSignal(Base):
+    """交易信号 (Phase 2/4)"""
+    __tablename__ = "trade_signals"
+
+    id = Column(Integer, primary_key=True)
+    strategy_config_id = Column(Integer, nullable=True)
+    symbol = Column(String(20), nullable=False)
+    direction = Column(String(10))  # long / short / close
+    signal_price = Column(Float)
+    signal_stop_loss = Column(Float)
+    signal_take_profit = Column(Float)
+    signal_quantity = Column(Float)
+    confidence = Column(Float)
+    signal_time = Column(DateTime, default=datetime.utcnow)
+    status = Column(String(20), default="pending")  # pending / confirmed / executed / skipped / expired
+    execution_price = Column(Float, nullable=True)
+    execution_quantity = Column(Float, nullable=True)
+    execution_time = Column(DateTime, nullable=True)
+    position_id = Column(Integer, nullable=True)
+    deviation_reason = Column(Text, nullable=True)
+
+
+class StrategyLeaderboard(Base):
+    """策略排行榜 (Phase 2, Expansion #4)"""
+    __tablename__ = "strategy_leaderboard"
+
+    id = Column(Integer, primary_key=True)
+    strategy_name = Column(String(50), nullable=False)
+    regime = Column(String(20))  # low_vol / normal / mid_vol / high_vol
+    sharpe_ratio = Column(Float)
+    annual_return = Column(Float)
+    max_drawdown = Column(Float)
+    win_rate = Column(Float)
+    total_trades = Column(Integer)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ExecutionLog(Base):
+    """执行记录 (Phase 4)"""
+    __tablename__ = "execution_log"
+
+    id = Column(Integer, primary_key=True)
+    signal_id = Column(Integer, nullable=True)
+    position_id = Column(Integer, nullable=True)
+    symbol = Column(String(20), nullable=False)
+    side = Column(String(10))
+    order_type = Column(String(20))
+    requested_qty = Column(Float)
+    filled_qty = Column(Float, nullable=True)
+    requested_price = Column(Float, nullable=True)
+    filled_price = Column(Float, nullable=True)
+    broker_order_id = Column(String(50), nullable=True)
+    status = Column(String(20), default="submitted")
+    submitted_at = Column(DateTime, default=datetime.utcnow)
+    filled_at = Column(DateTime, nullable=True)
+    error_message = Column(Text, nullable=True)
+
+
+class AlertConfig(Base):
+    """告警配置 (Phase 5)"""
+    __tablename__ = "alert_config"
+
+    id = Column(Integer, primary_key=True)
+    feishu_webhook_url = Column(Text, nullable=True)
+    sms_enabled = Column(Boolean, default=False)
+    sms_phone = Column(String(20), nullable=True)
+    drawdown_warn_pct = Column(Float, default=0.05)
+    drawdown_critical_pct = Column(Float, default=0.08)
+    single_position_loss_pct = Column(Float, default=0.03)
+    gap_threshold_pct = Column(Float, default=0.005)
+    vix_spike_threshold = Column(Float, default=30.0)
+    rate_limit_minutes = Column(Integer, default=60)
+    is_active = Column(Boolean, default=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AlertHistory(Base):
+    """告警历史 (Phase 5)"""
+    __tablename__ = "alert_history"
+
+    id = Column(Integer, primary_key=True)
+    alert_type = Column(String(30))
+    title = Column(String(200))
+    body = Column(Text)
+    position_id = Column(Integer, nullable=True)
+    channel = Column(String(20))  # feishu / sms / both
+    was_rate_limited = Column(Boolean, default=False)
+    delivered = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 def init_db():
-    """创建所有表 (Phase 1: create_all, Phase 2+: Alembic)"""
+    """创建所有表"""
     Base.metadata.create_all(engine)
 
 

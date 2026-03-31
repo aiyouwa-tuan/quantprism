@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- 左栏：策略配置 -->
+    <div class="space-y-6">
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-lg font-semibold mb-4">添加策略</h2>
+            <form hx-post="/strategies/configure" hx-target="#strategy-configs" hx-swap="innerHTML" class="space-y-3">
+                <div>
+                    <label class="block text-sm text-gray-600">策略类型</label>
+                    <select name="strategy_name" class="w-full border rounded px-3 py-2 mt-1">
+                        <option value="sma_crossover">SMA 双均线交叉</option>
+                        <option value="rsi_momentum">RSI 动量</option>
+                        <option value="bollinger_reversion">布林带均值回归</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600">标的代码</label>
+                    <input type="text" name="symbol" value="SPY" class="w-full border rounded px-3 py-2 mt-1">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600">参数 (YAML)</label>
+                    <textarea name="params_yaml" rows="3" class="w-full border rounded px-3 py-2 mt-1 text-xs font-mono">{}</textarea>
+                </div>
+                <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-500">添加策略</button>
+            </form>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-lg font-semibold mb-4">已配置策略</h2>
+            <div id="strategy-configs">
+                {% include "partials/strategy_configs.html" %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 中栏：目标匹配 + 回测 -->
+    <div class="space-y-6">
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-semibold">目标匹配</h2>
+                {% if goals %}
+                <span class="text-xs text-gray-500">目标: {{ "%.0f"|format(goals.annual_return_target * 100) }}% 收益 / {{ "%.0f"|format(goals.max_drawdown * 100) }}% 回撤</span>
+                {% endif %}
+            </div>
+            <button hx-get="/strategies/match" hx-target="#match-results" hx-swap="innerHTML"
+                    class="w-full bg-green-600 text-white py-2 rounded hover:bg-green-500 mb-4">
+                根据目标匹配策略
+            </button>
+            <div id="match-results"></div>
+        </div>
+
+        <!-- 市场环境 -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-lg font-semibold mb-3">市场环境</h2>
+            {% if regime %}
+            <div class="flex items-center gap-2">
+                <span class="inline-block w-3 h-3 rounded-full {{ 'bg-green-500' if regime.regime in ['low_vol', 'normal'] else 'bg-yellow-500' if regime.regime == 'mid_vol' else 'bg-red-500' }}"></span>
+                <span class="text-sm">VIX: {{ regime.vix }} — {{ regime.description }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 右栏：排行榜 -->
+    <div class="space-y-6">
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-semibold">策略排行榜</h2>
+                <button hx-post="/strategies/leaderboard/refresh" hx-target="#leaderboard"
+                        class="text-xs bg-gray-200 px-3 py-1 rounded hover:bg-gray-300">刷新</button>
+            </div>
+            <div id="leaderboard">
+                {% include "partials/leaderboard_table.html" %}
+            </div>
+        </div>
+
+        <!-- 最近回测 -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-lg font-semibold mb-4">最近回测</h2>
+            {% if runs %}
+            {% for run in runs[:5] %}
+            <div class="border-b py-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="font-medium">{{ run.run_type }}</span>
+                    <span class="{{ 'text-green-600' if run.total_return and run.total_return > 0 else 'text-red-600' }}">
+                        {{ "%.1f"|format((run.total_return or 0) * 100) }}%
+                    </span>
+                </div>
+                <div class="text-xs text-gray-500">Sharpe: {{ run.sharpe_ratio or '-' }} | DD: {{ "%.1f"|format((run.max_drawdown or 0) * 100) }}%</div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <p class="text-sm text-gray-400">还没有回测记录</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
