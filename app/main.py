@@ -133,9 +133,9 @@ def calculate(
     elif risk_per_trade is None:
         risk_per_trade = 0.02
 
+    # Don't cap position value — risk is already controlled by risk_per_trade.
+    # Position value depends on stock price and stop distance, not a fixed %.
     max_position_pct = 1.0
-    if goals and goals.max_position_pct:
-        max_position_pct = goals.max_position_pct
 
     result = calculate_position_size(
         account_balance=account_balance,
