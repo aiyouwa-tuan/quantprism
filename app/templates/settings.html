@@ -2,6 +2,35 @@
 {% block content %}
 <h1 class="text-xl font-bold text-white mb-6">设置</h1>
 
+<!-- 交易目标 -->
+<div class="bg-dark-700 rounded-xl border border-dark-600 p-5 mb-6">
+    <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">交易目标</h2>
+    <form hx-post="/goals" hx-target="#goals-saved" hx-swap="innerHTML" class="flex gap-4 items-end">
+        <div>
+            <label class="text-xs text-gray-500">年化收益目标 (%)</label>
+            <input type="number" name="annual_return_target" step="0.1" value="{{ (goals.annual_return_target * 100)|round(1) if goals else 15 }}"
+                   class="w-full bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white mt-1">
+        </div>
+        <div>
+            <label class="text-xs text-gray-500">最大回撤 (%)</label>
+            <input type="number" name="max_drawdown" step="0.1" value="{{ (goals.max_drawdown * 100)|round(1) if goals else 10 }}"
+                   class="w-full bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white mt-1">
+        </div>
+        <div>
+            <label class="text-xs text-gray-500">单笔风险 (%)</label>
+            <input type="number" name="risk_per_trade" step="0.1" value="{{ (goals.risk_per_trade * 100)|round(1) if goals else 2 }}"
+                   class="w-full bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white mt-1">
+        </div>
+        <button type="submit" class="bg-accent-green text-dark-900 px-5 py-2 rounded text-sm font-bold hover:brightness-110">保存</button>
+        <div id="goals-saved"></div>
+    </form>
+    {% if goals %}
+    <div class="mt-3 text-xs text-gray-500">
+        当前约束：同时持仓上限 <span class="text-accent-blue font-medium">{{ ((goals.max_drawdown / goals.risk_per_trade)|int) if goals.risk_per_trade else 5 }} 个</span>
+    </div>
+    {% endif %}
+</div>
+
 <!-- API 配置 -->
 <div class="space-y-4 mb-8">
     <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wide">API 连接</h2>

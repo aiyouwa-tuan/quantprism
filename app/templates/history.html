@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="text-xl font-bold text-white mb-6">交易记录</h1>
+
+<!-- 绩效概览 -->
+<div class="grid grid-cols-4 gap-3 mb-6">
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
+        <div class="text-xs text-gray-500">总盈亏</div>
+        <div class="text-xl font-bold {{ 'text-accent-green' if perf.total_pnl >= 0 else 'text-accent-red' }}">${{ "%.2f"|format(perf.total_pnl) }}</div>
+    </div>
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
+        <div class="text-xs text-gray-500">胜率</div>
+        <div class="text-xl font-bold text-white">{{ "%.0f"|format(perf.win_rate * 100) }}%</div>
+        <div class="text-xs text-gray-500">{{ perf.total_trades }} 笔</div>
+    </div>
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
+        <div class="text-xs text-gray-500">盈亏比</div>
+        <div class="text-xl font-bold text-white">{{ perf.profit_factor }}</div>
+    </div>
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
+        <div class="text-xs text-gray-500">平均盈/亏</div>
+        <div class="text-sm mt-1"><span class="text-accent-green">${{ perf.avg_win }}</span> / <span class="text-accent-red">${{ perf.avg_loss }}</span></div>
+    </div>
+</div>
+
+<div class="grid grid-cols-2 gap-6">
+    <!-- 已平仓 -->
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-5">
+        <h2 class="text-sm font-semibold text-white mb-3">已平仓</h2>
+        {% if closed_positions %}
+        {% for p in closed_positions %}
+        <div class="flex justify-between items-center border-b border-dark-600/50 py-2 text-sm">
+            <span class="text-white font-medium">{{ p.symbol }}</span>
+            <span class="text-gray-400">${{ "%.2f"|format(p.entry_price) }} → ${{ "%.2f"|format(p.close_price) }}</span>
+            {% set pnl = (p.close_price - p.entry_price) * p.quantity %}
+            <span class="{{ 'text-accent-green' if pnl >= 0 else 'text-accent-red' }} font-medium">${{ "%.2f"|format(pnl) }}</span>
+        </div>
+        {% endfor %}
+        {% else %}<p class="text-gray-500 text-sm">还没有平仓记录</p>{% endif %}
+    </div>
+
+    <!-- 交易日志 -->
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-5">
+        <h2 class="text-sm font-semibold text-white mb-3">交易日志</h2>
+        <form hx-post="/journal" hx-target="#journal-area" hx-swap="innerHTML" class="space-y-2 mb-4">
+            <div class="grid grid-cols-2 gap-2">
+                <input type="text" name="symbol" placeholder="代码" class="bg-dark-800 border border-dark-500 rounded px-2 py-1.5 text-sm text-white" required>
+                <select name="action" class="bg-dark-800 border border-dark-500 rounded px-2 py-1.5 text-sm text-white">
+                    <option value="buy">买入</option><option value="sell">卖出</option><option value="close">平仓</option>
+                </select>
+            </div>
+            <input type="text" name="entry_reason" placeholder="为什么做这个操作？" class="w-full bg-dark-800 border border-dark-500 rounded px-2 py-1.5 text-sm text-white">
+            <div class="flex gap-2">
+                <select name="emotional_state" class="flex-1 bg-dark-800 border border-dark-500 rounded px-2 py-1.5 text-sm text-white">
+                    <option value="">情绪</option><option value="confident">自信</option><option value="calm">冷静</option>
+                    <option value="uncertain">犹豫</option><option value="rushing">赶入</option><option value="fearful">恐惧</option>
+                </select>
+                <button type="submit" class="bg-purple-600 text-white px-4 py-1.5 rounded text-sm hover:brightness-110">记录</button>
+            </div>
+        </form>
+        <div id="journal-area">
+            {% include "partials/journal_list.html" %}
+        </div>
+    </div>
+</div>
+
+<!-- 月度收益 + 市场分布 -->
+<div class="grid grid-cols-2 gap-6 mt-6">
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-5">
+        <h2 class="text-sm font-semibold text-white mb-3">月度收益</h2>
+        {% if perf.monthly_returns %}
+        {% for m in perf.monthly_returns %}
+        <div class="flex justify-between items-center border-b border-dark-600/50 py-1.5 text-sm">
+            <span class="text-gray-400">{{ m.month }}</span>
+            <span class="{{ 'text-accent-green' if m.pnl >= 0 else 'text-accent-red' }} font-medium">${{ "%.2f"|format(m.pnl) }}</span>
+        </div>
+        {% endfor %}
+        {% else %}<p class="text-gray-500 text-sm">需要平仓后才有数据</p>{% endif %}
+    </div>
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-5">
+        <h2 class="text-sm font-semibold text-white mb-3">按市场</h2>
+        {% if perf.by_market %}
+        {% for market, data in perf.by_market.items() %}
+        <div class="flex justify-between items-center border-b border-dark-600/50 py-2 text-sm">
+            <span class="text-white">{{ market }}</span>
+            <div>
+                <span class="{{ 'text-accent-green' if data.pnl >= 0 else 'text-accent-red' }}">${{ "%.2f"|format(data.pnl) }}</span>
+                <span class="text-gray-500 ml-2">{{ data.count }} 笔</span>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}<p class="text-gray-500 text-sm">暂无</p>{% endif %}
+    </div>
+</div>
+{% endblock %}

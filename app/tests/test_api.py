@@ -148,6 +148,6 @@ class TestJournal:
                 "symbol": sym, "entry_price": "100", "stop_loss": "95",
                 "quantity": "10", "account_balance": "100000",
             })
-        # Dashboard should show reminder
-        response = client.get("/")
+        # Positions page should show reminder
+        response = client.get("/positions")
         assert "没写日志" in response.text or "没有写日志" in response.text or "日志" in response.text

@@ -41,11 +41,28 @@ def startup():
 
 # ===== 页面路由 =====
 
+# ===== 交易机会 (首页) =====
+
 @app.get("/", response_class=HTMLResponse)
-def dashboard(request: Request, db: Session = Depends(get_db)):
+def opportunities_page(request: Request, sector: str = "TECH", db: Session = Depends(get_db)):
+    """交易机会：板块筛选 + AI 诊断 + 期权链"""
+    goals = db.query(UserGoals).first()
+    regime = detect_market_regime()
+    return templates.TemplateResponse("opportunities.html", {
+        "request": request,
+        "sectors": SECTORS,
+        "current_sector": sector,
+        "goals": goals,
+        "regime": regime,
+    })
+
+
+# ===== 我的持仓 =====
+
+@app.get("/positions", response_class=HTMLResponse)
+def positions_page(request: Request, db: Session = Depends(get_db)):
     goals = db.query(UserGoals).order_by(UserGoals.updated_at.desc()).first()
 
-    # Auto-sync from IBKR on page load (fast mode, no real-time prices)
     from broker import fetch_account_info
     account = fetch_account_info()
     if "error" not in account:
@@ -71,7 +88,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
 
     regime = detect_market_regime()
 
-    return templates.TemplateResponse("dashboard.html", {
+    return templates.TemplateResponse("my_positions.html", {
         "request": request,
         "goals": goals,
         "constraints": constraints,
@@ -631,14 +648,25 @@ def execute_signal(request: Request, signal_id: int, db: Session = Depends(get_d
     })
 
 
-@app.get("/performance", response_class=HTMLResponse)
-def performance_page(request: Request, db: Session = Depends(get_db)):
+# ===== 交易记录 =====
+
+@app.get("/history", response_class=HTMLResponse)
+def history_page(request: Request, db: Session = Depends(get_db)):
     from performance import compute_portfolio_performance
     perf = compute_portfolio_performance(db)
-    return templates.TemplateResponse("performance.html", {
+    recent_journals = db.query(TradeJournal).order_by(TradeJournal.created_at.desc()).limit(20).all()
+    closed = db.query(Position).filter(Position.is_open == False).order_by(Position.close_date.desc()).limit(20).all()
+    return templates.TemplateResponse("history.html", {
         "request": request,
         "perf": perf,
+        "recent_journals": recent_journals,
+        "closed_positions": closed,
     })
+
+# Keep old URL as alias
+@app.get("/performance", response_class=HTMLResponse)
+def performance_page(request: Request, db: Session = Depends(get_db)):
+    return history_page(request, db)
 
 
 # ===== Phase 5: Risk + Alerts =====
@@ -739,11 +767,13 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
         cfg = db.query(ApiConfig).filter(ApiConfig.service_name == svc["name"]).first()
         configs[svc["name"]] = cfg
     alert_cfg = db.query(AlertConfig).first()
+    goals = db.query(UserGoals).first()
     return templates.TemplateResponse("settings.html", {
         "request": request,
         "services": API_SERVICES,
         "configs": configs,
         "alert_config": alert_cfg,
+        "goals": goals,
     })
 
 
