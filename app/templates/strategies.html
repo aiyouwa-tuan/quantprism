@@ -1,137 +1,95 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="flex gap-6">
 
-    <!-- 左侧：工具栏 -->
-    <div class="w-72 flex-shrink-0 space-y-4">
+{% if not goals %}
+<div class="max-w-xl mx-auto mt-12 text-center">
+    <h1 class="text-2xl font-bold mb-4">还没有设定目标</h1>
+    <p class="text-gray-500 mb-6">先设定你的收益和回撤目标，系统才能帮你搜索合适的策略。</p>
+    <a href="/" class="bg-green-600 text-white px-8 py-3 rounded-lg text-lg hover:bg-green-500">去设定目标</a>
+</div>
 
-        <!-- AI 策略搜索 (核心功能) -->
-        <div class="bg-white rounded-lg shadow p-5">
-            <h2 class="text-lg font-semibold mb-2">AI 策略搜索</h2>
-            <p class="text-xs text-gray-500 mb-3">系统自动测试 48 种策略组合，找到符合你目标的最佳策略</p>
-            {% if goals %}
-            <div class="text-xs bg-gray-100 rounded p-2 mb-3">
-                目标: {{ "%.0f"|format(goals.annual_return_target * 100) }}% 收益 / {{ "%.0f"|format(goals.max_drawdown * 100) }}% 回撤
-            </div>
-            <button hx-post="/strategies/discover" hx-target="#main-content" hx-swap="innerHTML"
-                    hx-indicator="#discover-loading"
-                    class="w-full bg-green-600 text-white py-2.5 rounded-lg hover:bg-green-500 font-medium">
-                开始搜索策略
-            </button>
-            <div id="discover-loading" class="htmx-indicator text-center text-xs text-gray-400 mt-2">
-                正在测试所有策略组合，请稍候...
-            </div>
-            {% else %}
-            <a href="/" class="block text-center bg-gray-400 text-white py-2.5 rounded-lg">请先设定目标</a>
-            {% endif %}
-        </div>
-
-        <!-- 目标匹配 (快速版) -->
-        <div class="bg-white rounded-lg shadow p-5">
-            <h2 class="text-sm font-semibold mb-2">快速匹配</h2>
-            <button hx-get="/strategies/match" hx-target="#main-content" hx-swap="innerHTML"
-                    class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-500 text-sm">
-                匹配已有策略
-            </button>
-        </div>
-
-        <!-- 手动添加策略 -->
-        <div class="bg-white rounded-lg shadow p-5">
-            <h2 class="text-sm font-semibold mb-2">手动添加</h2>
-            <form hx-post="/strategies/configure" hx-target="#strategy-list" hx-swap="innerHTML" class="space-y-2">
-                <select name="strategy_name" class="w-full border rounded px-2 py-1.5 text-sm">
-                    <option value="sma_crossover">SMA 双均线交叉</option>
-                    <option value="rsi_momentum">RSI 动量</option>
-                    <option value="bollinger_reversion">布林带均值回归</option>
-                </select>
-                <input type="text" name="symbol" value="SPY" class="w-full border rounded px-2 py-1.5 text-sm">
-                <input type="hidden" name="params_yaml" value="{}">
-                <button type="submit" class="w-full bg-gray-800 text-white py-1.5 rounded text-sm hover:bg-gray-700">添加</button>
-            </form>
-        </div>
-
-        <!-- 已配置策略列表 -->
-        <div class="bg-white rounded-lg shadow p-5">
-            <h2 class="text-sm font-semibold mb-2">已配置策略</h2>
-            <div id="strategy-list">
-                {% include "partials/strategy_configs.html" %}
-            </div>
-        </div>
-
-        <!-- 市场环境 -->
-        <div class="bg-white rounded-lg shadow p-5">
-            <h2 class="text-sm font-semibold mb-2">市场环境</h2>
-            {% if regime %}
-            <div class="flex items-center gap-2">
-                <span class="w-3 h-3 rounded-full {{ 'bg-green-500' if regime.regime in ['low_vol', 'normal'] else 'bg-yellow-500' if regime.regime == 'mid_vol' else 'bg-red-500' }}"></span>
-                <span class="text-sm">VIX: {{ regime.vix }}</span>
-            </div>
-            <p class="text-xs text-gray-500 mt-1">{{ regime.description }}</p>
-            {% endif %}
-        </div>
-
-        <!-- 排行榜 -->
-        <div class="bg-white rounded-lg shadow p-5">
-            <div class="flex justify-between items-center mb-2">
-                <h2 class="text-sm font-semibold">排行榜</h2>
-                <button hx-post="/strategies/leaderboard/refresh" hx-target="#leaderboard"
-                        class="text-xs bg-gray-100 px-2 py-0.5 rounded hover:bg-gray-200">刷新</button>
-            </div>
-            <div id="leaderboard">
-                {% include "partials/leaderboard_table.html" %}
-            </div>
-        </div>
+{% else %}
+<!-- 顶部：目标 + 市场环境 -->
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-xl font-bold">AI 策略搜索</h1>
+        <p class="text-sm text-gray-500">
+            目标: {{ "%.0f"|format(goals.annual_return_target * 100) }}% 年化收益 / {{ "%.0f"|format(goals.max_drawdown * 100) }}% 最大回撤
+            <a href="/" class="text-blue-600 ml-2 hover:underline">修改</a>
+        </p>
     </div>
-
-    <!-- 右侧：主内容区 -->
-    <div class="flex-1 min-w-0">
-        <div id="main-content" class="bg-white rounded-lg shadow p-6">
-            {% if goals %}
-            <div hx-post="/strategies/discover" hx-target="#main-content" hx-swap="innerHTML"
-                 hx-trigger="load" hx-indicator="#auto-loading">
-                <div class="text-center py-12">
-                    <div class="text-lg font-semibold mb-2">正在为你搜索策略...</div>
-                    <div id="auto-loading" class="text-sm text-gray-500">
-                        系统正在测试 48 种策略 × 参数 × 标的组合<br>
-                        目标: {{ "%.0f"|format(goals.annual_return_target * 100) }}% 年化收益 / {{ "%.0f"|format(goals.max_drawdown * 100) }}% 最大回撤<br>
-                        <span class="text-xs text-gray-400 mt-2 block">大约需要 30-60 秒</span>
-                    </div>
-                </div>
-            </div>
-            {% else %}
-            <div class="text-center py-16">
-                <h2 class="text-xl font-semibold text-gray-400 mb-4">还没有设定目标</h2>
-                <p class="text-gray-500 mb-6">先到 Dashboard 设定你的收益和回撤目标，然后系统自动帮你搜索合适的策略。</p>
-                <a href="/" class="bg-gray-900 text-white px-6 py-2.5 rounded-lg hover:bg-gray-700">去设定目标</a>
-            </div>
-            {% endif %}
-        </div>
-
-        <!-- 最近回测记录 -->
-        {% if runs %}
-        <div class="bg-white rounded-lg shadow p-6 mt-4">
-            <h2 class="text-sm font-semibold mb-3">最近回测</h2>
-            <div class="grid grid-cols-2 gap-3">
-            {% for run in runs[:6] %}
-            <div class="border rounded p-3 text-sm">
-                <div class="flex justify-between">
-                    <span class="font-medium">{{ run.period_label or run.run_type }}</span>
-                    <span class="{{ 'text-green-600' if run.total_return and run.total_return > 0 else 'text-red-600' }}">
-                        {{ "%.1f"|format((run.total_return or 0) * 100) }}%
-                    </span>
-                </div>
-                <div class="text-xs text-gray-500 mt-1">Sharpe: {{ run.sharpe_ratio or '-' }} | DD: {{ "%.1f"|format((run.max_drawdown or 0) * 100) }}% | {{ run.total_trades or 0 }} trades</div>
-            </div>
-            {% endfor %}
-            </div>
+    <div class="flex items-center gap-4">
+        {% if regime %}
+        <div class="flex items-center gap-2 bg-white rounded-lg shadow px-4 py-2">
+            <span class="w-3 h-3 rounded-full {{ 'bg-green-500' if regime.regime in ['low_vol', 'normal'] else 'bg-yellow-500' if regime.regime == 'mid_vol' else 'bg-red-500' }}"></span>
+            <span class="text-sm">VIX {{ regime.vix }} — {{ regime.description }}</span>
         </div>
         {% endif %}
+        <button hx-post="/strategies/discover" hx-target="#discovery-results" hx-swap="innerHTML"
+                hx-indicator="#search-loading"
+                class="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-500 text-sm font-medium">
+            重新搜索
+        </button>
     </div>
 </div>
 
+<!-- 搜索结果 -->
+<div id="discovery-results">
+    <div hx-post="/strategies/discover" hx-target="#discovery-results" hx-swap="innerHTML"
+         hx-trigger="load" hx-indicator="#search-loading">
+        <div class="text-center py-16">
+            <div id="search-loading" class="space-y-3">
+                <div class="text-lg font-semibold">正在为你搜索最佳策略...</div>
+                <div class="text-sm text-gray-500">
+                    系统正在测试 48 种策略 × 参数 × 标的组合<br>
+                    用你的目标（{{ "%.0f"|format(goals.annual_return_target * 100) }}% 收益 / {{ "%.0f"|format(goals.max_drawdown * 100) }}% 回撤）过滤不兼容的策略
+                </div>
+                <div class="text-xs text-gray-400">大约需要 30-60 秒</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 最近回测 + 高级选项 -->
+<div class="mt-6 grid grid-cols-2 gap-6">
+    {% if runs %}
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-sm font-semibold mb-3">最近回测记录</h2>
+        {% for run in runs[:8] %}
+        <div class="flex justify-between items-center border-b py-1.5 text-sm">
+            <span>{{ run.period_label or run.run_type }}</span>
+            <span class="{{ 'text-green-600' if run.total_return and run.total_return > 0 else 'text-red-600' }}">
+                {{ "%.1f"|format((run.total_return or 0) * 100) }}%
+            </span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="bg-white rounded-lg shadow p-6">
+        <details>
+            <summary class="text-sm font-semibold cursor-pointer hover:text-blue-600">高级：手动配置策略</summary>
+            <div class="mt-4 space-y-3">
+                <form hx-post="/strategies/configure" hx-target="#manual-configs" hx-swap="innerHTML" class="space-y-2">
+                    <select name="strategy_name" class="w-full border rounded px-2 py-1.5 text-sm">
+                        <option value="sma_crossover">SMA 双均线交叉</option>
+                        <option value="rsi_momentum">RSI 动量</option>
+                        <option value="bollinger_reversion">布林带均值回归</option>
+                    </select>
+                    <input type="text" name="symbol" value="SPY" class="w-full border rounded px-2 py-1.5 text-sm">
+                    <input type="text" name="params_yaml" value="{}" placeholder="参数 YAML" class="w-full border rounded px-2 py-1.5 text-sm font-mono text-xs">
+                    <button type="submit" class="w-full bg-gray-800 text-white py-1.5 rounded text-sm">手动添加</button>
+                </form>
+                <div id="manual-configs">
+                    {% include "partials/strategy_configs.html" %}
+                </div>
+            </div>
+        </details>
+    </div>
+</div>
+{% endif %}
+
 <style>
-    .htmx-indicator { display: none; }
-    .htmx-request .htmx-indicator { display: block; }
-    .htmx-request button[hx-post='/strategies/discover'] { opacity: 0.5; pointer-events: none; }
+    .htmx-request button[hx-post*='discover'] { opacity: 0.5; pointer-events: none; }
 </style>
 {% endblock %}
