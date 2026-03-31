@@ -5,7 +5,7 @@ Syncs broker positions into local database (supports stocks + options)
 from datetime import datetime
 from sqlalchemy.orm import Session
 from models import Position
-from broker import get_ibkr_client, fetch_positions
+from broker import fetch_positions
 
 
 def sync_positions_from_broker(db: Session) -> dict:
@@ -14,11 +14,7 @@ def sync_positions_from_broker(db: Session) -> dict:
 
     Returns: {synced, new, closed, error, details}
     """
-    client = get_ibkr_client()
-    if not client:
-        return {"synced": 0, "new": 0, "closed": 0, "error": "IBKR 未连接。请确保 TWS 或 IB Gateway 正在运行。"}
-
-    broker_positions = fetch_positions(client)
+    broker_positions = fetch_positions()
     if not broker_positions:
         return {"synced": 0, "new": 0, "closed": 0, "error": None}
 
