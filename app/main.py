@@ -44,6 +44,15 @@ def startup():
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request, db: Session = Depends(get_db)):
     goals = db.query(UserGoals).order_by(UserGoals.updated_at.desc()).first()
+
+    # Auto-sync from IBKR on page load (fast mode, no real-time prices)
+    from broker import fetch_account_info
+    account = fetch_account_info()
+    if "error" not in account:
+        sync_result = sync_positions_from_broker(db)
+    else:
+        account = {}
+
     positions = db.query(Position).filter(Position.is_open == True).all()
     closed = db.query(Position).filter(Position.is_open == False).order_by(Position.close_date.desc()).limit(10).all()
     compliance = db.query(JournalCompliance).first()
@@ -54,12 +63,12 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         constraints = derive_constraints(goals.max_drawdown, goals.risk_per_trade)
 
     total_risk_pct = sum(p.risk_pct_of_account or 0 for p in positions)
+    total_unrealized = sum(p.unrealized_pnl or 0 for p in positions)
 
     show_journal_reminder = False
     if compliance and compliance.trades_without_journal >= 3:
         show_journal_reminder = True
 
-    # Risk info for unified dashboard
     regime = detect_market_regime()
 
     return templates.TemplateResponse("dashboard.html", {
@@ -69,6 +78,8 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "positions": positions,
         "closed_positions": closed,
         "total_risk_pct": total_risk_pct,
+        "total_unrealized": total_unrealized,
+        "account": account,
         "regime": regime,
         "show_journal_reminder": show_journal_reminder,
         "compliance": compliance,
@@ -310,7 +321,7 @@ def add_journal(
 
 @app.post("/sync-positions", response_class=HTMLResponse)
 def sync_from_broker(request: Request, db: Session = Depends(get_db)):
-    result = sync_positions_from_broker(db)
+    result = sync_positions_from_broker(db, with_pnl=True)  # Full sync with real-time P&L
     positions = db.query(Position).filter(Position.is_open == True).all()
     total_risk_pct = sum(p.risk_pct_of_account or 0 for p in positions)
     return templates.TemplateResponse("partials/positions_list.html", {

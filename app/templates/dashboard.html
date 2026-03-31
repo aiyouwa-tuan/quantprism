@@ -46,22 +46,26 @@
 {% endif %}
 
 <!-- 顶部状态卡片 -->
-<div class="grid grid-cols-5 gap-3 mb-6">
+<div class="grid grid-cols-6 gap-3 mb-6">
+    {% if account and account.equity %}
     <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
-        <div class="text-xs text-gray-500">收益目标</div>
-        <div class="text-xl font-bold text-accent-green">{{ "%.0f"|format(goals.annual_return_target * 100) }}%</div>
+        <div class="text-xs text-gray-500">净资产</div>
+        <div class="text-xl font-bold text-white">${{ "{:,.0f}".format(account.equity) }}</div>
     </div>
     <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
-        <div class="text-xs text-gray-500">最大回撤</div>
-        <div class="text-xl font-bold text-accent-red">{{ "%.0f"|format(goals.max_drawdown * 100) }}%</div>
+        <div class="text-xs text-gray-500">购买力</div>
+        <div class="text-xl font-bold text-gray-300">${{ "{:,.0f}".format(account.buying_power) }}</div>
     </div>
+    {% endif %}
     <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
         <div class="text-xs text-gray-500">持仓</div>
-        <div class="text-xl font-bold text-white">{{ positions|length }} <span class="text-sm text-gray-500">/ {{ constraints.max_positions }}</span></div>
+        <div class="text-xl font-bold text-white">{{ positions|length }}{% if constraints %} <span class="text-sm text-gray-500">/ {{ constraints.max_positions }}</span>{% endif %}</div>
     </div>
     <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
-        <div class="text-xs text-gray-500">总风险</div>
-        <div class="text-xl font-bold {{ 'text-accent-red' if total_risk_pct > 0.08 else 'text-accent-green' }}">{{ "%.1f"|format(total_risk_pct * 100) }}%</div>
+        <div class="text-xs text-gray-500">未实现盈亏</div>
+        <div class="text-xl font-bold {{ 'text-accent-green' if total_unrealized >= 0 else 'text-accent-red' }}">
+            {{ '+' if total_unrealized >= 0 else '' }}${{ "{:,.0f}".format(total_unrealized) }}
+        </div>
     </div>
     <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
         <div class="text-xs text-gray-500">市场</div>
@@ -81,13 +85,13 @@
             <span class="text-white font-bold">{{ p.symbol }}</span>
             <span class="text-xs px-1.5 py-0.5 rounded {{ 'bg-accent-blue/20 text-accent-blue' if p.market == 'stock' else 'bg-accent-yellow/20 text-accent-yellow' }}">{{ p.market }}</span>
         </div>
-        <div class="text-xs text-gray-500 mt-1">{{ p.quantity }} 股 · ${{ "%.2f"|format(p.entry_price) }}</div>
-        {% if p.unrealized_pnl %}
-        <div class="mt-2 text-sm font-bold {{ 'text-accent-green' if p.unrealized_pnl >= 0 else 'text-accent-red' }}">
-            {{ '+' if p.unrealized_pnl >= 0 else '' }}${{ "%.2f"|format(p.unrealized_pnl) }}
+        <div class="text-xs text-gray-500 mt-1">{{ "%.0f"|format(p.quantity) }} {{ '张' if p.market == 'option' else '股' }} · ${{ "%.2f"|format(p.entry_price) }}</div>
+        {% if p.unrealized_pnl and p.unrealized_pnl != 0 %}
+        <div class="mt-1 text-sm font-bold {{ 'text-accent-green' if p.unrealized_pnl >= 0 else 'text-accent-red' }}">
+            {{ '+' if p.unrealized_pnl >= 0 else '' }}${{ "{:,.0f}".format(p.unrealized_pnl) }}
         </div>
         {% else %}
-        <div class="mt-2 text-xs text-gray-500">风险 {{ "%.1f"|format((p.risk_pct_of_account or 0) * 100) }}%</div>
+        <div class="mt-1 text-xs text-gray-500">{{ p.source or 'manual' }}</div>
         {% endif %}
     </div>
     {% endfor %}
@@ -102,7 +106,11 @@
     <div class="flex justify-between items-center px-5 py-3 border-b border-dark-600">
         <h2 class="font-semibold text-white">当前持仓</h2>
         <button hx-post="/sync-positions" hx-target="#positions-area" hx-swap="innerHTML"
-                class="text-xs text-gray-400 hover:text-white px-3 py-1 rounded bg-dark-600 hover:bg-dark-500">从券商同步</button>
+                class="text-xs text-gray-400 hover:text-white px-3 py-1 rounded bg-dark-600 hover:bg-dark-500"
+                hx-indicator="#sync-spin">
+            刷新持仓和盈亏
+        </button>
+        <span id="sync-spin" class="htmx-indicator text-xs text-gray-500">加载中...</span>
     </div>
     <div id="positions-area" class="p-5">
         {% include "partials/positions_list.html" %}

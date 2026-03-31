@@ -93,6 +93,14 @@ def fetch_positions() -> list[dict]:
     return []
 
 
+def fetch_portfolio() -> dict:
+    """获取完整组合数据（账户 + 持仓 + 实时 P&L）"""
+    result = _run_worker("portfolio", timeout=30)
+    if isinstance(result, dict) and "error" not in result:
+        return result
+    return {"error": result.get("error", "IBKR 未连接") if isinstance(result, dict) else "IBKR 未连接", "positions": [], "position_count": 0}
+
+
 def submit_order(symbol: str = "", qty: float = 0, side: str = "buy",
                  order_type: str = "market", limit_price: float = None) -> dict:
     """提交 IBKR 订单 (暂时只支持读取模式)"""
