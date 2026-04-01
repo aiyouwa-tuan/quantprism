@@ -101,10 +101,20 @@ class StrategyConfig(Base):
     __tablename__ = "strategy_configs"
 
     id = Column(Integer, primary_key=True)
-    strategy_name = Column(String(50), nullable=False)
-    symbol = Column(String(20), default="SPY")
-    params_yaml = Column(Text)
+    strategy_name = Column(String(50), nullable=False)   # 策略代码名 (m7_leaps, sell_put 等)
+    display_name = Column(String(100), nullable=True)     # 显示名称
+    description = Column(Text, nullable=True)             # 策略描述
+    symbol = Column(String(20), default="SPY")            # 标的 (或标的池)
+    symbol_pool = Column(Text, nullable=True)             # 标的池 (逗号分隔)
+    params_yaml = Column(Text)                            # 策略参数 YAML
+    # 分类
+    strategy_type = Column(String(20), default="custom")  # entry / exit / hedge / custom
+    direction = Column(String(20), default="bullish")     # bullish / bearish / neutral
+    instrument = Column(String(20), default="stock")      # stock / call / put / sell_put / covered_call
+    # 开关
     is_active = Column(Boolean, default=True)
+    is_default = Column(Boolean, default=False)           # 是否默认模板
+    # 时间
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

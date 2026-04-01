@@ -31,11 +31,13 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 @app.on_event("startup")
 def startup():
     init_db()
-    # 确保 JournalCompliance 有一条记录
     db = next(get_db())
     if not db.query(JournalCompliance).first():
         db.add(JournalCompliance())
         db.commit()
+    # Seed default strategies
+    from strategy_seeds import seed_strategies
+    seed_strategies(db)
     db.close()
 
 
@@ -485,6 +487,99 @@ def refresh_leaderboard(request: Request, db: Session = Depends(get_db)):
         "request": request,
         "leaderboard": leaderboard,
     })
+
+
+# ===== 策略管理 (CRUD) =====
+
+@app.get("/strategies/manage", response_class=HTMLResponse)
+def strategy_manage_page(request: Request, db: Session = Depends(get_db)):
+    configs = db.query(StrategyConfig).order_by(StrategyConfig.is_active.desc(), StrategyConfig.strategy_name).all()
+    return templates.TemplateResponse("strategy_manage.html", {
+        "request": request,
+        "configs": configs,
+    })
+
+
+@app.get("/strategies/edit/{config_id}", response_class=HTMLResponse)
+def strategy_edit_page(request: Request, config_id: int, db: Session = Depends(get_db)):
+    config = db.query(StrategyConfig).filter(StrategyConfig.id == config_id).first()
+    if not config:
+        raise HTTPException(status_code=404)
+    import json
+    params = json.loads(config.params_yaml) if config.params_yaml else {}
+    return templates.TemplateResponse("strategy_edit.html", {
+        "request": request,
+        "config": config,
+        "params": params,
+    })
+
+
+@app.post("/strategies/save/{config_id}", response_class=HTMLResponse)
+def strategy_save(
+    request: Request,
+    config_id: int,
+    display_name: str = Form(...),
+    description: str = Form(""),
+    symbol_pool: str = Form(""),
+    direction: str = Form("bullish"),
+    instrument: str = Form("stock"),
+    is_active: str = Form("true"),
+    params_json: str = Form("{}"),
+    db: Session = Depends(get_db),
+):
+    config = db.query(StrategyConfig).filter(StrategyConfig.id == config_id).first()
+    if not config:
+        raise HTTPException(status_code=404)
+
+    config.display_name = display_name
+    config.description = description
+    config.symbol_pool = symbol_pool
+    config.direction = direction
+    config.instrument = instrument
+    config.is_active = is_active == "true"
+    config.params_yaml = params_json
+    db.commit()
+
+    return HTMLResponse('<div class="text-accent-green text-sm p-3">已保存</div>')
+
+
+@app.post("/strategies/toggle/{config_id}", response_class=HTMLResponse)
+def strategy_toggle(request: Request, config_id: int, db: Session = Depends(get_db)):
+    config = db.query(StrategyConfig).filter(StrategyConfig.id == config_id).first()
+    if config:
+        config.is_active = not config.is_active
+        db.commit()
+    configs = db.query(StrategyConfig).order_by(StrategyConfig.is_active.desc(), StrategyConfig.strategy_name).all()
+    return templates.TemplateResponse("partials/strategy_manage_list.html", {"request": request, "configs": configs})
+
+
+@app.post("/strategies/create", response_class=HTMLResponse)
+def strategy_create(
+    request: Request,
+    display_name: str = Form(...),
+    strategy_name: str = Form("custom"),
+    description: str = Form(""),
+    symbol_pool: str = Form(""),
+    direction: str = Form("bullish"),
+    instrument: str = Form("stock"),
+    db: Session = Depends(get_db),
+):
+    import re
+    code_name = re.sub(r'[^a-z0-9_]', '_', display_name.lower().replace(' ', '_'))[:30]
+    config = StrategyConfig(
+        strategy_name=code_name,
+        display_name=display_name,
+        description=description,
+        symbol_pool=symbol_pool,
+        direction=direction,
+        instrument=instrument,
+        params_yaml="{}",
+        is_active=True,
+    )
+    db.add(config)
+    db.commit()
+    configs = db.query(StrategyConfig).order_by(StrategyConfig.is_active.desc(), StrategyConfig.strategy_name).all()
+    return templates.TemplateResponse("partials/strategy_manage_list.html", {"request": request, "configs": configs})
 
 
 # ===== 标的筛选 + AI 诊断 + 组合推荐 + 期权链 =====

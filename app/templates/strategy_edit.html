@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flex items-center gap-4 mb-6">
+    <a href="/strategies/manage" class="text-gray-500 hover:text-white">&larr;</a>
+    <div>
+        <h1 class="text-xl font-bold text-white">{{ config.display_name or config.strategy_name }}</h1>
+        <span class="text-xs text-gray-500">ID: {{ config.id }} · {{ config.strategy_name }}</span>
+    </div>
+</div>
+
+<form hx-post="/strategies/save/{{ config.id }}" hx-target="#save-result" hx-swap="innerHTML" class="space-y-6 max-w-3xl">
+
+    <!-- 基础信息 -->
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-5">
+        <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+            <span class="text-gray-400">⚙</span> 基础信息
+        </h2>
+        <div class="space-y-3">
+            <div>
+                <label class="text-xs text-gray-500">策略名称</label>
+                <input type="text" name="display_name" value="{{ config.display_name or config.strategy_name }}"
+                       class="w-full bg-dark-800 border border-dark-500 rounded-lg px-4 py-2.5 text-sm text-white mt-1">
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">策略描述</label>
+                <textarea name="description" rows="3" class="w-full bg-dark-800 border border-dark-500 rounded-lg px-4 py-2.5 text-sm text-white mt-1">{{ config.description or '' }}</textarea>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="text-xs text-gray-500">方向</label>
+                    <select name="direction" class="w-full bg-dark-800 border border-dark-500 rounded-lg px-4 py-2.5 text-sm text-white mt-1">
+                        <option value="bullish" {{ 'selected' if config.direction == 'bullish' }}>看涨 (Bullish)</option>
+                        <option value="bearish" {{ 'selected' if config.direction == 'bearish' }}>看跌 (Bearish)</option>
+                        <option value="neutral" {{ 'selected' if config.direction == 'neutral' }}>中性 (Neutral)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">工具类型</label>
+                    <select name="instrument" class="w-full bg-dark-800 border border-dark-500 rounded-lg px-4 py-2.5 text-sm text-white mt-1">
+                        <option value="stock" {{ 'selected' if config.instrument == 'stock' }}>正股</option>
+                        <option value="call" {{ 'selected' if config.instrument == 'call' }}>买 Call</option>
+                        <option value="put" {{ 'selected' if config.instrument == 'put' }}>买 Put</option>
+                        <option value="sell_put" {{ 'selected' if config.instrument == 'sell_put' }}>Sell Put</option>
+                        <option value="covered_call" {{ 'selected' if config.instrument == 'covered_call' }}>Covered Call</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">启用状态</label>
+                <select name="is_active" class="w-full bg-dark-800 border border-dark-500 rounded-lg px-4 py-2.5 text-sm text-white mt-1">
+                    <option value="true" {{ 'selected' if config.is_active }}>启用</option>
+                    <option value="false" {{ 'selected' if not config.is_active }}>禁用</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- 标的池 -->
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-5">
+        <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+            <span class="text-gray-400">🎯</span> 标的池
+        </h2>
+        <div>
+            <label class="text-xs text-gray-500">选股池标签（逗号分隔）</label>
+            <input type="text" name="symbol_pool" value="{{ config.symbol_pool or '' }}"
+                   placeholder="AAPL,MSFT,GOOGL,AMZN,NVDA,META,TSLA"
+                   class="w-full bg-dark-800 border border-dark-500 rounded-lg px-4 py-2.5 text-sm text-white mt-1">
+            <p class="text-xs text-gray-600 mt-1">输入标的代码，用逗号分隔</p>
+        </div>
+    </div>
+
+    <!-- 策略参数 -->
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-5">
+        <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+            <span class="text-gray-400">⚡</span> 策略参数
+        </h2>
+        <p class="text-xs text-gray-500 mb-3">编辑策略的触发条件和退出规则（JSON 格式）</p>
+
+        <!-- 可视化参数编辑 -->
+        <div class="space-y-3 mb-4">
+        {% for key, value in params.items() %}
+        <div class="flex items-center gap-3">
+            <label class="text-xs text-gray-400 w-48 flex-shrink-0">{{ key }}</label>
+            <input type="text" value="{{ value }}" readonly
+                   class="flex-1 bg-dark-800 border border-dark-500 rounded px-3 py-1.5 text-sm text-white">
+        </div>
+        {% endfor %}
+        </div>
+
+        <!-- 原始 JSON 编辑 -->
+        <details>
+            <summary class="text-xs text-gray-500 cursor-pointer hover:text-white">编辑原始参数 (JSON)</summary>
+            <textarea name="params_json" rows="8" class="w-full bg-dark-800 border border-dark-500 rounded-lg px-4 py-2.5 text-xs text-white mt-2 font-mono">{{ config.params_yaml or '{}' }}</textarea>
+            <p class="text-xs text-gray-600 mt-1">修改后点"保存"生效。格式必须是合法 JSON。</p>
+        </details>
+    </div>
+
+    <div class="flex gap-3">
+        <button type="submit" class="bg-accent-green text-dark-900 px-6 py-2.5 rounded-lg font-bold hover:brightness-110">保存设置</button>
+        <a href="/strategies/manage" class="bg-dark-600 text-gray-300 px-6 py-2.5 rounded-lg hover:bg-dark-500">取消</a>
+    </div>
+    <div id="save-result"></div>
+</form>
+{% endblock %}

@@ -1,0 +1,36 @@
+<div class="space-y-2">
+{% for c in configs %}
+<div class="bg-dark-700 rounded-xl border {{ 'border-accent-green/30' if c.is_active else 'border-dark-600 opacity-60' }} p-4">
+    <div class="flex justify-between items-start">
+        <div class="flex-1">
+            <div class="flex items-center gap-2">
+                <span class="text-white font-medium">{{ c.display_name or c.strategy_name }}</span>
+                <span class="text-xs px-1.5 py-0.5 rounded
+                    {{ 'bg-accent-green/20 text-accent-green' if c.instrument == 'sell_put'
+                       else 'bg-accent-blue/20 text-accent-blue' if c.instrument in ('stock', 'call')
+                       else 'bg-purple-500/20 text-purple-400' if c.instrument == 'covered_call'
+                       else 'bg-accent-red/20 text-accent-red' if c.instrument == 'put'
+                       else 'bg-gray-600/30 text-gray-400' }}">
+                    {{ c.instrument }}
+                </span>
+                <span class="text-xs text-gray-500">{{ c.direction }}</span>
+                {% if c.is_default %}
+                <span class="text-xs text-gray-600">内置</span>
+                {% endif %}
+            </div>
+            <p class="text-xs text-gray-400 mt-1 max-w-2xl">{{ (c.description or '')[:120] }}{{ '...' if c.description and c.description|length > 120 else '' }}</p>
+            {% if c.symbol_pool %}
+            <div class="text-xs text-gray-500 mt-1">标的: {{ c.symbol_pool[:60] }}</div>
+            {% endif %}
+        </div>
+        <div class="flex items-center gap-2 ml-4">
+            <button hx-post="/strategies/toggle/{{ c.id }}" hx-target="#strategy-list" hx-swap="innerHTML"
+                    class="text-xs px-3 py-1.5 rounded {{ 'bg-accent-green/20 text-accent-green' if c.is_active else 'bg-dark-600 text-gray-500' }}">
+                {{ '已启用' if c.is_active else '已禁用' }}
+            </button>
+            <a href="/strategies/edit/{{ c.id }}" class="text-xs bg-dark-600 text-gray-300 px-3 py-1.5 rounded hover:bg-dark-500">编辑</a>
+        </div>
+    </div>
+</div>
+{% endfor %}
+</div>
