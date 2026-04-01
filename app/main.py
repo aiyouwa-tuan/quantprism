@@ -63,6 +63,9 @@ PARAM_LABELS = {
     "time_stop_days": "时间止损(天)",
     "sma_short": "短均线周期", "sma_long": "长均线周期",
     "bb_period": "布林带周期", "bb_std": "布林带标准差", "bb_exit": "布林带出场位",
+    "stop_loss_at_mult": "止损布林带倍数", "exit_at": "出场位置",
+    "lookback_days": "回看天数", "score_threshold": "评分阈值",
+    "min_score": "最低评分", "max_risk_pct": "最大风险比例",
 }
 
 # ===== 板块扫描缓存 =====
