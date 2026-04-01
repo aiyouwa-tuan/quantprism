@@ -5,7 +5,8 @@
         总风险 {{ "%.1f"|format(total_risk_pct * 100) }}%
     </span>
 </div>
-<table class="w-full text-sm">
+<div class="overflow-x-auto">
+<table class="w-full text-sm min-w-[600px]">
     <thead>
         <tr class="text-gray-500 text-xs border-b border-dark-600">
             <th class="text-left py-2">代码</th>
@@ -29,7 +30,7 @@
         <td class="text-right">
             <form hx-post="/positions/{{ p.id }}/close" hx-target="#positions-area" hx-swap="innerHTML" class="inline-flex gap-1">
                 <input type="number" name="close_price" step="0.01" placeholder="平仓价" class="w-20 bg-dark-800 border border-dark-500 rounded px-2 py-1 text-xs text-white">
-                <button type="submit" class="text-xs text-gray-400 hover:text-white px-2 py-1 rounded bg-dark-600 hover:bg-dark-500">平仓</button>
+                <button type="submit" class="text-xs text-gray-400 hover:text-white px-2 py-1 rounded bg-dark-600 hover:bg-dark-500 whitespace-nowrap">平仓</button>
             </form>
         </td>
     </tr>
@@ -39,3 +40,4 @@
 {% else %}
 <p class="text-center text-gray-500 py-6">暂无持仓</p>
 {% endif %}
+</div>
