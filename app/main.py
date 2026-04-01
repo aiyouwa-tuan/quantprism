@@ -592,10 +592,11 @@ async def strategy_save(
     config.params_yaml = json.dumps(new_params, ensure_ascii=False)
     db.commit()
 
-    # 保存后跳回策略列表
-    if request.headers.get("HX-Request"):
-        return Response(status_code=200, headers={"HX-Redirect": "/strategies/manage"})
-    return RedirectResponse(url="/strategies/manage", status_code=303)
+    # 显示保存成功提示，1秒后返回上一页（不刷新列表）
+    return HTMLResponse(
+        '<span class="text-accent-green text-sm">已保存</span>'
+        '<script>setTimeout(function(){window.history.back()},800)</script>'
+    )
 
 
 @app.post("/strategies/toggle/{config_id}", response_class=HTMLResponse)

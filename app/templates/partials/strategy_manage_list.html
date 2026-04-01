@@ -1,6 +1,7 @@
 <div class="space-y-2">
 {% for c in configs %}
-<div class="bg-dark-700 rounded-xl border {{ 'border-accent-green/30' if c.is_active else 'border-dark-600 opacity-60' }} p-4 cursor-pointer hover:border-gray-500 transition"
+<div class="strategy-card bg-dark-700 rounded-xl border {{ 'border-accent-green/30' if c.is_active else 'border-dark-600 opacity-60' }} p-4 cursor-pointer hover:border-gray-500 transition"
+     data-instrument="{{ c.instrument }}" data-direction="{{ c.direction }}" data-status="{{ 'active' if c.is_active else 'inactive' }}"
      onclick="window.location='/strategies/edit/{{ c.id }}'">
     <div class="flex justify-between items-start">
         <div class="flex-1">

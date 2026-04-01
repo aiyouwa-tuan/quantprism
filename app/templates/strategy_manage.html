@@ -8,7 +8,7 @@
 </div>
 
 <!-- 新建策略 -->
-<div class="bg-dark-700 rounded-xl border border-dark-600 mb-6">
+<div class="bg-dark-700 rounded-xl border border-dark-600 mb-4">
     <details>
         <summary class="px-5 py-3 text-sm text-accent-green cursor-pointer hover:text-white">+ 新建策略</summary>
         <form hx-post="/strategies/create" hx-target="#strategy-list" hx-swap="innerHTML" class="px-5 pb-5 space-y-3">
@@ -51,8 +51,56 @@
     </details>
 </div>
 
+<!-- 筛选栏 -->
+<div class="flex gap-2 items-center mb-4 flex-wrap">
+    <span class="text-xs text-gray-500">工具:</span>
+    <button onclick="filterStrategies('all','instrument')" class="strat-filter-inst text-xs px-2.5 py-1 rounded bg-dark-500 text-white" data-val="all">全部</button>
+    <button onclick="filterStrategies('stock','instrument')" class="strat-filter-inst text-xs px-2.5 py-1 rounded bg-dark-600 text-gray-400 hover:text-white" data-val="stock">正股</button>
+    <button onclick="filterStrategies('sell_put','instrument')" class="strat-filter-inst text-xs px-2.5 py-1 rounded bg-dark-600 text-gray-400 hover:text-white" data-val="sell_put">Sell Put</button>
+    <button onclick="filterStrategies('call','instrument')" class="strat-filter-inst text-xs px-2.5 py-1 rounded bg-dark-600 text-gray-400 hover:text-white" data-val="call">Call</button>
+    <button onclick="filterStrategies('covered_call','instrument')" class="strat-filter-inst text-xs px-2.5 py-1 rounded bg-dark-600 text-gray-400 hover:text-white" data-val="covered_call">Covered Call</button>
+    <button onclick="filterStrategies('put','instrument')" class="strat-filter-inst text-xs px-2.5 py-1 rounded bg-dark-600 text-gray-400 hover:text-white" data-val="put">Put</button>
+
+    <span class="text-xs text-gray-500 ml-4">方向:</span>
+    <button onclick="filterStrategies('all','direction')" class="strat-filter-dir text-xs px-2.5 py-1 rounded bg-dark-500 text-white" data-val="all">全部</button>
+    <button onclick="filterStrategies('bullish','direction')" class="strat-filter-dir text-xs px-2.5 py-1 rounded bg-dark-600 text-gray-400 hover:text-white" data-val="bullish">看涨</button>
+    <button onclick="filterStrategies('bearish','direction')" class="strat-filter-dir text-xs px-2.5 py-1 rounded bg-dark-600 text-gray-400 hover:text-white" data-val="bearish">看跌</button>
+    <button onclick="filterStrategies('neutral','direction')" class="strat-filter-dir text-xs px-2.5 py-1 rounded bg-dark-600 text-gray-400 hover:text-white" data-val="neutral">中性</button>
+
+    <span class="text-xs text-gray-500 ml-4">状态:</span>
+    <button onclick="filterStrategies('all','status')" class="strat-filter-status text-xs px-2.5 py-1 rounded bg-dark-500 text-white" data-val="all">全部</button>
+    <button onclick="filterStrategies('active','status')" class="strat-filter-status text-xs px-2.5 py-1 rounded bg-dark-600 text-gray-400 hover:text-white" data-val="active">已启用</button>
+    <button onclick="filterStrategies('inactive','status')" class="strat-filter-status text-xs px-2.5 py-1 rounded bg-dark-600 text-gray-400 hover:text-white" data-val="inactive">已禁用</button>
+</div>
+
 <!-- 策略列表 -->
 <div id="strategy-list">
     {% include "partials/strategy_manage_list.html" %}
 </div>
+
+<script>
+var currentFilters = { instrument: 'all', direction: 'all', status: 'all' };
+
+function filterStrategies(value, type) {
+    currentFilters[type] = value;
+
+    // 更新按钮样式
+    var cls = 'strat-filter-' + (type === 'instrument' ? 'inst' : type === 'direction' ? 'dir' : 'status');
+    document.querySelectorAll('.' + cls).forEach(function(btn) {
+        if (btn.dataset.val === value) {
+            btn.className = cls + ' text-xs px-2.5 py-1 rounded bg-dark-500 text-white';
+        } else {
+            btn.className = cls + ' text-xs px-2.5 py-1 rounded bg-dark-600 text-gray-400 hover:text-white';
+        }
+    });
+
+    // 筛选卡片
+    document.querySelectorAll('.strategy-card').forEach(function(card) {
+        var showInst = currentFilters.instrument === 'all' || card.dataset.instrument === currentFilters.instrument;
+        var showDir = currentFilters.direction === 'all' || card.dataset.direction === currentFilters.direction;
+        var showStatus = currentFilters.status === 'all' || card.dataset.status === currentFilters.status;
+        card.style.display = (showInst && showDir && showStatus) ? '' : 'none';
+    });
+}
+</script>
 {% endblock %}
