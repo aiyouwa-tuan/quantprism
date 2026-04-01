@@ -94,7 +94,10 @@ function filterStrategies(value, type) {
         }
     });
 
-    // 筛选卡片
+    applyFilters();
+}
+
+function applyFilters() {
     document.querySelectorAll('.strategy-card').forEach(function(card) {
         var showInst = currentFilters.instrument === 'all' || card.dataset.instrument === currentFilters.instrument;
         var showDir = currentFilters.direction === 'all' || card.dataset.direction === currentFilters.direction;
@@ -102,5 +105,12 @@ function filterStrategies(value, type) {
         card.style.display = (showInst && showDir && showStatus) ? '' : 'none';
     });
 }
+
+// Re-apply filters after HTMX swaps the strategy list (e.g., after toggle)
+document.addEventListener('htmx:afterSwap', function(evt) {
+    if (evt.detail.target && evt.detail.target.id === 'strategy-list') {
+        applyFilters();
+    }
+});
 </script>
 {% endblock %}
