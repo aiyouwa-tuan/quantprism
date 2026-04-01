@@ -1,0 +1,161 @@
+{% if results %}
+
+<!-- 结果头部 -->
+<div class="flex items-center justify-between mb-4">
+    <div>
+        <p class="text-sm text-white font-semibold">找到 {{ results|length }} 个策略候选</p>
+        <p class="text-xs text-gray-500 mt-0.5">已对每个策略运行 SPY 2年历史回测并验证</p>
+    </div>
+    <div class="text-xs text-gray-500">
+        年化目标：<span class="text-accent-green font-medium">{{ min_annual_return|int }}%+</span>
+    </div>
+</div>
+
+<!-- 通过验证的策略 -->
+{% set passed_list = results | selectattr("passed") | list %}
+{% set failed_list = results | rejectattr("passed") | list %}
+
+{% if passed_list %}
+<div class="mb-2">
+    <div class="flex items-center gap-2 mb-3">
+        <div class="w-2 h-2 rounded-full bg-accent-green"></div>
+        <span class="text-xs text-accent-green font-medium uppercase tracking-wide">通过验证 ({{ passed_list|length }})</span>
+    </div>
+
+    <div class="space-y-4">
+        {% for r in passed_list %}
+        <div class="bg-dark-700 rounded-xl border border-accent-green/20 p-5">
+
+            <!-- 顶部：名称 + source badge -->
+            <div class="flex items-start justify-between gap-3 mb-3">
+                <div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <h3 class="font-bold text-white">{{ r.name }}</h3>
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-accent-green/10 text-accent-green border border-accent-green/20">
+                            {{ r.get("source_badge", "策略库") }}
+                        </span>
+                    </div>
+                    <div class="flex gap-1.5 mt-1.5 flex-wrap">
+                        {% set inst_label = {'sell_put': 'Sell Put', 'covered_call': 'Covered Call', 'call': '买 Call', 'put': '买 Put', 'stock': '正股'}.get(r.instrument, r.instrument) %}
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-dark-600 text-gray-400 border border-dark-500">{{ inst_label }}</span>
+                        {% set dir_label = {'bullish': '看涨', 'bearish': '看跌', 'neutral': '中性'}.get(r.direction, r.direction) %}
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-dark-600 text-gray-400 border border-dark-500">{{ dir_label }}</span>
+                        {% if r.risk_level == 'low' %}
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-accent-green/10 text-accent-green border border-accent-green/20">低风险</span>
+                        {% elif r.risk_level == 'high' %}
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-accent-red/10 text-accent-red border border-accent-red/20">高风险</span>
+                        {% else %}
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/20">中等风险</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 描述 -->
+            <p class="text-sm text-gray-300 leading-relaxed mb-3">{{ r.description }}</p>
+
+            <!-- 回测统计 -->
+            <div class="grid grid-cols-4 gap-2 mb-3">
+                <div class="bg-dark-800 rounded-lg p-2.5 text-center">
+                    <div class="text-base font-bold text-accent-green">{{ r.backtest.annual_return }}%</div>
+                    <div class="text-xs text-gray-500 mt-0.5">年化收益</div>
+                </div>
+                <div class="bg-dark-800 rounded-lg p-2.5 text-center">
+                    <div class="text-base font-bold text-accent-blue">{{ r.backtest.win_rate }}%</div>
+                    <div class="text-xs text-gray-500 mt-0.5">胜率</div>
+                </div>
+                <div class="bg-dark-800 rounded-lg p-2.5 text-center">
+                    <div class="text-base font-bold text-accent-red">{{ r.backtest.max_drawdown }}%</div>
+                    <div class="text-xs text-gray-500 mt-0.5">最大回撤</div>
+                </div>
+                <div class="bg-dark-800 rounded-lg p-2.5 text-center">
+                    <div class="text-base font-bold text-gray-300">{{ r.backtest.num_trades }}</div>
+                    <div class="text-xs text-gray-500 mt-0.5">交易次数</div>
+                </div>
+            </div>
+
+            <!-- 通过原因 -->
+            <div class="bg-accent-green/5 border border-accent-green/20 rounded-lg p-2.5 mb-3">
+                <div class="text-xs text-accent-green font-medium mb-0.5">验证通过</div>
+                <p class="text-xs text-gray-400">{{ r.validation_reason }}</p>
+            </div>
+
+            <!-- 展开详情 -->
+            <details class="mb-3">
+                <summary class="text-xs text-accent-blue cursor-pointer hover:text-white">了解更多 ▸</summary>
+                <div class="mt-2 space-y-2 pt-2 border-t border-dark-600">
+                    {% if r.why_it_works %}
+                    <div>
+                        <span class="text-xs text-gray-500">为什么有效：</span>
+                        <span class="text-xs text-gray-300">{{ r.why_it_works }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="text-xs"><span class="text-accent-green">适用：</span><span class="text-gray-400">{{ r.best_market }}</span></div>
+                        <div class="text-xs"><span class="text-accent-red">避开：</span><span class="text-gray-400">{{ r.worst_market }}</span></div>
+                    </div>
+                    {% if r.get("source") %}
+                    <div class="text-xs text-gray-600">来源：{{ r.source }}</div>
+                    {% endif %}
+                </div>
+            </details>
+
+            <!-- 采纳按钮 -->
+            {% if r.id in existing_ids %}
+            <button disabled class="w-full py-2 rounded-lg text-sm bg-dark-600 text-accent-green border border-accent-green/30 cursor-default">
+                ✓ 已添加到我的策略
+            </button>
+            {% else %}
+            <form hx-post="/strategies/research/adopt" hx-target="this" hx-swap="outerHTML" class="research-adopt-form">
+                <input type="hidden" name="strategy_json" value="{{ r | tojson | e }}">
+                <button type="submit"
+                    class="w-full py-2 rounded-lg text-sm font-semibold bg-accent-green text-dark-900 hover:brightness-110 transition-all">
+                    <span class="htmx-hide-on-request">+ 添加到我的策略</span>
+                    <span class="htmx-indicator">添加中...</span>
+                </button>
+            </form>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- 未通过验证的策略 -->
+{% if failed_list %}
+<div class="mt-6">
+    <div class="flex items-center gap-2 mb-3">
+        <div class="w-2 h-2 rounded-full bg-gray-600"></div>
+        <span class="text-xs text-gray-500 font-medium uppercase tracking-wide">未达标 ({{ failed_list|length }})</span>
+    </div>
+    <div class="space-y-2">
+        {% for r in failed_list %}
+        <div class="bg-dark-700 rounded-lg border border-dark-600 p-4 opacity-60">
+            <div class="flex items-start justify-between">
+                <div>
+                    <span class="text-sm font-medium text-gray-300">{{ r.name }}</span>
+                    <span class="text-xs text-gray-500 ml-2">{{ {'sell_put': 'Sell Put', 'covered_call': 'Covered Call', 'call': '买 Call', 'put': '买 Put', 'stock': '正股'}.get(r.instrument, r.instrument) }}</span>
+                </div>
+                <div class="flex gap-3 text-xs text-gray-500">
+                    <span>年化 {{ r.backtest.annual_return }}%</span>
+                    <span>胜率 {{ r.backtest.win_rate }}%</span>
+                    <span>回撤 {{ r.backtest.max_drawdown }}%</span>
+                </div>
+            </div>
+            <p class="text-xs text-gray-600 mt-1">{{ r.validation_reason }}</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+<!-- 无结果 -->
+<div class="flex flex-col items-center justify-center py-20 text-center border border-dashed border-dark-600 rounded-xl">
+    <svg class="w-10 h-10 text-gray-700 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+    <p class="text-gray-500 mb-1">没有找到符合要求的策略</p>
+    <p class="text-gray-600 text-sm">尝试降低年化目标或放宽其他条件</p>
+</div>
+{% endif %}

@@ -685,6 +685,182 @@ def strategy_create(
     return templates.TemplateResponse("partials/strategy_manage_list.html", {"request": request, "configs": configs})
 
 
+# ===== 策略发现 + AI 研究 =====
+
+@app.get("/strategies/discover", response_class=HTMLResponse)
+def strategy_discover_page(
+    request: Request,
+    instrument: str = None,
+    direction: str = None,
+    style: str = None,
+    risk_level: str = None,
+    min_return: int = None,
+    db: Session = Depends(get_db),
+):
+    """策略发现：从经过验证的策略库中找到适合你目标的策略"""
+    from strategy_library import filter_library
+
+    strategies = filter_library(
+        instrument=instrument,
+        direction=direction,
+        style=style,
+        risk_level=risk_level,
+        min_return=min_return,
+    )
+
+    # Check which library strategies are already adopted (by matching strategy_name with library id)
+    existing_ids = set()
+    for cfg in db.query(StrategyConfig).all():
+        existing_ids.add(cfg.strategy_name)
+
+    return templates.TemplateResponse("strategy_discover.html", {
+        "request": request,
+        "strategies": strategies,
+        "existing_ids": existing_ids,
+        "current_instrument": instrument or "all",
+        "current_direction": direction or "all",
+        "current_style": style or "all",
+        "current_risk": risk_level or "all",
+        "current_min_return": min_return or 0,
+    })
+
+
+@app.post("/strategies/adopt/{strategy_id}", response_class=HTMLResponse)
+def strategy_adopt(request: Request, strategy_id: str, db: Session = Depends(get_db)):
+    """从策略库采纳一个策略到我的策略配置"""
+    from strategy_library import get_strategy_by_id
+    import json
+
+    lib_strategy = get_strategy_by_id(strategy_id)
+    if not lib_strategy:
+        return HTMLResponse(
+            f'<div class="discover-card bg-dark-700 rounded-xl border border-red-500/40 p-5">'
+            f'<p class="text-accent-red text-sm">策略 {strategy_id} 不存在</p></div>'
+        )
+
+    # Check if already adopted
+    existing = db.query(StrategyConfig).filter(StrategyConfig.strategy_name == strategy_id).first()
+    if existing:
+        return HTMLResponse(
+            f'<div class="discover-card bg-dark-700 rounded-xl border border-accent-green/30 p-5">'
+            f'<p class="text-accent-green text-sm">✓ 已采纳「{lib_strategy["name"]}」</p>'
+            f'<a href="/strategies/manage" class="text-xs text-gray-400 hover:text-white underline mt-1 block">前往策略管理 →</a></div>'
+        )
+
+    config = StrategyConfig(
+        strategy_name=strategy_id,
+        display_name=lib_strategy["name"],
+        description=lib_strategy.get("description", ""),
+        direction=lib_strategy.get("direction", "neutral"),
+        instrument=lib_strategy.get("instrument", "stock"),
+        params_yaml=json.dumps(lib_strategy.get("params", {}), ensure_ascii=False),
+        is_active=True,
+    )
+    db.add(config)
+    db.commit()
+
+    return HTMLResponse(
+        f'<div class="discover-card bg-dark-700 rounded-xl border border-accent-green/40 p-5">'
+        f'<p class="text-accent-green font-semibold">✓ 已添加「{lib_strategy["name"]}」</p>'
+        f'<p class="text-xs text-gray-400 mt-1">策略已加入你的策略列表</p>'
+        f'<a href="/strategies/manage" class="text-xs text-accent-blue hover:text-white underline mt-2 block">前往策略管理 →</a></div>'
+    )
+
+
+@app.get("/strategies/research", response_class=HTMLResponse)
+def strategy_research_page(request: Request, db: Session = Depends(get_db)):
+    """AI 策略研究：告诉我你的目标，我帮你找有效策略并验证"""
+    return templates.TemplateResponse("strategy_research.html", {
+        "request": request,
+    })
+
+
+@app.post("/strategies/research/run", response_class=HTMLResponse)
+async def strategy_research_run(
+    request: Request,
+    instrument: str = Form("any"),
+    direction: str = Form("any"),
+    min_annual_return: float = Form(20),
+    risk_level: str = Form("any"),
+    extra_notes: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """运行 AI 策略研究管道"""
+    from strategy_researcher import search_strategies_for_requirements
+
+    min_return_decimal = min_annual_return / 100
+
+    results = await search_strategies_for_requirements(
+        instrument=instrument,
+        direction=direction,
+        min_annual_return=min_return_decimal,
+        risk_level=risk_level,
+        extra_notes=extra_notes,
+    )
+
+    # Check which are already adopted
+    existing_ids = set(cfg.strategy_name for cfg in db.query(StrategyConfig).all())
+
+    return templates.TemplateResponse("partials/research_results.html", {
+        "request": request,
+        "results": results,
+        "existing_ids": existing_ids,
+        "min_annual_return": min_annual_return,
+    })
+
+
+@app.post("/strategies/research/adopt", response_class=HTMLResponse)
+async def strategy_research_adopt(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """从 AI 研究结果采纳策略"""
+    import json
+    form = await request.form()
+    strategy_json = form.get("strategy_json", "{}")
+
+    try:
+        strategy = json.loads(strategy_json)
+    except (json.JSONDecodeError, TypeError):
+        return HTMLResponse('<div class="text-accent-red text-sm p-2">无法解析策略数据</div>')
+
+    strategy_id = strategy.get("id", "")
+    strategy_name = strategy.get("name", "未知策略")
+
+    if not strategy_id:
+        return HTMLResponse('<div class="text-accent-red text-sm p-2">策略 ID 缺失</div>')
+
+    # Check if already adopted
+    existing = db.query(StrategyConfig).filter(StrategyConfig.strategy_name == strategy_id).first()
+    if existing:
+        return HTMLResponse(
+            f'<span class="text-accent-green text-sm font-semibold">✓ 已添加「{strategy_name}」</span>'
+            f'<a href="/strategies/manage" class="text-xs text-gray-400 hover:text-white underline ml-2">管理策略 →</a>'
+        )
+
+    desc = strategy.get("description", "")
+    source = strategy.get("source", "")
+    if source:
+        desc = f"[来源: {source}] {desc}"
+
+    config = StrategyConfig(
+        strategy_name=strategy_id,
+        display_name=strategy_name,
+        description=f"[AI 研究] {desc}",
+        direction=strategy.get("direction", "neutral"),
+        instrument=strategy.get("instrument", "stock"),
+        params_yaml=json.dumps(strategy.get("params", {}), ensure_ascii=False),
+        is_active=True,
+    )
+    db.add(config)
+    db.commit()
+
+    return HTMLResponse(
+        f'<span class="text-accent-green text-sm font-semibold">✓ 已添加「{strategy_name}」</span>'
+        f'<a href="/strategies/manage" class="text-xs text-gray-400 hover:text-white underline ml-2">管理策略 →</a>'
+    )
+
+
 # ===== 标的筛选 + AI 诊断 + 组合推荐 + 期权链 =====
 
 @app.get("/screener")
