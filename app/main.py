@@ -110,12 +110,23 @@ def opportunities_page(request: Request, sector: str = "TECH", db: Session = Dep
     """交易机会：板块筛选 + AI 诊断 + 期权链"""
     goals = db.query(UserGoals).first()
     regime = detect_market_regime()
+    # 直接把缓存 HTML 传入模板，避免页面加载后再发 HTMX 请求
+    cached = _scan_cache.get(sector)
+    cached_html = ""
+    if cached:
+        age_min = int((time.time() - cached["ts"]) / 60)
+        cached_html = (
+            f'<div class="text-xs text-gray-500 text-right mb-2">'
+            f'上次更新: {age_min} 分钟前 · 点击「刷新数据」获取最新行情</div>'
+            + cached["html"]
+        )
     return templates.TemplateResponse("opportunities.html", {
         "request": request,
         "sectors": SECTORS,
         "current_sector": sector,
         "goals": goals,
         "regime": regime,
+        "cached_html": cached_html,
     })
 
 

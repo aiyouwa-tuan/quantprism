@@ -18,12 +18,11 @@
 <!-- 板块标签 -->
 <div class="flex gap-2 mb-4" id="sector-tabs">
     {% for key, sec in sectors.items() %}
-    <button onclick="switchSector('{{ key }}')"
-            data-sector="{{ key }}"
-            class="sector-tab px-3 py-1.5 rounded-lg text-xs font-medium transition
-            {{ 'bg-accent-green text-dark-900' if key == current_sector else 'bg-dark-700 border border-dark-600 text-gray-400 hover:text-white hover:border-gray-500' }}">
+    <a href="/?sector={{ key }}"
+       class="px-3 py-1.5 rounded-lg text-xs font-medium transition
+       {{ 'bg-accent-green text-dark-900' if key == current_sector else 'bg-dark-700 border border-dark-600 text-gray-400 hover:text-white hover:border-gray-500' }}">
         {{ sec.name }} <span class="opacity-60">{{ sec.symbols|length }}</span>
-    </button>
+    </a>
     {% endfor %}
 </div>
 
@@ -63,13 +62,16 @@
     </button>
 </div>
 
-<!-- 结果：先加载缓存，手动点刷新获取最新 -->
-<div id="results"
-     hx-get="/screener/cached/{{ current_sector }}" hx-target="#results" hx-swap="innerHTML"
-     hx-trigger="load">
+<!-- 结果：服务端直接渲染缓存，不发 HTMX 请求 -->
+<div id="results">
+    {% if cached_html %}
+    {{ cached_html|safe }}
+    {% else %}
     <div class="text-center py-16">
-        <div class="text-gray-500">加载中...</div>
+        <div class="text-gray-400 mb-2">尚无缓存数据</div>
+        <div class="text-sm text-gray-500">点击上方「刷新数据」按钮开始扫描</div>
     </div>
+    {% endif %}
 </div>
 
 <style>
@@ -78,26 +80,6 @@
 </style>
 
 <script>
-var currentSector = '{{ current_sector }}';
-
-function switchSector(sector) {
-    currentSector = sector;
-    // 更新标签样式
-    document.querySelectorAll('.sector-tab').forEach(btn => {
-        if (btn.dataset.sector === sector) {
-            btn.className = 'sector-tab px-3 py-1.5 rounded-lg text-xs font-medium transition bg-accent-green text-dark-900';
-        } else {
-            btn.className = 'sector-tab px-3 py-1.5 rounded-lg text-xs font-medium transition bg-dark-700 border border-dark-600 text-gray-400 hover:text-white hover:border-gray-500';
-        }
-    });
-    // 更新刷新按钮的 sector 参数
-    var refreshBtn = document.getElementById('refresh-btn');
-    refreshBtn.setAttribute('hx-vals', JSON.stringify({sector: sector}));
-    htmx.process(refreshBtn);
-    // 加载该板块的缓存
-    htmx.ajax('GET', '/screener/cached/' + sector, '#results');
-}
-
 function filterStrategy(type) {
     document.querySelectorAll('.filter-btn').forEach(b => {
         b.className = b.dataset.filter === type
