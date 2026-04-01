@@ -120,9 +120,19 @@ def opportunities_page(request: Request, sector: str = "TECH", db: Session = Dep
             f'上次更新: {age_min} 分钟前 · 点击「刷新数据」获取最新行情</div>'
             + cached["html"]
         )
+    # 只显示 TECH（默认）+ 有缓存的板块；缓存板块附加机会数
+    visible_sectors = {}
+    for k, v in SECTORS.items():
+        if k == "TECH" or k in _scan_cache:
+            entry = dict(v)
+            if k in _scan_cache:
+                entry["opportunity_count"] = _scan_cache[k].get("count", len(v["symbols"]))
+            else:
+                entry["opportunity_count"] = None  # 尚未扫描
+            visible_sectors[k] = entry
     return templates.TemplateResponse("opportunities.html", {
         "request": request,
-        "sectors": SECTORS,
+        "sectors": visible_sectors,
         "current_sector": sector,
         "goals": goals,
         "regime": regime,
@@ -927,7 +937,8 @@ def scan_sector(request: Request, sector: str = Form("TECH"), db: Session = Depe
     # 缓存渲染后的 HTML
     import io
     body = resp.body.decode("utf-8") if isinstance(resp.body, bytes) else resp.body
-    _scan_cache[sector] = {"html": body, "ts": time.time(), "sector_name": sector_name}
+    opp_count = len(opps.get("opportunities", []))
+    _scan_cache[sector] = {"html": body, "ts": time.time(), "sector_name": sector_name, "count": opp_count}
 
     return resp
 

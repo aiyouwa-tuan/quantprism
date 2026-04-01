@@ -22,7 +22,7 @@ def _get_ai_key_and_provider():
     return provider, key
 
 
-def _call_ai(prompt: str, max_tokens: int = 1500) -> str | None:
+def _call_ai(prompt: str, max_tokens: int = 1500):
     """调用当前可用 AI 返回文本"""
     from ai_analysis import AI_PROVIDERS, get_active_provider, _call_openai_compatible, _call_claude, _call_gemini
     provider = get_active_provider()

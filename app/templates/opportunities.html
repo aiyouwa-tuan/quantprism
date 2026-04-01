@@ -16,14 +16,21 @@
 </div>
 
 <!-- 板块标签 -->
-<div class="flex gap-2 mb-4" id="sector-tabs">
+<div class="flex gap-2 mb-4 flex-wrap" id="sector-tabs">
     {% for key, sec in sectors.items() %}
     <a href="/?sector={{ key }}"
        class="px-3 py-1.5 rounded-lg text-xs font-medium transition
        {{ 'bg-accent-green text-dark-900' if key == current_sector else 'bg-dark-700 border border-dark-600 text-gray-400 hover:text-white hover:border-gray-500' }}">
-        {{ sec.name }} <span class="opacity-60">{{ sec.symbols|length }}</span>
+        {{ sec.name }}
+        <span class="opacity-60">
+            {%- if sec.opportunity_count is not none -%}
+                {{ sec.opportunity_count }}
+            {%- endif -%}
+        </span>
     </a>
     {% endfor %}
+    <!-- 未扫描板块提示 -->
+    <span class="text-xs text-gray-600 self-center ml-1">其他板块扫描后出现</span>
 </div>
 
 <!-- 筛选工具栏 -->

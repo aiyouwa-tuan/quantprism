@@ -731,7 +731,7 @@ def filter_library(
     return sorted(results, key=lambda x: x["name"])
 
 
-def get_strategy_by_id(strategy_id: str) -> dict | None:
+def get_strategy_by_id(strategy_id: str):
     """根据 id 获取策略"""
     for s in STRATEGY_LIBRARY:
         if s["id"] == strategy_id:
