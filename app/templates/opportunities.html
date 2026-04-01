@@ -16,11 +16,11 @@
 </div>
 
 <!-- 板块标签 -->
-<div class="flex gap-2 mb-4">
+<div class="flex gap-2 mb-4" id="sector-tabs">
     {% for key, sec in sectors.items() %}
-    <button hx-post="/screener/scan" hx-target="#results" hx-swap="innerHTML"
-            hx-vals='{"sector": "{{ key }}"}'
-            class="px-3 py-1.5 rounded-lg text-xs font-medium transition
+    <button onclick="switchSector('{{ key }}')"
+            data-sector="{{ key }}"
+            class="sector-tab px-3 py-1.5 rounded-lg text-xs font-medium transition
             {{ 'bg-accent-green text-dark-900' if key == current_sector else 'bg-dark-700 border border-dark-600 text-gray-400 hover:text-white hover:border-gray-500' }}">
         {{ sec.name }} <span class="opacity-60">{{ sec.symbols|length }}</span>
     </button>
@@ -52,19 +52,52 @@
     </select>
 </div>
 
-<!-- 结果 -->
-<div id="results">
-    <div hx-post="/screener/scan" hx-target="#results" hx-swap="innerHTML"
-         hx-trigger="load" hx-vals='{"sector": "{{ current_sector }}"}'>
-        <div class="text-center py-16">
-            <div class="inline-block w-8 h-8 border-2 border-accent-green border-t-transparent rounded-full animate-spin mb-4"></div>
-            <div class="text-white">正在分析 {{ sectors[current_sector].name }} 板块...</div>
-            <div class="text-sm text-gray-500 mt-2">对每只标的评估 5 种策略（正股 / Call / Put / Sell Put / Covered Call）</div>
-        </div>
+<!-- 刷新按钮 -->
+<div class="flex justify-end mb-3">
+    <button id="refresh-btn"
+            hx-post="/screener/scan" hx-target="#results" hx-swap="innerHTML"
+            hx-vals='{"sector": "{{ current_sector }}"}'
+            class="flex items-center gap-2 text-sm text-gray-400 hover:text-white px-4 py-2 rounded-lg bg-dark-700 border border-dark-600 hover:border-accent-green transition">
+        <span class="refresh-icon">&#x21bb;</span>
+        <span>刷新数据</span>
+    </button>
+</div>
+
+<!-- 结果：先加载缓存，手动点刷新获取最新 -->
+<div id="results"
+     hx-get="/screener/cached/{{ current_sector }}" hx-target="#results" hx-swap="innerHTML"
+     hx-trigger="load">
+    <div class="text-center py-16">
+        <div class="text-gray-500">加载中...</div>
     </div>
 </div>
 
+<style>
+    .htmx-request .refresh-icon { animation: spin 1s linear infinite; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+</style>
+
 <script>
+var currentSector = '{{ current_sector }}';
+
+function switchSector(sector) {
+    currentSector = sector;
+    // 更新标签样式
+    document.querySelectorAll('.sector-tab').forEach(btn => {
+        if (btn.dataset.sector === sector) {
+            btn.className = 'sector-tab px-3 py-1.5 rounded-lg text-xs font-medium transition bg-accent-green text-dark-900';
+        } else {
+            btn.className = 'sector-tab px-3 py-1.5 rounded-lg text-xs font-medium transition bg-dark-700 border border-dark-600 text-gray-400 hover:text-white hover:border-gray-500';
+        }
+    });
+    // 更新刷新按钮的 sector 参数
+    var refreshBtn = document.getElementById('refresh-btn');
+    refreshBtn.setAttribute('hx-vals', JSON.stringify({sector: sector}));
+    htmx.process(refreshBtn);
+    // 加载该板块的缓存
+    htmx.ajax('GET', '/screener/cached/' + sector, '#results');
+}
+
 function filterStrategy(type) {
     document.querySelectorAll('.filter-btn').forEach(b => {
         b.className = b.dataset.filter === type

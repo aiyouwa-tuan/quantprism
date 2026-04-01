@@ -4,6 +4,7 @@ Phase 1: 目标设定 + 仓位计算器 + 手动持仓 + 交易日志
 """
 from datetime import datetime
 from pathlib import Path
+import time
 
 from fastapi import FastAPI, Depends, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -40,6 +41,10 @@ def startup():
     seed_strategies(db)
     db.close()
 
+
+# ===== 板块扫描缓存 =====
+# {sector_key: {"html": rendered_html, "ts": timestamp, "sector_name": name}}
+_scan_cache: dict = {}
 
 # ===== 页面路由 =====
 
@@ -584,6 +589,25 @@ def screener_page(request: Request, sector: str = "TECH", db: Session = Depends(
     })
 
 
+@app.get("/screener/cached/{sector}", response_class=HTMLResponse)
+def get_cached_scan(request: Request, sector: str):
+    """返回缓存的扫描结果（秒开），没缓存就返回提示"""
+    cached = _scan_cache.get(sector)
+    if cached:
+        age_min = int((time.time() - cached["ts"]) / 60)
+        return HTMLResponse(
+            f'<div class="text-xs text-gray-500 text-right mb-2">'
+            f'上次更新: {age_min} 分钟前 · 点击「刷新数据」获取最新行情</div>'
+            + cached["html"]
+        )
+    return HTMLResponse(
+        '<div class="text-center py-16">'
+        '<div class="text-gray-400 mb-2">尚无缓存数据</div>'
+        '<div class="text-sm text-gray-500">点击上方「刷新数据」按钮开始扫描</div>'
+        '</div>'
+    )
+
+
 @app.post("/screener/scan", response_class=HTMLResponse)
 def scan_sector(request: Request, sector: str = Form("TECH"), db: Session = Depends(get_db)):
     goals = db.query(UserGoals).first()
@@ -608,15 +632,24 @@ def scan_sector(request: Request, sector: str = Form("TECH"), db: Session = Depe
     # Also get stock diagnostics for the table
     results = screen_sector(sector)
 
-    return templates.TemplateResponse("partials/screener_results.html", {
+    sector_name = SECTORS.get(sector, {}).get("name", sector)
+    tpl_ctx = {
         "request": request,
         "results": results,
         "opportunities": opps.get("opportunities", [])[:15],
         "combos": opps.get("combos", [])[:3],
         "total_strategies": opps.get("total_strategies", 0),
         "total_compatible": opps.get("total_compatible", 0),
-        "sector_name": SECTORS.get(sector, {}).get("name", sector),
-    })
+        "sector_name": sector_name,
+    }
+    resp = templates.TemplateResponse("partials/screener_results.html", tpl_ctx)
+
+    # 缓存渲染后的 HTML
+    import io
+    body = resp.body.decode("utf-8") if isinstance(resp.body, bytes) else resp.body
+    _scan_cache[sector] = {"html": body, "ts": time.time(), "sector_name": sector_name}
+
+    return resp
 
 
 @app.get("/diagnose/{symbol}", response_class=HTMLResponse)
