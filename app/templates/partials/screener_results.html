@@ -10,14 +10,37 @@
     </div>
 </div>
 
-<!-- 交易机会（多策略） -->
+<!-- 筛选栏 -->
+<div class="bg-dark-700 rounded-lg border border-dark-600 p-3 mb-4 flex gap-3 items-center flex-wrap" id="opp-filters">
+    <span class="text-xs text-gray-500">类型:</span>
+    <button onclick="filterOpp('type','all')" class="opp-f-type text-xs px-2.5 py-1 rounded bg-dark-500 text-white" data-val="all">全部</button>
+    <button onclick="filterOpp('type','single')" class="opp-f-type text-xs px-2.5 py-1 rounded bg-dark-600 text-gray-400 hover:text-white" data-val="single">单股策略</button>
+    <button onclick="filterOpp('type','combo')" class="opp-f-type text-xs px-2.5 py-1 rounded bg-dark-600 text-gray-400 hover:text-white" data-val="combo">组合策略</button>
+
+    <span class="text-xs text-gray-500 ml-3">工具:</span>
+    <button onclick="filterOpp('inst','all')" class="opp-f-inst text-xs px-2.5 py-1 rounded bg-dark-500 text-white" data-val="all">全部</button>
+    <button onclick="filterOpp('inst','stock')" class="opp-f-inst text-xs px-2.5 py-1 rounded bg-dark-600 text-gray-400 hover:text-white" data-val="stock">正股</button>
+    <button onclick="filterOpp('inst','option')" class="opp-f-inst text-xs px-2.5 py-1 rounded bg-dark-600 text-gray-400 hover:text-white" data-val="option">期权</button>
+
+    <span class="text-xs text-gray-500 ml-3" id="option-sub-label" style="display:none">期权类型:</span>
+    <button onclick="filterOpp('sub','sell_put')" class="opp-f-sub text-xs px-2.5 py-1 rounded bg-dark-600 text-gray-400 hover:text-white" data-val="sell_put" style="display:none">Sell Put</button>
+    <button onclick="filterOpp('sub','covered_call')" class="opp-f-sub text-xs px-2.5 py-1 rounded bg-dark-600 text-gray-400 hover:text-white" data-val="covered_call" style="display:none">Covered Call</button>
+    <button onclick="filterOpp('sub','buy_call')" class="opp-f-sub text-xs px-2.5 py-1 rounded bg-dark-600 text-gray-400 hover:text-white" data-val="buy_call" style="display:none">买 Call</button>
+    <button onclick="filterOpp('sub','buy_put')" class="opp-f-sub text-xs px-2.5 py-1 rounded bg-dark-600 text-gray-400 hover:text-white" data-val="buy_put" style="display:none">买 Put</button>
+</div>
+
+<!-- 单股交易机会 -->
 {% if opportunities %}
-<div class="mb-6">
-    <h2 class="text-sm font-semibold text-white mb-3">交易机会</h2>
+<div id="single-section">
+    <h2 class="text-sm font-semibold text-white mb-3">
+        单股交易机会
+        <span class="text-gray-500 font-normal ml-2">针对每只标的评估 5 种策略后，筛选出的可行方案</span>
+    </h2>
     <div class="space-y-2" id="opp-list">
     {% for opp in opportunities %}
     <div class="opp-card bg-dark-700 rounded-xl border {{ 'border-accent-green/30' if opp.score >= 60 else 'border-dark-600' }} p-4 hover:border-gray-500 transition cursor-pointer"
          data-strategy="{{ opp.strategy }}" data-score="{{ opp.score }}" data-return-pct="{{ (opp.est_return_pct * 100)|round(1) }}" data-risk-pct="{{ (opp.max_loss_pct * 100)|round(1) }}" data-risk="{{ opp.risk_level }}"
+         data-inst="{{ 'stock' if opp.strategy == 'buy_stock' else 'option' }}" data-sub="{{ opp.strategy }}"
          onclick="window.location='/diagnose/{{ opp.symbol }}'">
         <div class="flex justify-between items-start">
             <div class="flex items-center gap-3">
@@ -73,40 +96,76 @@
 </div>
 {% endif %}
 
-<!-- 组合推荐 -->
+<!-- 组合策略推荐 -->
 {% if combos %}
-<div class="mb-6">
-    <h2 class="text-sm font-semibold text-white mb-3">组合策略推荐</h2>
+<div id="combo-section" class="mb-6">
+    <h2 class="text-sm font-semibold text-white mb-3 mt-6">
+        组合策略推荐
+        <span class="text-gray-500 font-normal ml-2">从单股机会中自动组装的多标的方案，分散风险</span>
+    </h2>
     {% for combo in combos %}
-    <div class="bg-dark-700 rounded-xl border {{ 'border-accent-green/30' if combo.compatible else 'border-dark-600' }} p-5 mb-3">
-        <div class="flex justify-between items-start mb-3">
-            <div>
-                <span class="text-white font-bold">{{ combo.name }}</span>
-                <span class="text-xs text-gray-400 ml-2">{{ combo.count }} 个标的</span>
-                {% if combo.compatible %}
-                <span class="text-xs bg-accent-green/20 text-accent-green px-2 py-0.5 rounded ml-2">符合目标</span>
-                {% endif %}
+    <details class="bg-dark-700 rounded-xl border {{ 'border-accent-green/30' if combo.compatible else 'border-dark-600' }} mb-3 group">
+        <summary class="p-5 cursor-pointer hover:bg-dark-600/30 transition list-none">
+            <div class="flex justify-between items-start">
+                <div>
+                    <span class="text-white font-bold">{{ combo.name }}</span>
+                    <span class="text-xs text-gray-400 ml-2">{{ combo.count }} 个标的</span>
+                    {% if combo.compatible %}
+                    <span class="text-xs bg-accent-green/20 text-accent-green px-2 py-0.5 rounded ml-2">符合目标</span>
+                    {% endif %}
+                    <span class="text-xs text-gray-600 ml-2">点击展开详情</span>
+                </div>
+                <div class="text-right">
+                    <div class="text-xs text-gray-500">组合预估收益</div>
+                    <div class="text-lg font-bold text-accent-green">{{ combo.total_return_pct }}%</div>
+                </div>
             </div>
-            <div class="text-right">
-                <div class="text-xs text-gray-500">组合预估收益</div>
-                <div class="text-lg font-bold text-accent-green">{{ combo.total_return_pct }}%</div>
+            <p class="text-xs text-gray-400 mt-2">{{ combo.description }}</p>
+            <div class="flex gap-2 flex-wrap mt-2">
+                {% for item in combo.parts %}
+                <span class="bg-dark-800 rounded-lg px-3 py-1.5 text-xs inline-flex items-center gap-1">
+                    <span class="text-white font-medium">{{ item.symbol }}</span>
+                    <span class="text-gray-500">{{ item.strategy_name }}</span>
+                    <span class="text-accent-green">+${{ "{:,.0f}".format(item.est_return_usd) }}</span>
+                </span>
+                {% endfor %}
             </div>
-        </div>
-        <p class="text-xs text-gray-400 mb-3">{{ combo.description }}</p>
-        <div class="flex gap-2 flex-wrap">
+            <div class="flex justify-between mt-2 text-xs text-gray-500">
+                <span>总资金: ${{ "{:,.0f}".format(combo.total_capital) }}</span>
+                <span>风险: {{ combo.total_risk_pct }}%</span>
+            </div>
+        </summary>
+
+        <!-- 展开后的详细信息 -->
+        <div class="px-5 pb-5 pt-2 border-t border-dark-600">
+            <h3 class="text-xs text-gray-400 mb-3">组合成分详情（点击标的查看诊断和期权链）</h3>
+            <div class="space-y-2">
             {% for item in combo.parts %}
-            <a href="/diagnose/{{ item.symbol }}" class="bg-dark-800 rounded-lg px-3 py-2 text-xs hover:bg-dark-600 transition cursor-pointer inline-flex items-center gap-1">
-                <span class="text-white font-medium">{{ item.symbol }}</span>
-                <span class="text-gray-500">{{ item.strategy_name }}</span>
-                <span class="text-accent-green">+${{ "{:,.0f}".format(item.est_return_usd) }}</span>
+            <a href="/diagnose/{{ item.symbol }}" class="block bg-dark-800 rounded-lg p-3 hover:bg-dark-600/50 transition">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <span class="text-white font-bold">{{ item.symbol }}</span>
+                        <span class="text-xs px-2 py-0.5 rounded
+                            {{ 'bg-accent-green/20 text-accent-green' if item.strategy == 'sell_put'
+                               else 'bg-accent-blue/20 text-accent-blue' if item.strategy in ('buy_stock', 'buy_call')
+                               else 'bg-purple-500/20 text-purple-400' if item.strategy == 'covered_call'
+                               else 'bg-accent-red/20 text-accent-red' }}">
+                            {{ item.strategy_name }}
+                        </span>
+                        <span class="text-xs text-gray-500">{{ item.direction }}</span>
+                    </div>
+                    <div class="flex items-center gap-4 text-xs">
+                        <span class="text-accent-green">收益 +${{ "{:,.0f}".format(item.est_return_usd) }}</span>
+                        <span class="text-accent-red">风险 ${{ "{:,.0f}".format(item.max_loss_usd) }}</span>
+                        <span class="text-white">资金 ${{ "{:,.0f}".format(item.capital_required) }}</span>
+                        <span class="text-gray-400">&rarr; 查看详情</span>
+                    </div>
+                </div>
             </a>
             {% endfor %}
+            </div>
         </div>
-        <div class="flex justify-between mt-3 text-xs text-gray-500">
-            <span>总资金: ${{ "{:,.0f}".format(combo.total_capital) }}</span>
-            <span>风险: {{ combo.total_risk_pct }}%</span>
-        </div>
-    </div>
+    </details>
     {% endfor %}
 </div>
 {% endif %}
@@ -114,8 +173,10 @@
 <!-- 标的明细表 -->
 <div class="bg-dark-700 rounded-xl border border-dark-600">
     <div class="px-5 py-3 border-b border-dark-600 flex justify-between items-center">
-        <h2 class="text-white font-semibold text-sm">标的明细</h2>
-        <span class="text-xs text-gray-500">点击查看诊断详情和期权链</span>
+        <div>
+            <h2 class="text-white font-semibold text-sm">标的明细</h2>
+            <span class="text-xs text-gray-500">每只标的的技术面原始数据，是上方交易机会的分析基础。点击查看诊断详情和期权链</span>
+        </div>
     </div>
     <table class="w-full text-sm">
         <thead>
@@ -158,3 +219,40 @@
         </tbody>
     </table>
 </div>
+
+<script>
+var oppFilters = { type: 'all', inst: 'all', sub: 'all' };
+
+function filterOpp(dim, val) {
+    oppFilters[dim] = val;
+
+    // 选期权时显示子类型按钮
+    var showSub = (oppFilters.inst === 'option');
+    document.getElementById('option-sub-label').style.display = showSub ? '' : 'none';
+    document.querySelectorAll('.opp-f-sub').forEach(function(b) { b.style.display = showSub ? '' : 'none'; });
+    if (!showSub) oppFilters.sub = 'all';
+
+    // 更新按钮样式
+    var cls = 'opp-f-' + dim;
+    document.querySelectorAll('.' + cls).forEach(function(b) {
+        if (b.dataset.val === val) {
+            b.className = cls + ' text-xs px-2.5 py-1 rounded bg-dark-500 text-white';
+        } else {
+            b.className = cls + ' text-xs px-2.5 py-1 rounded bg-dark-600 text-gray-400 hover:text-white';
+        }
+    });
+
+    // 类型筛选：单股/组合
+    var singleSec = document.getElementById('single-section');
+    var comboSec = document.getElementById('combo-section');
+    if (singleSec) singleSec.style.display = (oppFilters.type === 'all' || oppFilters.type === 'single') ? '' : 'none';
+    if (comboSec) comboSec.style.display = (oppFilters.type === 'all' || oppFilters.type === 'combo') ? '' : 'none';
+
+    // 工具筛选：只对单股卡片生效
+    document.querySelectorAll('.opp-card').forEach(function(card) {
+        var instMatch = oppFilters.inst === 'all' || card.dataset.inst === oppFilters.inst;
+        var subMatch = oppFilters.sub === 'all' || card.dataset.sub === oppFilters.sub;
+        card.style.display = (instMatch && subMatch) ? '' : 'none';
+    });
+}
+</script>

@@ -42,7 +42,7 @@ def startup():
     db.close()
 
 
-# ===== 策略参数中文标签 =====
+# ===== 策略参数中文标签 + 描述 =====
 PARAM_LABELS = {
     "vix_min": "VIX 下限", "vix_max": "VIX 上限",
     "rsi_threshold": "RSI 阈值", "delta_target": "目标 Delta",
@@ -66,6 +66,35 @@ PARAM_LABELS = {
     "stop_loss_at_mult": "止损布林带倍数", "exit_at": "出场位置",
     "lookback_days": "回看天数", "score_threshold": "评分阈值",
     "min_score": "最低评分", "max_risk_pct": "最大风险比例",
+}
+
+PARAM_HINTS = {
+    "vix_min": "低于此值市场太安逸，不触发。通常 12-20", "vix_max": "高于此值市场太恐慌，暂停。通常 25-35",
+    "rsi_threshold": "RSI 低于此值视为超卖买入信号。通常 30-45", "delta_target": "期权 Delta 值，0.5=平值, 0.7=深度实值。通常 0.3-0.8",
+    "max_position_pct": "单笔占总资金比例。如 0.05=5%", "position_pct": "单笔占总资金比例。如 0.20=20%",
+    "profit_7d": "7天内达到此收益率则止盈。如 0.10=10%", "profit_4w": "4周内止盈目标",
+    "profit_strong": "翻倍止盈倍数。1.0=翻倍", "force_close_dte": "到期前多少天强制平仓",
+    "dte_target": "目标到期天数。LEAPS 通常 365, Sell Put 通常 30-45",
+    "dte_min": "最短到期天数", "dte_max": "最长到期天数",
+    "otm_pct": "虚值比例，如 0.05=比现价高5%的行权价",
+    "sma_200_above_pct": "股价需在 SMA200 上方多少%才买入",
+    "daily_dip_pct": "单日回调幅度触发，负数。如 -0.01=-1%",
+    "exit_below_sma200_pct": "跌破 SMA200 多少%后止损退出",
+    "dip_threshold": "回调幅度触发买入。如 -0.01=-1%",
+    "max_positions": "同策略最多持有几笔",
+    "profit_0_4m": "0-4个月止盈目标", "profit_4_6m": "4-6个月止盈目标", "profit_7_9m": "7-9个月止盈目标",
+    "force_close_months": "持有超过几个月强制平仓",
+    "delta_min": "Delta 下限(绝对值)，越小越虚值", "delta_max": "Delta 上限(绝对值)",
+    "min_safety_margin": "最小安全边际(支撑位距现价%)。如 0.05=5%",
+    "min_iv_rank": "最低隐含波动率排名(0-100)。高 IV 时卖 Put 权利金更高",
+    "max_sector_exposure": "单板块最大敞口比例", "profit_target": "止盈目标比例。如 0.50=收到权利金的50%时平仓",
+    "stop_loss_pct": "止损比例。负数。如 -1.50=亏损达权利金1.5倍时止损",
+    "time_stop_days": "持有超过多少天未达标自动止盈/止损",
+    "sma_short": "短均线天数，如 10", "sma_long": "长均线天数，如 20",
+    "bb_period": "布林带计算周期天数", "bb_std": "布林带标准差倍数，通常 2.0",
+    "bb_exit": "布林带出场位: mid=中轨, upper=上轨",
+    "stop_loss_at_mult": "止损位=下轨再偏离几倍标准差",
+    "exit_at": "出场位置: mid=中轨回归, upper=上轨突破",
 }
 
 # ===== 板块扫描缓存 =====
@@ -537,12 +566,16 @@ def strategy_edit_page(request: Request, config_id: int, db: Session = Depends(g
             ptype = "float"
         else:
             ptype = "str"
-        param_items.append({"key": key, "label": label, "value": value, "type": ptype})
+        hint = PARAM_HINTS.get(key, "")
+        param_items.append({"key": key, "label": label, "value": value, "type": ptype, "hint": hint})
+    # 所有可选参数供「添加参数」下拉使用
+    all_param_options = {k: {"label": PARAM_LABELS.get(k, k), "hint": v} for k, v in PARAM_HINTS.items() if k not in params}
     return templates.TemplateResponse("strategy_edit.html", {
         "request": request,
         "config": config,
         "params": params,
         "param_items": param_items,
+        "all_param_options": all_param_options,
     })
 
 
