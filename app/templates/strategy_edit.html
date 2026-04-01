@@ -97,8 +97,14 @@
         </div>
 
         <!-- 添加参数 -->
-        <div class="mt-4 pt-3 border-t border-dark-600 flex gap-2 items-center">
-            <select id="new-param-select" class="bg-dark-800 border border-dark-500 rounded px-3 py-2 text-xs text-white">
+        <div class="mt-4 pt-3 border-t border-dark-600">
+        <div class="flex gap-2 items-center">
+            <div class="relative">
+                <input type="text" id="param-search" placeholder="搜索参数..." autocomplete="off"
+                       class="bg-dark-800 border border-dark-500 rounded px-3 py-2 text-xs text-white w-48"
+                       oninput="filterParamOptions(this.value)">
+            </div>
+            <select id="new-param-select" class="bg-dark-800 border border-dark-500 rounded px-3 py-2 text-xs text-white w-64">
                 <option value="">选择要添加的参数...</option>
                 {% for key, info in all_param_options.items() %}
                 <option value="{{ key }}" data-label="{{ info.label }}" data-hint="{{ info.hint }}">{{ info.label }} ({{ key }})</option>
@@ -110,6 +116,7 @@
             <input type="text" id="custom-param-val" placeholder="默认值" class="bg-dark-800 border border-dark-500 rounded px-2 py-2 text-xs text-white w-24">
             <button type="button" onclick="addCustomParam()" class="text-xs bg-dark-600 text-gray-300 px-3 py-2 rounded hover:bg-dark-500">+ 自定义</button>
         </div>
+        </div>
     </div>
 
     <div class="flex gap-3 items-center">
@@ -120,14 +127,45 @@
 </form>
 
 <script>
+// 所有参数选项缓存（用于搜索重建）
+var _allParamOpts = null;
+function _cacheParamOpts() {
+    if (_allParamOpts) return;
+    var sel = document.getElementById('new-param-select');
+    _allParamOpts = Array.from(sel.options).slice(1).map(function(o) {
+        return { value: o.value, label: o.dataset.label, hint: o.dataset.hint, text: o.textContent };
+    });
+}
+function filterParamOptions(q) {
+    _cacheParamOpts();
+    var sel = document.getElementById('new-param-select');
+    var cur = sel.value;
+    sel.innerHTML = '<option value="">选择要添加的参数...</option>';
+    var lower = q.toLowerCase();
+    _allParamOpts.forEach(function(o) {
+        if (!lower || o.text.toLowerCase().includes(lower)) {
+            var opt = document.createElement('option');
+            opt.value = o.value;
+            opt.dataset.label = o.label;
+            opt.dataset.hint = o.hint;
+            opt.textContent = o.text;
+            if (o.value === cur) opt.selected = true;
+            sel.appendChild(opt);
+        }
+    });
+}
+
 function addParam() {
     var sel = document.getElementById('new-param-select');
     var opt = sel.options[sel.selectedIndex];
     if (!opt.value) return;
     var key = opt.value, label = opt.dataset.label, hint = opt.dataset.hint || '';
     _insertParamRow(key, label, '', hint);
-    opt.remove(); // 已添加的从下拉里移除
+    // 从缓存和下拉里同步移除
+    if (_allParamOpts) _allParamOpts = _allParamOpts.filter(function(o) { return o.value !== key; });
+    opt.remove();
     sel.selectedIndex = 0;
+    document.getElementById('param-search').value = '';
 }
 function addCustomParam() {
     var key = document.getElementById('custom-param-key').value.trim();

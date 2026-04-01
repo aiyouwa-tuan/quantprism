@@ -580,7 +580,10 @@ def strategy_edit_page(request: Request, config_id: int, db: Session = Depends(g
         hint = PARAM_HINTS.get(key, "")
         param_items.append({"key": key, "label": label, "value": value, "type": ptype, "hint": hint})
     # 所有可选参数供「添加参数」下拉使用
-    all_param_options = {k: {"label": PARAM_LABELS.get(k, k), "hint": v} for k, v in PARAM_HINTS.items() if k not in params}
+    all_param_options = dict(sorted(
+        {k: {"label": PARAM_LABELS.get(k, k), "hint": v} for k, v in PARAM_HINTS.items() if k not in params}.items(),
+        key=lambda x: x[1]["label"]
+    ))
     return templates.TemplateResponse("strategy_edit.html", {
         "request": request,
         "config": config,
