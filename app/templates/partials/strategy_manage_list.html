@@ -1,6 +1,7 @@
 <div class="space-y-2">
 {% for c in configs %}
-<div class="bg-dark-700 rounded-xl border {{ 'border-accent-green/30' if c.is_active else 'border-dark-600 opacity-60' }} p-4">
+<div class="bg-dark-700 rounded-xl border {{ 'border-accent-green/30' if c.is_active else 'border-dark-600 opacity-60' }} p-4 cursor-pointer hover:border-gray-500 transition"
+     onclick="window.location='/strategies/edit/{{ c.id }}'">
     <div class="flex justify-between items-start">
         <div class="flex-1">
             <div class="flex items-center gap-2">
@@ -25,10 +26,10 @@
         </div>
         <div class="flex items-center gap-2 ml-4">
             <button hx-post="/strategies/toggle/{{ c.id }}" hx-target="#strategy-list" hx-swap="innerHTML"
+                    onclick="event.stopPropagation()"
                     class="text-xs px-3 py-1.5 rounded {{ 'bg-accent-green/20 text-accent-green' if c.is_active else 'bg-dark-600 text-gray-500' }}">
                 {{ '已启用' if c.is_active else '已禁用' }}
             </button>
-            <a href="/strategies/edit/{{ c.id }}" class="text-xs bg-dark-600 text-gray-300 px-3 py-1.5 rounded hover:bg-dark-500">编辑</a>
         </div>
     </div>
 </div>

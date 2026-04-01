@@ -42,6 +42,29 @@ def startup():
     db.close()
 
 
+# ===== 策略参数中文标签 =====
+PARAM_LABELS = {
+    "vix_min": "VIX 下限", "vix_max": "VIX 上限",
+    "rsi_threshold": "RSI 阈值", "delta_target": "目标 Delta",
+    "max_position_pct": "最大仓位比例",
+    "profit_7d": "7天止盈", "profit_4w": "4周止盈", "profit_strong": "强止盈倍数",
+    "force_close_dte": "强平剩余天数",
+    "dte_target": "目标到期天数", "dte_min": "最短到期天数", "dte_max": "最长到期天数",
+    "otm_pct": "虚值比例",
+    "sma_200_above_pct": "SMA200 上方比例", "daily_dip_pct": "日跌幅阈值",
+    "position_pct": "仓位比例", "exit_below_sma200_pct": "止损 SMA200 偏离",
+    "dip_threshold": "回调阈值", "max_positions": "最大持仓笔数",
+    "profit_0_4m": "0-4月止盈", "profit_4_6m": "4-6月止盈",
+    "profit_7_9m": "7-9月止盈", "force_close_months": "强平月数",
+    "delta_min": "Delta 下限", "delta_max": "Delta 上限",
+    "min_safety_margin": "最小安全边际", "min_iv_rank": "最低 IV Rank",
+    "max_sector_exposure": "板块敞口上限",
+    "profit_target": "止盈目标", "stop_loss_pct": "止损比例",
+    "time_stop_days": "时间止损(天)",
+    "sma_short": "短均线周期", "sma_long": "长均线周期",
+    "bb_period": "布林带周期", "bb_std": "布林带标准差", "bb_exit": "布林带出场位",
+}
+
 # ===== 板块扫描缓存 =====
 # {sector_key: {"html": rendered_html, "ts": timestamp, "sector_name": name}}
 _scan_cache: dict = {}
@@ -499,40 +522,77 @@ def strategy_edit_page(request: Request, config_id: int, db: Session = Depends(g
         raise HTTPException(status_code=404)
     import json
     params = json.loads(config.params_yaml) if config.params_yaml else {}
+    # 为每个参数附带中文标签和类型信息
+    param_items = []
+    for key, value in params.items():
+        label = PARAM_LABELS.get(key, key)
+        if isinstance(value, bool):
+            ptype = "bool"
+        elif isinstance(value, int):
+            ptype = "int"
+        elif isinstance(value, float):
+            ptype = "float"
+        else:
+            ptype = "str"
+        param_items.append({"key": key, "label": label, "value": value, "type": ptype})
     return templates.TemplateResponse("strategy_edit.html", {
         "request": request,
         "config": config,
         "params": params,
+        "param_items": param_items,
     })
 
 
 @app.post("/strategies/save/{config_id}", response_class=HTMLResponse)
-def strategy_save(
+async def strategy_save(
     request: Request,
     config_id: int,
-    display_name: str = Form(...),
-    description: str = Form(""),
-    symbol_pool: str = Form(""),
-    direction: str = Form("bullish"),
-    instrument: str = Form("stock"),
-    is_active: str = Form("true"),
-    params_json: str = Form("{}"),
     db: Session = Depends(get_db),
 ):
     config = db.query(StrategyConfig).filter(StrategyConfig.id == config_id).first()
     if not config:
         raise HTTPException(status_code=404)
 
-    config.display_name = display_name
-    config.description = description
-    config.symbol_pool = symbol_pool
-    config.direction = direction
-    config.instrument = instrument
-    config.is_active = is_active == "true"
-    config.params_yaml = params_json
+    form = await request.form()
+    config.display_name = form.get("display_name", config.display_name)
+    config.description = form.get("description", "")
+    config.symbol_pool = form.get("symbol_pool", "")
+    config.direction = form.get("direction", "bullish")
+    config.instrument = form.get("instrument", "stock")
+    config.is_active = form.get("is_active", "true") == "true"
+
+    # 从结构化表单字段重建 params JSON
+    import json
+    old_params = json.loads(config.params_yaml) if config.params_yaml else {}
+    new_params = {}
+    for key in list(form.keys()):
+        if key.startswith("param_"):
+            param_name = key[6:]  # 去掉 "param_" 前缀
+            raw_value = form.get(key, "")
+            # 保持原始类型
+            old_val = old_params.get(param_name)
+            if isinstance(old_val, bool):
+                new_params[param_name] = raw_value.lower() in ("true", "1", "yes")
+            elif isinstance(old_val, int):
+                try:
+                    new_params[param_name] = int(float(raw_value))
+                except (ValueError, TypeError):
+                    new_params[param_name] = old_val
+            elif isinstance(old_val, float):
+                try:
+                    new_params[param_name] = float(raw_value)
+                except (ValueError, TypeError):
+                    new_params[param_name] = old_val
+            else:
+                new_params[param_name] = raw_value
+
+    config.params_yaml = json.dumps(new_params, ensure_ascii=False)
     db.commit()
 
-    return HTMLResponse('<div class="text-accent-green text-sm p-3">已保存</div>')
+    # 保存后跳回策略列表
+    if request.headers.get("HX-Request"):
+        return Response(status_code=200, headers={"HX-Redirect": "/strategies/manage"})
+    return RedirectResponse(url="/strategies/manage", status_code=303)
 
 
 @app.post("/strategies/toggle/{config_id}", response_class=HTMLResponse)
