@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, Depends, Request, Form, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -252,15 +252,10 @@ def add_position(
 
     db.commit()
 
-    # 返回更新后的持仓列表
-    positions = db.query(Position).filter(Position.is_open == True).all()
-    total_risk_pct = sum(p.risk_pct_of_account or 0 for p in positions)
-
-    return templates.TemplateResponse("partials/positions_list.html", {
-        "request": request,
-        "positions": positions,
-        "total_risk_pct": total_risk_pct,
-    })
+    # HTMX 请求用 HX-Redirect 做客户端跳转，确保顶部统计卡片也更新
+    if request.headers.get("HX-Request"):
+        return Response(status_code=200, headers={"HX-Redirect": "/positions"})
+    return RedirectResponse(url="/positions", status_code=303)
 
 
 @app.post("/positions/{position_id}/close", response_class=HTMLResponse)
@@ -279,14 +274,10 @@ def close_position(
     position.close_date = datetime.utcnow()
     db.commit()
 
-    positions = db.query(Position).filter(Position.is_open == True).all()
-    total_risk_pct = sum(p.risk_pct_of_account or 0 for p in positions)
-
-    return templates.TemplateResponse("partials/positions_list.html", {
-        "request": request,
-        "positions": positions,
-        "total_risk_pct": total_risk_pct,
-    })
+    # HTMX 请求用 HX-Redirect 做客户端跳转，确保顶部统计卡片也更新
+    if request.headers.get("HX-Request"):
+        return Response(status_code=200, headers={"HX-Redirect": "/positions"})
+    return RedirectResponse(url="/positions", status_code=303)
 
 
 # ===== 交易日志 =====
@@ -337,14 +328,10 @@ def add_journal(
 @app.post("/sync-positions", response_class=HTMLResponse)
 def sync_from_broker(request: Request, db: Session = Depends(get_db)):
     result = sync_positions_from_broker(db, with_pnl=True)  # Full sync with real-time P&L
-    positions = db.query(Position).filter(Position.is_open == True).all()
-    total_risk_pct = sum(p.risk_pct_of_account or 0 for p in positions)
-    return templates.TemplateResponse("partials/positions_list.html", {
-        "request": request,
-        "positions": positions,
-        "total_risk_pct": total_risk_pct,
-        "sync_result": result,
-    })
+    # HTMX 请求用 HX-Redirect 做客户端跳转，确保顶部统计卡片也更新
+    if request.headers.get("HX-Request"):
+        return Response(status_code=200, headers={"HX-Redirect": "/positions"})
+    return RedirectResponse(url="/positions", status_code=303)
 
 
 @app.get("/api/prices/{symbol}")
