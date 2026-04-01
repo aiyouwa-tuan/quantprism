@@ -684,17 +684,10 @@ def strategy_create(
 
 # ===== 标的筛选 + AI 诊断 + 组合推荐 + 期权链 =====
 
-@app.get("/screener", response_class=HTMLResponse)
-def screener_page(request: Request, sector: str = "TECH", db: Session = Depends(get_db)):
-    goals = db.query(UserGoals).first()
-    regime = detect_market_regime()
-    return templates.TemplateResponse("screener.html", {
-        "request": request,
-        "sectors": SECTORS,
-        "current_sector": sector,
-        "goals": goals,
-        "regime": regime,
-    })
+@app.get("/screener")
+def screener_page(sector: str = "TECH"):
+    """旧 URL 兼容：重定向到首页"""
+    return RedirectResponse(url=f"/?sector={sector}", status_code=301)
 
 
 @app.get("/screener/cached/{sector}", response_class=HTMLResponse)
