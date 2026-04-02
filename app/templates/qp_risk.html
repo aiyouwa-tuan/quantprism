@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="space-y-6">
+    <div>
+        <h1 class="text-xl font-bold text-white">风控护盾</h1>
+        <p class="text-gray-400 mt-1 text-sm">风控策略 = 交易策略的"保险丝"，永远优先级最高 | 直接点击数值修改</p>
+    </div>
+
+    <!-- Summary Bar -->
+    <div class="bg-dark-700 border border-dark-600 rounded-xl p-5">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-2">
+                {% if risk_data.rating == 'safe' %}
+                <span class="w-3 h-3 rounded-full bg-green-500"></span>
+                <span class="text-sm text-gray-300">风险评级: <span class="text-green-400 font-semibold">安全</span></span>
+                {% elif risk_data.rating == 'caution' %}
+                <span class="w-3 h-3 rounded-full bg-yellow-500"></span>
+                <span class="text-sm text-gray-300">风险评级: <span class="text-yellow-400 font-semibold">警告</span></span>
+                {% else %}
+                <span class="w-3 h-3 rounded-full bg-red-500"></span>
+                <span class="text-sm text-gray-300">风险评级: <span class="text-red-400 font-semibold">危险</span></span>
+                {% endif %}
+            </div>
+            <div class="flex flex-wrap items-center gap-6 text-sm">
+                <div class="text-gray-400">总持仓风险 <span class="text-white font-semibold ml-1">{{ "%.1f"|format(risk_data.total_risk_pct) }}%</span></div>
+                <div class="text-gray-400">当前回撤 <span class="ml-1 font-semibold text-green-400">{{ "%.1f"|format(risk_data.current_drawdown) }}%</span></div>
+                <div class="text-gray-400">余量 <span class="ml-1 font-semibold text-green-400">{{ "%.1f"|format(risk_data.headroom) }}%</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Two Column -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- LEFT: Rules -->
+        <div class="lg:col-span-2 bg-dark-700 border border-dark-600 rounded-xl p-5">
+            <h2 class="text-base font-semibold text-white mb-4">全局风控规则</h2>
+            <div class="space-y-3" id="risk-rules">
+                {% for rule in rules %}
+                <div class="bg-dark-600 rounded-lg p-4 cursor-pointer hover:bg-dark-500/50 transition-colors" data-rule-id="{{ rule.id }}" onclick="enterEditMode(this)">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm text-gray-300">{{ rule.label }}</span>
+                            <span class="relative group/tip">
+                                <span class="w-4 h-4 rounded-full bg-dark-500 text-gray-500 text-[10px] inline-flex items-center justify-center cursor-help" onclick="event.stopPropagation()">i</span>
+                                <span class="hidden group-hover/tip:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 bg-dark-500 border border-dark-400 text-gray-300 text-xs p-2.5 rounded-lg shadow-xl z-50 leading-relaxed">{{ rule.description }}</span>
+                            </span>
+                            {% if rule.status == 'warning' %}
+                            <span class="px-2 py-0.5 rounded text-xs font-semibold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">⚠ 超标</span>
+                            {% else %}
+                            <span class="px-2 py-0.5 rounded text-xs font-semibold bg-green-500/20 text-green-400 border border-green-500/30">✅ 生效/安全</span>
+                            {% endif %}
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <!-- Display -->
+                            <div class="rule-display flex items-center gap-1">
+                                <span class="text-xl font-bold text-white">{{ rule.value }}</span>
+                                <span class="text-sm text-gray-400">{{ rule.unit }}</span>
+                                <span class="text-xs text-gray-600 ml-2">✏️</span>
+                            </div>
+                            <!-- Edit (hidden) -->
+                            <div class="rule-edit hidden flex items-center gap-2" onclick="event.stopPropagation()">
+                                <input type="number" class="w-24 bg-dark-800 border border-accent-blue rounded-lg px-3 py-1.5 text-white text-lg font-bold focus:outline-none"
+                                       value="{{ rule.value }}" step="any"
+                                       onkeydown="if(event.key==='Enter'){saveRule(this)}">
+                                <span class="text-sm text-gray-400">{{ rule.unit }}</span>
+                                <button class="text-xs px-3 py-1 rounded bg-accent-blue text-white hover:brightness-110"
+                                        onclick="event.stopPropagation(); saveRule(this.closest('[data-rule-id]').querySelector('.rule-edit input'))">
+                                    保存
+                                </button>
+                                <button class="text-xs px-3 py-1 rounded bg-dark-700 text-gray-400 hover:text-white"
+                                        onclick="event.stopPropagation(); cancelEdit(this.closest('[data-rule-id]'))">
+                                    取消
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- RIGHT: AI -->
+        <div class="bg-dark-700 border border-accent-blue/30 rounded-xl p-5 space-y-4">
+            <h2 class="text-base font-semibold text-white">💡 AI 兜底建议</h2>
+            {% for sug in ai_suggestions %}
+            <div class="bg-dark-600 rounded-lg p-4 space-y-2">
+                <h3 class="text-sm font-semibold text-white">{{ sug.title }}</h3>
+                <p class="text-xs text-gray-400 leading-relaxed">{{ sug.description }}</p>
+                {% if sug.action_label %}
+                <button class="mt-1 text-xs px-3 py-1.5 rounded-lg bg-accent-blue/20 text-blue-400 border border-accent-blue/30 hover:bg-accent-blue/30"
+                        onclick="this.innerText='✅ 已执行'; this.disabled=true;">
+                    {{ sug.action_label }}
+                </button>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script>
+function enterEditMode(row) {
+    // Close any other open edits first
+    document.querySelectorAll('.rule-edit:not(.hidden)').forEach(function(e) {
+        cancelEdit(e.closest('[data-rule-id]'));
+    });
+    var display = row.querySelector('.rule-display');
+    var edit = row.querySelector('.rule-edit');
+    var input = edit.querySelector('input');
+    display.classList.add('hidden');
+    edit.classList.remove('hidden');
+    input.focus();
+    input.select();
+}
+
+function saveRule(input) {
+    var row = input.closest('[data-rule-id]');
+    var display = row.querySelector('.rule-display');
+    var edit = row.querySelector('.rule-edit');
+    var ruleId = row.dataset.ruleId;
+    var newValue = input.value;
+    display.querySelector('span.text-xl').textContent = newValue;
+    edit.classList.add('hidden');
+    display.classList.remove('hidden');
+    // Save to server
+    var fd = new FormData();
+    fd.append('rule_id', ruleId);
+    fd.append('value', newValue);
+    fetch('/risk/rules', { method: 'POST', body: fd });
+}
+
+function cancelEdit(row) {
+    var display = row.querySelector('.rule-display');
+    var edit = row.querySelector('.rule-edit');
+    var input = edit.querySelector('input');
+    var originalValue = display.querySelector('span.text-xl').textContent;
+    input.value = originalValue;
+    edit.classList.add('hidden');
+    display.classList.remove('hidden');
+}
+</script>
+{% endblock %}

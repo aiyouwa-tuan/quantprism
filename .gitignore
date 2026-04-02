@@ -1,12 +1,37 @@
-.env
-*.pyc
+# Python
 __pycache__/
-*.db
-logs/
-venv/
-.ipynb_checkpoints/
+*.py[cod]
 *.egg-info/
+venv/
+.venv/
+*.egg
+
+# Database
+*.db
+*.sqlite3
+
+# Secrets - NEVER commit
+.env
+*.key
+*.pem
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+._*
+
+# Claude worktrees
+.claude/worktrees/
+
+# gstack
+.gstack/
+
+# Build
 dist/
 build/
-._*
-.gstack/
+.ipynb_checkpoints/

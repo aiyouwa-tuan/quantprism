@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-xl font-bold text-white">策略猎手</h1>
+        {% if goals %}
+        <p class="text-sm text-gray-400 mt-1">
+            基于你的目标
+            (<span class="text-accent-green">年化 {{ '%.0f'|format(goals.annual_return_target * 100) }}%</span>,
+             回撤 &le; <span class="text-accent-red">{{ '%.0f'|format(goals.max_drawdown * 100) }}%</span>)
+            全网搜索 + AI 生成
+        </p>
+        {% else %}
+        <p class="text-sm text-gray-400 mt-1">
+            请先 <a href="/goals" class="text-accent-blue hover:underline">设定目标</a>，系统将根据目标搜索匹配策略。
+        </p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 搜索区域 -->
+<div class="bg-dark-700 border border-dark-600 rounded-xl p-5 mb-6">
+    <div class="flex items-center gap-4">
+        <div class="flex-1">
+            <p class="text-sm text-gray-400">从量化论文库、开源策略、AI 生成三个来源搜索符合你目标的策略</p>
+        </div>
+        <button hx-post="/hunt/search" hx-target="#hunt-results" hx-swap="innerHTML"
+                hx-indicator="#hunt-spinner"
+                class="bg-accent-blue text-white px-6 py-2.5 rounded-lg text-sm font-bold hover:brightness-110 transition whitespace-nowrap htmx-hide-on-request"
+                {{ 'disabled' if not goals }}>
+            &#x1F50D; 开始搜索
+        </button>
+    </div>
+    <div id="hunt-spinner" class="htmx-indicator mt-3">
+        <div class="bg-dark-800 rounded-lg p-4 space-y-2">
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-5 h-5 border-2 border-accent-blue border-t-transparent rounded-full animate-spin"></div>
+                <span class="text-sm text-white font-medium">正在搜索合适的策略...</span>
+            </div>
+            <div class="text-sm text-gray-400 space-y-1.5" id="search-steps">
+                <div class="flex items-center gap-2 step" data-delay="0">
+                    <span class="text-accent-green">&#x2705;</span> GitHub 策略库 (freqtrade, zipline, backtrader)
+                </div>
+                <div class="flex items-center gap-2 step" data-delay="800">
+                    <span class="text-accent-green">&#x2705;</span> Quantpedia / SSRN 论文
+                </div>
+                <div class="flex items-center gap-2 step" data-delay="1500">
+                    <span class="text-accent-blue">&#x23F3;</span> AI 策略生成中...
+                </div>
+                <div class="flex items-center gap-2 step" data-delay="2500">
+                    <span class="text-accent-blue">&#x23F3;</span> 匹配度评分计算...
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+    document.body.addEventListener('htmx:beforeRequest', function(e) {
+        if (e.detail.pathInfo.requestPath === '/hunt/search') {
+            const steps = document.querySelectorAll('#search-steps .step');
+            steps.forEach(function(step) {
+                step.style.opacity = '0.3';
+            });
+            steps.forEach(function(step, i) {
+                const delay = parseInt(step.dataset.delay) || i * 800;
+                setTimeout(function() { step.style.opacity = '1'; step.style.transition = 'opacity 0.3s'; }, delay);
+            });
+        }
+    });
+    </script>
+</div>
+
+<!-- 策略结果区域 -->
+<div id="hunt-results">
+{% if strategies %}
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-sm font-semibold text-white">找到 {{ strategies|length }} 个候选策略</h2>
+        <button hx-post="/hunt/search?more=1" hx-target="#hunt-results" hx-swap="innerHTML"
+                hx-indicator="#hunt-spinner"
+                class="text-xs text-accent-blue hover:underline htmx-hide-on-request">
+            让 AI 再找更多
+        </button>
+    </div>
+
+    <div class="space-y-3">
+    {% for s in strategies %}
+        <div class="bg-dark-700 border border-dark-600 rounded-xl overflow-hidden" x-data="{ open: false }">
+            <!-- 策略卡片头部 -->
+            <div class="p-5 cursor-pointer hover:bg-dark-600/30 transition" onclick="this.closest('.bg-dark-700').querySelector('.detail').classList.toggle('hidden')">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-3">
+                        <span class="text-lg">
+                            {% if 'github' in (s.source or '') %}&#x1F4E6;{% elif s.instrument and 'put' in s.instrument %}&#x1F4B0;{% else %}&#x1F4CA;{% endif %}
+                        </span>
+                        <h3 class="text-white font-medium">{{ s.name or s.display_name or '未命名策略' }}</h3>
+                        <span class="px-2 py-0.5 rounded text-xs bg-gray-500/20 text-gray-400 border border-gray-500/30">
+                            {{ s.source or 'library' }}
+                        </span>
+                    </div>
+                    <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-accent-green/20 text-accent-green">
+                        {{ s.match_pct }}% 匹配
+                    </span>
+                </div>
+                <p class="text-xs text-gray-400 mb-3">{{ s.description }}</p>
+                <div class="flex items-center gap-6 text-sm">
+                    <div>
+                        <span class="text-xs text-gray-500">预估年化</span>
+                        <span class="ml-1 font-bold text-accent-green">{{ s.annual_return_range[0] if s.annual_return_range else '?' }}-{{ s.annual_return_range[1] if s.annual_return_range else '?' }}%</span>
+                    </div>
+                    <div>
+                        <span class="text-xs text-gray-500">风险等级</span>
+                        <span class="ml-1 font-bold {{ 'text-accent-green' if s.risk_level == 'low' else 'text-accent-yellow' if s.risk_level == 'medium' else 'text-accent-red' }}">
+                            {{ s.risk_level or 'medium' }}
+                        </span>
+                    </div>
+                    <div>
+                        <span class="text-xs text-gray-500">预估胜率</span>
+                        <span class="ml-1 font-bold text-white">{{ s.win_rate_pct or '?' }}%</span>
+                    </div>
+                    <span class="ml-auto text-xs text-gray-600">&#x25BC; 点击展开</span>
+                </div>
+            </div>
+
+            <!-- 展开详情 -->
+            <div class="detail hidden border-t border-dark-600 bg-dark-800/50 p-5 space-y-3">
+                {% if s.why_it_works %}
+                <p class="text-sm text-gray-300"><span class="text-gray-500">原理:</span> {{ s.why_it_works }}</p>
+                {% endif %}
+                {% if s.best_market or s.worst_market %}
+                <div class="flex items-center gap-4 text-sm">
+                    {% if s.best_market %}
+                    <span class="text-gray-400">&#x2705; 适合: <span class="text-accent-green">{{ s.best_market }}</span></span>
+                    {% endif %}
+                    {% if s.worst_market %}
+                    <span class="text-gray-400">&#x26A0;&#xFE0F; 不适合: <span class="text-accent-red">{{ s.worst_market }}</span></span>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% if s.tags %}
+                <div class="flex flex-wrap gap-1.5">
+                    {% for tag in s.tags %}
+                    <span class="px-2 py-0.5 rounded-full text-xs bg-dark-600 text-gray-400 border border-dark-500">{{ tag }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <div class="flex items-center gap-3 pt-1">
+                    <a href="/backtest?strategy={{ s.name }}&symbol=SPY"
+                       class="bg-accent-green text-dark-900 px-5 py-2 rounded-lg text-sm font-bold hover:brightness-110 transition">
+                        去回测验证 &rarr;
+                    </a>
+                    <button class="bg-dark-600 text-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-dark-500 transition"
+                            onclick="var d=this.parentElement.nextElementSibling; d.classList.toggle('hidden');">
+                        查看参数
+                    </button>
+                </div>
+                <div class="hidden bg-dark-900 rounded-lg p-4 mt-2">
+                    <div class="text-xs text-gray-500 mb-2">策略参数</div>
+                    {% if s.params %}
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {% for k, v in s.params.items() %}
+                        <div class="bg-dark-800 rounded-lg px-3 py-2">
+                            <div class="text-[10px] text-gray-500">{{ k }}</div>
+                            <div class="text-sm text-white font-medium">{{ v }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-xs text-gray-600">暂无参数</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+    </div>
+
+{% else %}
+    <div class="text-center py-16">
+        <div class="text-4xl mb-4">&#x1F50D;</div>
+        <p class="text-gray-400 text-sm">点击「开始搜索」，系统将从多个来源寻找匹配策略</p>
+    </div>
+{% endif %}
+</div>
+
+{% endblock %}

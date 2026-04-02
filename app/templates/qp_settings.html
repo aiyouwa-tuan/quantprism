@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Header -->
+    <div>
+        <h1 class="text-2xl font-bold text-white">&#x2699; &#x7CFB;&#x7EDF;&#x914D;&#x7F6E;</h1>
+        <p class="text-gray-400 mt-1 text-sm">&#x6240;&#x6709; API &#x5BC6;&#x94A5;&#x5728;&#x8FD9;&#x91CC;&#x7BA1;&#x7406;&#xFF0C;&#x4E0D;&#x9700;&#x8981;&#x6539;&#x4EE3;&#x7801;</p>
+    </div>
+
+    <!-- API Config Card -->
+    <div class="bg-dark-700 border border-dark-600 rounded-xl p-5 space-y-4">
+        <h2 class="text-lg font-semibold text-white">&#x6570;&#x636E;&#x6E90; &amp; AI &#x63A5;&#x53E3;</h2>
+
+        <div class="space-y-3" id="api-config-list">
+
+            <!-- yfinance (always free) -->
+            <div class="bg-dark-600 rounded-lg p-4 flex items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <span class="w-2.5 h-2.5 rounded-full bg-green-500"></span>
+                    <span class="text-sm text-white font-semibold">yfinance</span>
+                </div>
+                <span class="text-xs text-gray-500">&#x514D;&#x8D39;&#xFF0C;&#x65E0;&#x9700;&#x914D;&#x7F6E;</span>
+            </div>
+
+            {% for cfg in api_configs %}
+            <div class="bg-dark-600 rounded-lg p-4 space-y-3" data-service="{{ cfg.service_name }}">
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <span class="w-2.5 h-2.5 rounded-full flex-shrink-0 {{ 'bg-green-500' if cfg.is_active else 'bg-gray-500' }}"></span>
+                        <span class="text-sm text-white font-semibold">{{ cfg.display_name }}</span>
+                    </div>
+                    <button class="api-toggle-btn text-xs px-3 py-1.5 rounded-lg border border-dark-500 text-gray-400 hover:text-white hover:border-gray-400 transition-colors"
+                            onclick="toggleApiEdit(this)">
+                        &#x7F16;&#x8F91;
+                    </button>
+                </div>
+                <!-- Display mode -->
+                <div class="api-display space-y-1 text-sm">
+                    <div class="flex items-center gap-2">
+                        <span class="text-gray-500 w-16">API Key</span>
+                        <span class="text-gray-400 font-mono">
+                            {% if cfg.api_key %}&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;{{ cfg.api_key[-3:] }}{% else %}<span class="text-gray-600">&#x672A;&#x914D;&#x7F6E;</span>{% endif %}
+                        </span>
+                    </div>
+                    {% if cfg.api_secret %}
+                    <div class="flex items-center gap-2">
+                        <span class="text-gray-500 w-16">Secret</span>
+                        <span class="text-gray-400 font-mono">&#x25CF;&#x25CF;&#x25CF;&#x25CF;&#x25CF;{{ cfg.api_secret[-3:] }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                <!-- Edit mode (hidden) -->
+                <div class="api-edit hidden space-y-2">
+                    <input type="text" name="api_key"
+                           class="w-full bg-dark-800 border border-accent-blue rounded-lg px-3 py-1.5 text-sm text-white font-mono focus:outline-none"
+                           placeholder="API Key" value="{{ cfg.api_key or '' }}">
+                    <input type="text" name="api_secret"
+                           class="w-full bg-dark-800 border border-dark-500 rounded-lg px-3 py-1.5 text-sm text-white font-mono focus:outline-none"
+                           placeholder="API Secret (&#x53EF;&#x9009;)" value="{{ cfg.api_secret or '' }}">
+                </div>
+            </div>
+            {% endfor %}
+
+            <!-- Placeholder rows for unconfigured services -->
+            {% set configured = api_configs | map(attribute='service_name') | list %}
+            {% for svc in [('claude', 'Claude API'), ('openai', 'OpenAI'), ('xai', 'XAI (Grok)')] %}
+            {% if svc[0] not in configured %}
+            <div class="bg-dark-600 rounded-lg p-4 flex items-center justify-between gap-4 opacity-60">
+                <div class="flex items-center gap-3">
+                    <span class="w-2.5 h-2.5 rounded-full bg-gray-600"></span>
+                    <span class="text-sm text-gray-400 font-semibold">{{ svc[1] }}</span>
+                    <span class="text-xs text-gray-600">&#x672A;&#x914D;&#x7F6E;</span>
+                </div>
+                <a href="/settings/api/add?service={{ svc[0] }}&name={{ svc[1] }}"
+                   class="text-xs px-3 py-1.5 rounded-lg border border-accent-blue/30 text-accent-blue hover:bg-accent-blue/10 transition-colors">
+                    &#x6DFB;&#x52A0;
+                </a>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Toast notification (hidden by default) -->
+    <div id="settings-toast" class="fixed bottom-6 right-6 px-4 py-2.5 bg-green-600 text-white text-sm font-semibold rounded-lg shadow-lg transition-all duration-300 opacity-0 pointer-events-none">
+        &#x2705; &#x5DF2;&#x4FDD;&#x5B58;
+    </div>
+
+</div>
+
+<script>
+function toggleApiEdit(btn) {
+    const row = btn.closest('[data-service]');
+    const display = row.querySelector('.api-display');
+    const edit = row.querySelector('.api-edit');
+    const isEditing = !edit.classList.contains('hidden');
+
+    if (isEditing) {
+        // Save mode
+        const service = row.dataset.service;
+        const keyInput = edit.querySelector('input[name="api_key"]');
+        const secretInput = edit.querySelector('input[name="api_secret"]');
+        const key = keyInput.value;
+        const secret = secretInput ? secretInput.value : '';
+
+        edit.classList.add('hidden');
+        display.classList.remove('hidden');
+        btn.textContent = '\u7F16\u8F91';
+
+        // POST to save via HTMX
+        htmx.ajax('POST', '/settings/api/' + service, {
+            values: { api_key: key, api_secret: secret },
+            swap: 'none'
+        });
+
+        // Reload to refresh masked values
+        showToast();
+        setTimeout(function() { location.reload(); }, 1000);
+    } else {
+        // Enter edit mode
+        edit.classList.remove('hidden');
+        display.classList.add('hidden');
+        btn.textContent = '\u4FDD\u5B58';
+        edit.querySelector('input').focus();
+    }
+}
+
+function showToast() {
+    const toast = document.getElementById('settings-toast');
+    toast.classList.remove('opacity-0', 'pointer-events-none');
+    toast.classList.add('opacity-100');
+    setTimeout(function() {
+        toast.classList.add('opacity-0', 'pointer-events-none');
+        toast.classList.remove('opacity-100');
+    }, 2000);
+}
+</script>
+{% endblock %}

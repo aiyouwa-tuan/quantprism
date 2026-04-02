@@ -42,6 +42,8 @@ class Opportunity:
     diagnosis: StockDiagnosis = None
     reason: str = ""
     risk_level: str = ""   # low / medium / high
+    # 关联策略
+    triggered_by: str = ""   # 触发此机会的策略名称
     # 组合信息
     combo_parts: list = field(default_factory=list)
 
@@ -51,14 +53,15 @@ def find_opportunities(
     goals_drawdown: float = 0.10,
     risk_per_trade: float = 0.02,
     account_balance: float = 100000,
-    sectors: list[str] = None,
+    sectors: list = None,
     max_results: int = 30,
+    strategy_configs: list = None,   # 用户配置的活跃策略列表
 ) -> dict:
     """
     全市场多策略扫描
 
-    对每个标的评估 5 种策略，筛选符合目标的机会，按评分排序。
-    如果单一标的不够，自动生成组合策略。
+    对每个标的评估策略，筛选符合目标的机会，按评分排序。
+    若传入 strategy_configs，则只评估用户启用的策略，并标注触发策略名称。
     """
     if sectors is None:
         sectors = ["TECH", "CHIP", "ETF"]
@@ -71,7 +74,6 @@ def find_opportunities(
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     opportunities = []
-    diagnostics = {}
 
     def _process_symbol(symbol):
         diag = diagnose_stock(symbol)
@@ -91,6 +93,10 @@ def find_opportunities(
     # 按评分排序
     opportunities.sort(key=lambda x: x.score, reverse=True)
 
+    # 如果传入了用户策略，过滤 + 打标签
+    if strategy_configs:
+        opportunities = _apply_strategy_configs(opportunities, strategy_configs)
+
     # 筛选符合目标的
     compatible = [o for o in opportunities if o.max_loss_pct <= goals_drawdown and o.est_return_pct > 0]
     incompatible = [o for o in opportunities if o not in compatible]
@@ -108,6 +114,64 @@ def find_opportunities(
         "total_strategies": len(opportunities),
         "total_compatible": len(compatible),
     }
+
+
+def _apply_strategy_configs(opportunities: list, strategy_configs: list) -> list:
+    """
+    用用户配置的策略过滤机会列表，并打上触发策略标签。
+
+    逻辑：
+    - 只保留与至少一个启用策略 instrument 匹配的机会
+    - 对每个机会，检查匹配策略的 params 是否满足（RSI阈值、安全边际等）
+    - 设置 triggered_by 为触发该机会的策略名称
+    """
+    # instrument 映射（strategy 字段 -> StrategyConfig.instrument 字段名）
+    INSTRUMENT_MAP = {
+        "buy_stock": "stock",
+        "buy_call": "call",
+        "buy_put": "put",
+        "sell_put": "sell_put",
+        "covered_call": "covered_call",
+    }
+
+    result = []
+    for opp in opportunities:
+        opp_inst = INSTRUMENT_MAP.get(opp.strategy, opp.strategy)
+        matched_names = []
+
+        for sc in strategy_configs:
+            if sc.get("instrument") != opp_inst:
+                continue
+            # 检查方向是否兼容
+            sc_dir = sc.get("direction", "neutral")
+            if sc_dir == "bullish" and opp.direction == "bearish":
+                continue
+            if sc_dir == "bearish" and opp.direction == "bullish":
+                continue
+
+            # 检查策略 params 中的额外条件
+            params = sc.get("params", {})
+            diag = opp.diagnosis
+
+            # RSI 条件（策略设了阈值就检查）
+            if diag and "rsi_threshold" in params:
+                if diag.rsi > float(params["rsi_threshold"]):
+                    continue
+
+            # 安全边际条件（sell_put 专用）
+            if opp_inst == "sell_put" and diag and "min_safety_margin" in params:
+                if diag.safety_margin < float(params["min_safety_margin"]):
+                    continue
+
+            # VIX 范围（如果诊断有 VIX 信息的话，目前没有，跳过）
+
+            matched_names.append(sc.get("display_name", sc.get("strategy_name", "")))
+
+        if matched_names:
+            opp.triggered_by = " · ".join(matched_names)
+            result.append(opp)
+
+    return result
 
 
 def _evaluate_all_strategies(diag: StockDiagnosis, goals_return, goals_drawdown, risk_per_trade, account) -> list[Opportunity]:

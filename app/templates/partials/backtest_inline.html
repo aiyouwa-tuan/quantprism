@@ -1,0 +1,283 @@
+<!-- 回测结果 inline partial — loaded via HTMX into #backtest-results -->
+
+<!-- ═══ 策略体检报告 ═══ -->
+<div class="bg-dark-700 border border-dark-600 rounded-xl p-5 mb-4">
+    <div class="flex items-center gap-2 mb-4">
+        <span class="text-base">&#x1FA7A;</span>
+        <h2 class="text-sm font-semibold text-white">策略体检报告</h2>
+        <span class="text-xs text-gray-500 ml-2">{{ symbol }}</span>
+    </div>
+    <div class="grid grid-cols-3 gap-3">
+        <!-- 总收益 -->
+        <div class="bg-dark-800 rounded-lg p-3 text-center">
+            <div class="text-xs text-gray-500 mb-1">总收益</div>
+            <div class="text-xl font-bold {{ 'text-accent-green' if metrics.total_return > 0 else 'text-accent-red' }}">
+                {{ '%.1f'|format(metrics.total_return * 100) }}%
+            </div>
+        </div>
+        <!-- 年化收益 -->
+        <div class="bg-dark-800 rounded-lg p-3 text-center">
+            <div class="text-xs text-gray-500 mb-1">年化收益</div>
+            <div class="flex items-center justify-center gap-1">
+                <span class="text-xl font-bold {{ 'text-accent-green' if metrics.annual_return >= (goals.annual_return_target if goals else 0) else 'text-accent-red' }}">
+                    {{ '%.1f'|format(metrics.annual_return * 100) }}%
+                </span>
+                {% if goals and metrics.annual_return < goals.annual_return_target %}
+                <span class="text-accent-red text-xs" title="未达到目标 {{ '%.0f'|format(goals.annual_return_target * 100) }}%">&#x274C;</span>
+                {% elif goals %}
+                <span class="text-accent-green text-xs">&#x2705;</span>
+                {% endif %}
+            </div>
+        </div>
+        <!-- 最大回撤 -->
+        <div class="bg-dark-800 rounded-lg p-3 text-center">
+            <div class="text-xs text-gray-500 mb-1" title="从最高点到最低点的最大跌幅">最大回撤</div>
+            <div class="flex items-center justify-center gap-1">
+                <span class="text-xl font-bold {{ 'text-accent-green' if metrics.max_drawdown <= (goals.max_drawdown if goals else 1) else 'text-accent-red' }}">
+                    {{ '%.1f'|format(metrics.max_drawdown * 100) }}%
+                </span>
+                {% if goals and metrics.max_drawdown > goals.max_drawdown %}
+                <span class="text-accent-red text-xs" title="超过目标 {{ '%.0f'|format(goals.max_drawdown * 100) }}%">&#x274C;</span>
+                {% elif goals %}
+                <span class="text-accent-green text-xs">&#x2705;</span>
+                {% endif %}
+            </div>
+        </div>
+        <!-- Sharpe -->
+        <div class="bg-dark-800 rounded-lg p-3 text-center">
+            <div class="text-xs text-gray-500 mb-1" title="每承受 1 份风险获得多少收益，&gt;1 较好，&gt;2 优秀">Sharpe</div>
+            <div class="text-xl font-bold text-white">{{ '%.2f'|format(metrics.sharpe_ratio) }}</div>
+        </div>
+        <!-- 胜率 -->
+        <div class="bg-dark-800 rounded-lg p-3 text-center">
+            <div class="text-xs text-gray-500 mb-1">胜率</div>
+            <div class="text-xl font-bold text-white">{{ '%.0f'|format(metrics.win_rate * 100) }}%</div>
+        </div>
+        <!-- 盈亏比 -->
+        <div class="bg-dark-800 rounded-lg p-3 text-center">
+            <div class="text-xs text-gray-500 mb-1" title="平均盈利 / 平均亏损，&gt;1 表示赚的比亏的多">盈亏比</div>
+            <div class="text-xl font-bold text-white">{{ '%.2f'|format(metrics.profit_factor) }}</div>
+        </div>
+        <!-- 交易次数 -->
+        <div class="bg-dark-800 rounded-lg p-3 text-center">
+            <div class="text-xs text-gray-500 mb-1">交易次数</div>
+            <div class="text-xl font-bold text-white">{{ metrics.total_trades }}</div>
+        </div>
+        <!-- 平均持仓 -->
+        <div class="bg-dark-800 rounded-lg p-3 text-center">
+            <div class="text-xs text-gray-500 mb-1">平均持仓</div>
+            <div class="text-xl font-bold text-white">{{ '%.1f'|format(metrics.avg_hold_days) }} 天</div>
+        </div>
+        <!-- 最大连败 -->
+        <div class="bg-dark-800 rounded-lg p-3 text-center">
+            <div class="text-xs text-gray-500 mb-1" title="连续亏损交易的最大次数">连败</div>
+            <div class="text-xl font-bold {{ 'text-accent-red' if metrics.max_consecutive_losses > 5 else 'text-white' }}">
+                {{ metrics.max_consecutive_losses }} 次
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ AI 建议 ═══ -->
+<div class="bg-accent-blue/10 border border-accent-blue/30 rounded-xl p-5 mb-4">
+    <div class="flex items-center gap-2 mb-3">
+        <span class="text-base">&#x1F916;</span>
+        <h2 class="text-sm font-semibold text-white">AI 建议</h2>
+    </div>
+    <p class="text-sm text-gray-300 leading-relaxed mb-4">
+        {% if goals and metrics.annual_return >= goals.annual_return_target and metrics.max_drawdown <= goals.max_drawdown %}
+            该策略在 {{ symbol }} 上的历史表现 <span class="text-accent-green font-medium">达到了你的目标</span>。
+            年化 {{ '%.1f'|format(metrics.annual_return * 100) }}% 超过目标 {{ '%.0f'|format(goals.annual_return_target * 100) }}%，
+            回撤 {{ '%.1f'|format(metrics.max_drawdown * 100) }}% 低于限额 {{ '%.0f'|format(goals.max_drawdown * 100) }}%。
+            建议用不同标的进一步验证稳健性。
+        {% elif goals and metrics.max_drawdown > goals.max_drawdown %}
+            回撤 {{ '%.1f'|format(metrics.max_drawdown * 100) }}% <span class="text-accent-red font-medium">超过了你的目标 {{ '%.0f'|format(goals.max_drawdown * 100) }}%</span>。
+            建议加入止损或降低仓位来控制回撤。也可以尝试与低相关策略组合使用。
+        {% elif goals and metrics.annual_return < goals.annual_return_target %}
+            年化收益 {{ '%.1f'|format(metrics.annual_return * 100) }}% <span class="text-accent-red font-medium">未达到目标 {{ '%.0f'|format(goals.annual_return_target * 100) }}%</span>。
+            可以尝试优化参数或换一个波动更大的标的。
+        {% else %}
+            回测完成。Sharpe {{ '%.2f'|format(metrics.sharpe_ratio) }}，共 {{ metrics.total_trades }} 笔交易。
+            建议在多个标的和时间段上验证策略的稳健性。
+        {% endif %}
+    </p>
+    <div class="flex items-center gap-3">
+        <button class="bg-dark-600 text-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-dark-500 transition">
+            &#x2699; 优化参数
+        </button>
+        <button class="bg-dark-600 text-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-dark-500 transition">
+            &#x1F6E1; 加止损重测
+        </button>
+        <button class="bg-dark-600 text-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-dark-500 transition">
+            &#x1F4CA; 组合使用
+        </button>
+    </div>
+</div>
+
+<!-- ═══ K 线图 ═══ -->
+<div class="bg-dark-700 border border-dark-600 rounded-xl p-5 mb-4">
+    <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2">
+            <span class="text-base">&#x1F4C8;</span>
+            <h2 class="text-sm font-semibold text-white">K 线图</h2>
+        </div>
+        <div class="flex gap-1" id="period-pills">
+            {% for val, label in [('D', '日线'), ('W', '周线'), ('M', '月线'), ('Q', '季线'), ('Y', '年线')] %}
+            <button data-period="{{ val }}" onclick="switchPeriod('{{ val }}')"
+                    class="px-3 py-1 rounded-full text-xs {{ 'bg-accent-blue text-white' if val == 'D' else 'bg-dark-600 text-gray-400 hover:text-white' }} transition">
+                {{ label }}
+            </button>
+            {% endfor %}
+        </div>
+    </div>
+    <!-- 信息栏 -->
+    <div id="kline-info" class="flex items-center gap-4 text-xs text-gray-500 mb-3 font-mono">
+        <span>开盘 <span id="ki-open" class="text-gray-300">--</span></span>
+        <span>收盘 <span id="ki-close" class="text-gray-300">--</span></span>
+        <span>最高 <span id="ki-high" class="text-accent-green">--</span></span>
+        <span>最低 <span id="ki-low" class="text-accent-red">--</span></span>
+        <span>成交量 <span id="ki-vol" class="text-gray-300">--</span></span>
+        <span>SMA20 <span id="ki-sma" class="text-accent-yellow">--</span></span>
+        <span>涨跌幅 <span id="ki-chg" class="text-gray-300">--</span></span>
+    </div>
+    <div id="ch-kline" style="height: 500px; width: 100%;"></div>
+</div>
+
+<!-- ═══ 月度收益热力图 ═══ -->
+<div class="bg-dark-700 border border-dark-600 rounded-xl p-5 mb-4">
+    <div class="flex items-center gap-2 mb-4">
+        <span class="text-base">&#x1F5D3;</span>
+        <h2 class="text-sm font-semibold text-white">月度收益热力图</h2>
+    </div>
+    <div id="ch-heatmap" style="height: 620px; width: 100%;"></div>
+</div>
+
+<!-- ═══ 图表初始化脚本 ═══ -->
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<script>
+(function() {
+    // ── K 线图 (TradingView Lightweight Charts) ──
+    const chartData = {{ chart_data|safe }};
+    const trades = {{ trades|safe if trades else '[]' }};
+
+    const chartEl = document.getElementById('ch-kline');
+    const chart = LightweightCharts.createChart(chartEl, {
+        layout: { background: { color: '#1a2035' }, textColor: '#9ca3af' },
+        grid: { vertLines: { color: '#232b3e' }, horzLines: { color: '#232b3e' } },
+        crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+        rightPriceScale: { borderColor: '#232b3e' },
+        timeScale: { borderColor: '#232b3e', timeVisible: true },
+    });
+
+    const candleSeries = chart.addCandlestickSeries({
+        upColor: '#22c55e', downColor: '#ef4444',
+        borderUpColor: '#22c55e', borderDownColor: '#ef4444',
+        wickUpColor: '#22c55e', wickDownColor: '#ef4444',
+    });
+    candleSeries.setData(chartData);
+
+    // SMA20 overlay
+    if (chartData.length > 20) {
+        const smaData = [];
+        for (let i = 19; i < chartData.length; i++) {
+            let sum = 0;
+            for (let j = i - 19; j <= i; j++) sum += chartData[j].close;
+            smaData.push({ time: chartData[i].time, value: sum / 20 });
+        }
+        const smaSeries = chart.addLineSeries({ color: '#eab308', lineWidth: 1 });
+        smaSeries.setData(smaData);
+    }
+
+    // 买卖标记
+    if (trades.length) {
+        const markers = trades.map(t => ({
+            time: t.time,
+            position: t.side === 'buy' ? 'belowBar' : 'aboveBar',
+            color: t.side === 'buy' ? '#22c55e' : '#ef4444',
+            shape: t.side === 'buy' ? 'arrowUp' : 'arrowDown',
+            text: t.side === 'buy' ? 'B' : 'S',
+        }));
+        candleSeries.setMarkers(markers);
+    }
+
+    // crosshair info
+    chart.subscribeCrosshairMove(param => {
+        if (!param || !param.time) return;
+        const d = param.seriesData.get(candleSeries);
+        if (!d) return;
+        document.getElementById('ki-open').textContent = d.open?.toFixed(2) ?? '--';
+        document.getElementById('ki-close').textContent = d.close?.toFixed(2) ?? '--';
+        document.getElementById('ki-high').textContent = d.high?.toFixed(2) ?? '--';
+        document.getElementById('ki-low').textContent = d.low?.toFixed(2) ?? '--';
+        const chg = d.open ? (((d.close - d.open) / d.open) * 100).toFixed(2) : '--';
+        const chgEl = document.getElementById('ki-chg');
+        chgEl.textContent = chg + '%';
+        chgEl.className = parseFloat(chg) >= 0 ? 'text-accent-green' : 'text-accent-red';
+    });
+
+    chart.timeScale().fitContent();
+
+    window.switchPeriod = function(period) {
+        document.querySelectorAll('#period-pills button').forEach(btn => {
+            btn.className = btn.dataset.period === period
+                ? 'px-3 py-1 rounded-full text-xs bg-accent-blue text-white transition'
+                : 'px-3 py-1 rounded-full text-xs bg-dark-600 text-gray-400 hover:text-white transition';
+        });
+        // Period switching would require server-side data reload — placeholder
+    };
+
+    // ── 月度收益热力图 (ECharts) ──
+    const heatmapData = {{ heatmap_data|safe }};
+    const heatmapEl = document.getElementById('ch-heatmap');
+    const heatmapChart = echarts.init(heatmapEl, null, { renderer: 'canvas' });
+
+    const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+    const years = [...new Set(heatmapData.map(d => d[1]))].sort();
+
+    const hmOption = {
+        tooltip: {
+            formatter: function(p) {
+                return years[p.value[1]] + '年 ' + months[p.value[0]] + ': ' + p.value[2].toFixed(2) + '%';
+            }
+        },
+        xAxis: {
+            type: 'category', data: months,
+            axisLine: { lineStyle: { color: '#232b3e' } },
+            axisLabel: { color: '#9ca3af', fontSize: 11 },
+            splitLine: { show: false }
+        },
+        yAxis: {
+            type: 'category', data: years.map(String),
+            axisLine: { lineStyle: { color: '#232b3e' } },
+            axisLabel: { color: '#9ca3af', fontSize: 11 },
+            splitLine: { show: false }
+        },
+        visualMap: {
+            min: -15, max: 15, calculable: true,
+            orient: 'horizontal', left: 'center', bottom: 0,
+            inRange: { color: ['#ef4444', '#1a2035', '#22c55e'] },
+            textStyle: { color: '#9ca3af' },
+            formatter: function(v) { return v.toFixed(0) + '%'; }
+        },
+        series: [{
+            type: 'heatmap',
+            data: heatmapData,
+            label: {
+                show: true,
+                formatter: function(p) { return p.value[2].toFixed(1); },
+                color: '#e5e7eb', fontSize: 10
+            },
+            itemStyle: { borderColor: '#1a2035', borderWidth: 2, borderRadius: 3 }
+        }],
+        grid: { top: 10, right: 20, bottom: 60, left: 60 },
+        backgroundColor: 'transparent'
+    };
+    heatmapChart.setOption(hmOption);
+
+    // 响应式
+    window.addEventListener('resize', function() {
+        chart.applyOptions({ width: chartEl.clientWidth });
+        heatmapChart.resize();
+    });
+})();
+</script>

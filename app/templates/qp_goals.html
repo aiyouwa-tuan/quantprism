@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="mb-6">
+    <h1 class="text-xl font-bold text-white">设定投资目标</h1>
+    <p class="text-sm text-gray-400 mt-1">至少填 1 个目标。系统根据你的目标自动推导策略约束条件。</p>
+</div>
+
+<form hx-post="/goals" hx-target="#derived-results" hx-swap="innerHTML" hx-indicator="#goal-spinner">
+
+<!-- 收益 + 回撤目标 -->
+<div class="grid grid-cols-2 gap-4 mb-4">
+    <!-- 收益目标 -->
+    <div class="bg-dark-700 border border-dark-600 rounded-xl p-5">
+        <div class="flex items-center gap-2 mb-3">
+            <span class="text-base">&#x1F4C8;</span>
+            <h2 class="text-sm font-semibold text-white">收益目标</h2>
+            <span class="relative group">
+                <span class="w-4 h-4 rounded-full bg-dark-500 text-gray-500 text-[10px] inline-flex items-center justify-center cursor-help">i</span>
+                <span class="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-dark-600 border border-dark-500 text-gray-300 text-xs p-3 rounded-lg shadow-xl z-50 leading-relaxed">
+                    年化收益率：投资一年后你的钱增值了多少。标普500长期年化约10%。15%属于中等进取，需承受一定波动。
+                </span>
+            </span>
+        </div>
+        <div class="flex items-center gap-3">
+            <input type="number" name="annual_return_target" id="inp-return"
+                   value="{{ '%.0f'|format(goals.annual_return_target * 100) if goals else '15' }}"
+                   min="1" max="200" step="1"
+                   class="w-24 bg-dark-800 border border-dark-500 rounded-lg px-3 py-2 text-white text-lg font-bold text-center focus:border-accent-blue focus:outline-none"
+                   oninput="updateReturnHelper()">
+            <span class="text-lg text-gray-400">%</span>
+        </div>
+        <p id="return-helper" class="text-xs text-gray-500 mt-2">10 万投入，一年后变 <span class="text-accent-green font-medium">{{ '%.1f'|format(10 * (1 + (goals.annual_return_target if goals else 0.15))) if goals else '11.5' }} 万</span></p>
+    </div>
+
+    <!-- 回撤目标 -->
+    <div class="bg-dark-700 border border-dark-600 rounded-xl p-5">
+        <div class="flex items-center gap-2 mb-3">
+            <span class="text-base">&#x1F6E1;</span>
+            <h2 class="text-sm font-semibold text-white">回撤目标</h2>
+            <span class="relative group">
+                <span class="w-4 h-4 rounded-full bg-dark-500 text-gray-500 text-[10px] inline-flex items-center justify-center cursor-help">i</span>
+                <span class="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-dark-600 border border-dark-500 text-gray-300 text-xs p-3 rounded-lg shadow-xl z-50 leading-relaxed">
+                    最大回撤：从最高点跌到最低点的幅度。10%意味着你的10万最多会跌到9万。回撤越小策略越保守。
+                </span>
+            </span>
+        </div>
+        <div class="flex items-center gap-3">
+            <input type="number" name="max_drawdown" id="inp-drawdown"
+                   value="{{ '%.0f'|format(goals.max_drawdown * 100) if goals else '10' }}"
+                   min="1" max="50" step="1"
+                   class="w-24 bg-dark-800 border border-dark-500 rounded-lg px-3 py-2 text-white text-lg font-bold text-center focus:border-accent-blue focus:outline-none"
+                   oninput="updateDrawdownHelper()">
+            <span class="text-lg text-gray-400">%</span>
+        </div>
+        <p id="drawdown-helper" class="text-xs text-gray-500 mt-2">10 万账户最多跌到 <span class="text-accent-red font-medium">{{ '%.1f'|format(10 * (1 - (goals.max_drawdown if goals else 0.10))) if goals else '9.0' }} 万</span></p>
+    </div>
+</div>
+
+<!-- 标的 + 周期 -->
+<div class="grid grid-cols-2 gap-4 mb-4">
+    <!-- 交易标的 -->
+    <div class="bg-dark-700 border border-dark-600 rounded-xl p-5">
+        <div class="flex items-center gap-2 mb-4">
+            <span class="text-base">&#x1F3AF;</span>
+            <h2 class="text-sm font-semibold text-white">交易标的</h2>
+        </div>
+        <div class="space-y-3">
+            <label class="flex items-center gap-3 cursor-pointer group">
+                <input type="checkbox" name="assets" value="us_stock"
+                       {{ 'checked' if not goals or 'us_stock' in (goals.asset_classes or 'us_stock') }}
+                       class="w-4 h-4 rounded bg-dark-800 border-dark-500 text-accent-blue focus:ring-accent-blue">
+                <span class="text-sm text-gray-300 group-hover:text-white">美股股票</span>
+            </label>
+            <label class="flex items-center gap-3 cursor-pointer group">
+                <input type="checkbox" name="assets" value="us_etf"
+                       {{ 'checked' if not goals or 'us_etf' in (goals.asset_classes or 'us_etf') }}
+                       class="w-4 h-4 rounded bg-dark-800 border-dark-500 text-accent-blue focus:ring-accent-blue">
+                <span class="text-sm text-gray-300 group-hover:text-white">美股 ETF</span>
+            </label>
+            <label class="flex items-center gap-3 cursor-pointer group">
+                <input type="checkbox" name="assets" value="options"
+                       {{ 'checked' if goals and goals.asset_classes and 'options' in goals.asset_classes }}
+                       class="w-4 h-4 rounded bg-dark-800 border-dark-500 text-accent-blue focus:ring-accent-blue">
+                <span class="text-sm text-gray-300 group-hover:text-white">股票期权</span>
+                <span class="relative group/tip">
+                    <span class="w-4 h-4 rounded-full bg-dark-500 text-gray-500 text-[10px] inline-flex items-center justify-center cursor-help ml-1">i</span>
+                    <span class="hidden group-hover/tip:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-dark-600 border border-dark-500 text-gray-300 text-xs p-3 rounded-lg shadow-xl z-50 leading-relaxed">
+                        买入看涨期权(Call)=花小钱押注股票上涨。最大亏损就是花的权利金。有杠杆效应但风险较高。
+                    </span>
+                </span>
+            </label>
+            <label class="flex items-center gap-3 cursor-pointer group">
+                <input type="checkbox" name="assets" value="crypto"
+                       {{ 'checked' if goals and goals.asset_classes and 'crypto' in goals.asset_classes }}
+                       class="w-4 h-4 rounded bg-dark-800 border-dark-500 text-accent-blue focus:ring-accent-blue">
+                <span class="text-sm text-gray-300 group-hover:text-white">加密货币</span>
+            </label>
+        </div>
+    </div>
+
+    <!-- 持仓周期 -->
+    <div class="bg-dark-700 border border-dark-600 rounded-xl p-5">
+        <div class="flex items-center gap-2 mb-4">
+            <span class="text-base">&#x23F1;</span>
+            <h2 class="text-sm font-semibold text-white">持仓周期</h2>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            {% set current_horizon = goals.horizon if goals else 'swing' %}
+            {% for val, label in [('intraday', '日内'), ('swing', '几天~几周'), ('position', '几周~几月'), ('longterm', '几月~一年')] %}
+            <label class="cursor-pointer">
+                <input type="radio" name="horizon" value="{{ val }}" class="hidden peer"
+                       {{ 'checked' if current_horizon == val }}>
+                <span class="peer-checked:bg-accent-blue peer-checked:text-white peer-checked:border-accent-blue
+                             bg-dark-800 border border-dark-500 text-gray-400 hover:text-white hover:border-dark-400
+                             px-4 py-2 rounded-full text-sm inline-block transition-all">
+                    {{ label }}
+                </span>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- 系统推导结果 -->
+<div id="derived-results">
+{% if constraints %}
+<div class="bg-accent-blue/10 border border-accent-blue/30 rounded-xl p-5 mb-4">
+    <div class="flex items-center gap-2 mb-4">
+        <span class="text-base">&#x1F9E0;</span>
+        <h2 class="text-sm font-semibold text-white">系统推导结果</h2>
+    </div>
+    <div class="grid grid-cols-3 gap-4">
+        <div class="bg-dark-800/50 rounded-lg p-3 text-center relative group">
+            <div class="text-xs text-gray-400 mb-1">策略质量要求
+                <span class="w-3.5 h-3.5 rounded-full bg-dark-500 text-gray-500 text-[9px] inline-flex items-center justify-center cursor-help ml-0.5">i</span>
+                <span class="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 bg-dark-600 border border-dark-500 text-gray-300 text-xs p-3 rounded-lg shadow-xl z-50 leading-relaxed text-left">
+                    Sharpe Ratio：每承受1块风险赚多少。>1.0好，>1.5很好，>2.0优秀。
+                </span>
+            </div>
+            <div class="text-lg font-bold text-white">Sharpe > 1.0</div>
+        </div>
+        <div class="bg-dark-800/50 rounded-lg p-3 text-center">
+            <div class="text-xs text-gray-400 mb-1">建议最大持仓</div>
+            <div class="text-lg font-bold text-white">{{ constraints.max_positions }} 个标的</div>
+        </div>
+        <div class="bg-dark-800/50 rounded-lg p-3 text-center relative group">
+            <div class="text-xs text-gray-400 mb-1">单笔最大亏损
+                <span class="w-3.5 h-3.5 rounded-full bg-dark-500 text-gray-500 text-[9px] inline-flex items-center justify-center cursor-help ml-0.5">i</span>
+                <span class="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 bg-dark-600 border border-dark-500 text-gray-300 text-xs p-3 rounded-lg shadow-xl z-50 leading-relaxed text-left">
+                    每笔交易最多亏账户的这个比例。2%意味着10万账户单笔最多亏2000元。
+                </span>
+            </div>
+            <div class="text-lg font-bold text-white">&le; 账户 {{ '%.0f'|format(constraints.risk_per_trade * 100) }}%</div>
+        </div>
+    </div>
+</div>
+{% endif %}
+</div>
+
+<!-- Loading -->
+<div id="goal-spinner" class="htmx-indicator text-center py-4">
+    <div class="inline-block w-6 h-6 border-2 border-accent-blue border-t-transparent rounded-full animate-spin"></div>
+    <span class="text-sm text-gray-400 ml-2">正在推导约束条件...</span>
+</div>
+
+<!-- 按钮 -->
+<div class="flex items-center gap-3">
+    <button type="button" onclick="saveAndHunt()"
+            class="bg-accent-blue text-white px-6 py-2.5 rounded-lg text-sm font-bold hover:brightness-110 transition">
+        保存并找策略 &rarr;
+    </button>
+    <button type="submit"
+            class="bg-dark-600 text-gray-300 px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-dark-500 transition">
+        仅保存
+    </button>
+</div>
+
+</form>
+
+<script>
+function updateReturnHelper() {
+    const pct = parseFloat(document.getElementById('inp-return').value) || 0;
+    const result = (10 * (1 + pct / 100)).toFixed(1);
+    document.getElementById('return-helper').innerHTML =
+        '10 万投入，一年后变 <span class="text-accent-green font-medium">' + result + ' 万</span>';
+}
+
+function updateDrawdownHelper() {
+    const pct = parseFloat(document.getElementById('inp-drawdown').value) || 0;
+    const result = (10 * (1 - pct / 100)).toFixed(1);
+    document.getElementById('drawdown-helper').innerHTML =
+        '10 万账户最多跌到 <span class="text-accent-red font-medium">' + result + ' 万</span>';
+}
+
+function saveAndHunt() {
+    const form = document.querySelector('form');
+    const data = new FormData(form);
+    fetch('/goals', { method: 'POST', body: data }).then(function() {
+        window.location.href = '/hunt';
+    });
+}
+</script>
+
+{% endblock %}

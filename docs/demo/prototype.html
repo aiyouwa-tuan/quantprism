@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QuantPrism v4</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
+<script>tailwind.config={theme:{extend:{colors:{d:{900:'#0a0e1a',800:'#111827',700:'#1a2035',600:'#232b3e',500:'#2d3650'},a:{g:'#22c55e',r:'#ef4444',b:'#3b82f6',y:'#eab308',o:'#f97316',p:'#a855f7'}}}}}</script>
+<style>
+*{box-sizing:border-box}body{background:#0a0e1a;margin:0;font-family:-apple-system,BlinkMacSystemFont,sans-serif}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#111827}::-webkit-scrollbar-thumb{background:#2d3650;border-radius:3px}
+.pg{display:none}.pg.on{display:block}
+.nb{border-radius:8px;padding:12px 16px;font-size:15px;text-align:left;width:100%;cursor:pointer;border:none;background:transparent;color:#9ca3af;display:flex;align-items:center;gap:10px;transition:all .1s}
+.nb:hover{background:rgba(45,54,80,.5);color:#d1d5db}.nb.on{background:#2d3650;color:#fff}
+.tip{position:relative;cursor:help;display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#232b3e;color:#6b7280;font-size:10px;font-style:normal;flex-shrink:0}
+.tip:hover .tt{display:block}.tt{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#1a2035;border:1px solid #3d4760;color:#d1d5db;padding:12px 16px;border-radius:10px;font-size:13px;width:300px;z-index:99;line-height:1.6;box-shadow:0 8px 30px rgba(0,0,0,.6)}.tt::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:#3d4760}
+.cd{background:#1a2035;border:1px solid #232b3e;border-radius:12px;padding:20px;margin-bottom:20px}
+.bt{min-height:44px;padding:12px 24px;border-radius:8px;font-size:15px;font-weight:500;cursor:pointer;border:none;transition:all .1s;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.bt:hover{filter:brightness(1.15)}.bt:active{transform:scale(.97)}
+.bt-p{background:#3b82f6;color:#fff}.bt-s{background:#22c55e;color:#fff}.bt-g{background:#232b3e;color:#9ca3af}.bt-o{background:transparent;border:1px solid #2d3650;color:#9ca3af}.bt-o:hover{border-color:#3b82f6;color:#d1d5db}
+.bt-r{background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3)}
+.inp{background:#111827;border:1px solid #232b3e;color:#d1d5db;padding:12px 16px;border-radius:8px;font-size:15px;outline:none;width:100%}
+.inp:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:40px}
+.chk{width:22px;height:22px;border:2px solid #3d4760;border-radius:5px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all .1s;flex-shrink:0}
+.chk.on{background:#3b82f6;border-color:#3b82f6}.chk.on::after{content:'\2713';color:#fff;font-size:13px;font-weight:bold}
+.pill{min-height:40px;padding:8px 20px;border-radius:20px;font-size:14px;cursor:pointer;border:1px solid #232b3e;color:#6b7280;transition:all .1s;user-select:none;display:inline-flex;align-items:center}
+.pill:hover{border-color:#3b82f6;color:#d1d5db}.pill.on{background:#3b82f6;border-color:#3b82f6;color:#fff}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:6px;font-size:12px;font-weight:600}
+.toast{position:fixed;bottom:24px;right:24px;background:#22c55e;color:#fff;padding:14px 24px;border-radius:10px;font-size:14px;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.4);animation:slideUp .3s ease-out}
+@keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}.fade{animation:fadeUp .2s ease-out}
+.bar{height:3px;background:linear-gradient(90deg,#f97316,#fb923c,#f97316)}
+.editable{cursor:pointer;border-bottom:1px dashed #3d4760;padding:2px 4px;border-radius:2px;transition:all .1s;min-width:30px;display:inline-block;text-align:center}
+.editable:hover{border-bottom-color:#3b82f6;background:rgba(59,130,246,.1)}.editable:focus{border-bottom-color:#3b82f6;background:rgba(59,130,246,.15);outline:none}
+.kline-info{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:12px}
+.kline-info>div{background:#111827;border-radius:8px;padding:10px 14px}
+.kline-info .label{font-size:11px;color:#6b7280;margin-bottom:2px}.kline-info .val{font-size:15px;color:#fff;font-weight:500;font-family:monospace}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body class="text-gray-300 h-screen flex flex-col overflow-hidden">
+<div class="bar w-full flex-shrink-0"></div>
+<header class="bg-d-800 border-b border-d-600 px-6 py-3 flex items-center justify-between flex-shrink-0">
+<div class="flex items-center gap-3"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-a-b to-a-p flex items-center justify-center text-xs font-bold text-white">QP</div><span class="text-lg font-bold text-white">QuantPrism</span></div>
+<div class="flex items-center gap-3"><div class="flex items-center gap-2 bg-d-700 border border-d-600 rounded-lg px-3 py-2"><span class="w-2.5 h-2.5 rounded-full bg-a-g"></span><span class="text-sm text-gray-300">VIX 18.2 正常</span></div><span class="badge bg-a-o/20 text-a-o border border-a-o/30 text-sm">PAPER</span></div>
+</header>
+<div class="flex flex-1 overflow-hidden">
+<nav class="w-[190px] bg-d-800 border-r border-d-600 flex flex-col py-4 px-3 gap-1 flex-shrink-0 h-full overflow-hidden">
+<button onclick="go('goal')" data-n="goal" class="nb on">🎯 设定目标</button>
+<button onclick="go('hunt')" data-n="hunt" class="nb">🔍 策略猎手</button>
+<button onclick="go('bt')" data-n="bt" class="nb">🧪 回测实验室</button>
+<button onclick="go('scan')" data-n="scan" class="nb">📡 标的扫描</button>
+<button onclick="go('risk')" data-n="risk" class="nb">🛡️ 风控护盾</button>
+<button onclick="go('watch')" data-n="watch" class="nb">👁 观察列表</button>
+<div class="flex-1"></div>
+<button onclick="go('cfg')" data-n="cfg" class="nb">⚙️ 系统配置</button>
+</nav>
+<main class="flex-1 overflow-y-auto p-6" id="main">
+
+<!-- ===== GOAL ===== -->
+<div id="p-goal" class="pg on fade">
+<h1 class="text-2xl font-bold text-white mb-1">设定投资目标</h1>
+<p class="text-sm text-gray-500 mb-6">至少填 1 个目标。系统根据你的目标自动推导策略约束条件。</p>
+<div class="grid grid-cols-2 gap-5 mb-5">
+  <div class="cd"><div class="flex items-center gap-2 mb-4"><h2 class="text-lg font-semibold text-white">收益目标</h2><i class="tip">i<span class="tt">年化收益率：投资一年后你的钱增值了多少。标普500长期年化约10%。15%属于中等进取，需承受一定波动。</span></i></div>
+    <div class="flex items-center gap-3"><input type="number" value="15" min="1" max="100" class="inp w-32 text-right text-3xl font-bold text-white" id="in-ret" oninput="calcG()"><span class="text-2xl text-gray-400">%</span></div>
+    <p class="text-sm text-gray-500 mt-3" id="rh">10万投入，一年后变 <span class="text-a-g font-medium">11.5万</span></p></div>
+  <div class="cd"><div class="flex items-center gap-2 mb-4"><h2 class="text-lg font-semibold text-white">回撤目标</h2><i class="tip">i<span class="tt">最大回撤：从最高点跌到最低点的幅度。10%意味着你的10万最多会跌到9万。回撤越小策略越保守。</span></i></div>
+    <div class="flex items-center gap-3"><input type="number" value="10" min="1" max="50" class="inp w-32 text-right text-3xl font-bold text-white" id="in-dd" oninput="calcG()"><span class="text-2xl text-gray-400">%</span></div>
+    <p class="text-sm text-gray-500 mt-3" id="dh">10万账户最多跌到 <span class="text-a-r font-medium">9.0万</span></p></div>
+</div>
+<div class="grid grid-cols-2 gap-5 mb-5">
+  <div class="cd"><h2 class="text-lg font-semibold text-white mb-4">交易标的 <span class="text-sm text-gray-500 font-normal">(可多选)</span></h2>
+    <div class="space-y-3">
+      <label class="flex items-center gap-3 cursor-pointer text-base" onclick="this.querySelector('.chk').classList.toggle('on')"><div class="chk on"></div>美股股票</label>
+      <label class="flex items-center gap-3 cursor-pointer text-base" onclick="this.querySelector('.chk').classList.toggle('on')"><div class="chk on"></div>美股 ETF</label>
+      <label class="flex items-center gap-3 cursor-pointer text-base" onclick="this.querySelector('.chk').classList.toggle('on')"><div class="chk"></div>股票期权 <i class="tip ml-1">i<span class="tt">买入看涨期权(Call)=花小钱押注股票上涨。最大亏损就是花的权利金。有杠杆效应。</span></i></label>
+      <label class="flex items-center gap-3 cursor-pointer text-base" onclick="this.querySelector('.chk').classList.toggle('on')"><div class="chk"></div>加密货币</label>
+    </div></div>
+  <div class="cd"><h2 class="text-lg font-semibold text-white mb-4">持仓周期</h2>
+    <div class="flex flex-wrap gap-2"><span class="pill" onclick="pk(this)">日内</span><span class="pill on" onclick="pk(this)">几天~几周</span><span class="pill" onclick="pk(this)">几周~几月</span><span class="pill" onclick="pk(this)">几月~一年</span></div></div>
+</div>
+<div class="cd border-a-b/30 bg-a-b/5">
+  <h2 class="text-lg font-semibold text-a-b mb-4">系统推导结果</h2>
+  <div class="grid grid-cols-3 gap-6 text-base mb-5">
+    <div><div class="text-gray-500 text-sm mb-1">策略质量要求</div><div class="text-white font-semibold text-xl">Sharpe &gt; 1.0 <i class="tip">i<span class="tt">Sharpe Ratio：每承受1块风险赚多少。&gt;1.0好 &gt;1.5很好 &gt;2.0优秀</span></i></div></div>
+    <div><div class="text-gray-500 text-sm mb-1">建议最大持仓</div><div class="text-white font-semibold text-xl">3-5 个标的</div></div>
+    <div><div class="text-gray-500 text-sm mb-1">单笔最大亏损</div><div class="text-white font-semibold text-xl">&le; 账户 2%</div></div>
+  </div>
+  <div class="flex gap-3"><button class="bt bt-p text-base px-8" onclick="go('hunt');toast('✅ 目标已保存')">保存并找策略 →</button><button class="bt bt-g text-base" onclick="toast('✅ 目标已保存')">仅保存</button></div>
+</div>
+</div>
+
+<!-- ===== HUNT ===== -->
+<div id="p-hunt" class="pg fade">
+<h1 class="text-2xl font-bold text-white mb-1">策略猎手</h1>
+<p class="text-sm text-gray-500 mb-6">基于你的目标 (年化15%, 回撤≤10%) 全网搜索 + AI生成</p>
+<div class="cd" id="hs"><div class="flex items-center gap-3 mb-3"><div class="w-5 h-5 border-2 border-a-b border-t-transparent rounded-full" style="animation:spin .8s linear infinite"></div><span class="text-base text-white">正在搜索合适的策略...</span></div><div class="text-sm text-gray-400 space-y-1 mb-4"><div>✅ GitHub 策略库 (freqtrade, zipline, backtrader)</div><div>✅ Quantpedia / SSRN 论文</div><div>⏳ AI 策略生成中...</div></div><button class="bt bt-p" onclick="document.getElementById('hs').remove();document.getElementById('hr').classList.remove('hidden')">模拟搜索完成 →</button></div>
+<div id="hr" class="hidden">
+  <div class="flex items-center justify-between mb-4"><span class="text-lg text-white font-medium">找到 2 个候选策略</span><button class="bt bt-o">让 AI 再找更多</button></div>
+  <div class="cd cursor-pointer" onclick="this.querySelector('.dt').classList.toggle('hidden')">
+    <div class="flex items-center justify-between mb-2"><div><h3 class="text-lg font-semibold text-white">📊 双均线交叉 + RSI 过滤</h3><p class="text-sm text-gray-500 mt-0.5">来源: GitHub/freqtrade | 短均线穿过长均线时买入，RSI过滤超买</p></div><span class="badge bg-a-g/20 text-a-g text-base">匹配 80%</span></div>
+    <div class="flex gap-8 text-sm mt-2"><span class="text-gray-500">预估年化 <span class="text-a-g font-medium">12-18%</span></span><span class="text-gray-500">预估回撤 <span class="text-a-y font-medium">8-14%</span></span><span class="text-gray-500">预估胜率 <span class="text-white font-medium">55-60%</span></span></div>
+    <div class="dt hidden mt-4 pt-4 border-t border-d-600 flex gap-3"><button class="bt bt-p" onclick="event.stopPropagation();go('bt');setTimeout(showBT,100)">去回测验证 →</button><button class="bt bt-g" onclick="event.stopPropagation()">查看完整代码</button></div>
+  </div>
+  <div class="cd cursor-pointer" onclick="this.querySelector('.dt').classList.toggle('hidden')">
+    <div class="flex items-center justify-between mb-2"><div><h3 class="text-lg font-semibold text-white">🤖 Covered Call 期权策略</h3><p class="text-sm text-a-p mt-0.5">来源: AI 生成 | 持股同时卖出看涨期权收取权利金</p></div><span class="badge bg-a-g/20 text-a-g text-base">匹配 85%</span></div>
+    <div class="flex gap-8 text-sm mt-2"><span class="text-gray-500">预估年化 <span class="text-a-g font-medium">10-15%</span></span><span class="text-gray-500">预估回撤 <span class="text-a-g font-medium">6-10%</span></span><span class="text-gray-500">预估胜率 <span class="text-white font-medium">65-75%</span></span></div>
+    <div class="dt hidden mt-4 pt-4 border-t border-d-600 flex gap-3"><button class="bt bt-p" onclick="event.stopPropagation();go('bt');setTimeout(showBT,100)">去回测验证 →</button></div>
+  </div>
+</div>
+</div>
+
+<!-- ===== BACKTEST — ALL IN ONE PAGE, NO TABS ===== -->
+<div id="p-bt" class="pg fade">
+<h1 class="text-2xl font-bold text-white mb-1">回测实验室</h1>
+<p class="text-sm text-gray-500 mb-6">验证策略历史表现，精确到每一天</p>
+<div class="cd">
+  <div class="grid grid-cols-5 gap-4 items-end">
+    <div><label class="text-xs text-gray-500">策略</label><select class="inp mt-1"><option>双均线交叉+RSI</option><option>Covered Call</option></select></div>
+    <div><label class="text-xs text-gray-500">标的 <i class="tip" style="width:14px;height:14px;font-size:8px">i<span class="tt">策略选定后系统会推荐适用标的。你也可以手动修改成任意美股代码。</span></i></label><select class="inp mt-1"><option>SPY (标普500 ETF)</option><option>QQQ (纳斯达克)</option><option>AAPL</option><option>NVDA</option></select></div>
+    <div><label class="text-xs text-gray-500">开始日期</label><input type="date" value="2006-01-01" class="inp mt-1"></div>
+    <div><label class="text-xs text-gray-500">结束日期</label><input type="date" value="2025-12-31" class="inp mt-1"></div>
+    <button class="bt bt-p text-base" onclick="showBT()">▶ 开始回测</button>
+  </div>
+</div>
+
+<!-- ALL RESULTS INLINE — NO TABS -->
+<div id="btr" class="hidden">
+
+<!-- 1. Summary -->
+<div class="cd">
+  <div class="flex items-center gap-3 mb-5"><h2 class="text-lg font-semibold text-white">📋 策略体检报告</h2><span class="badge bg-a-g/20 text-a-g text-sm">★★★★☆ 良好</span></div>
+  <div class="grid grid-cols-3 gap-x-10 gap-y-3 text-base">
+    <div class="flex justify-between py-2.5 border-b border-d-600/50"><span class="text-gray-400">总收益 <i class="tip">i<span class="tt">245%=10万变34.5万</span></i></span><span class="text-a-g font-bold text-xl">+245%</span></div>
+    <div class="flex justify-between py-2.5 border-b border-d-600/50"><span class="text-gray-400">年化收益 <i class="tip">i<span class="tt">平均每年赚多少</span></i></span><span class="text-white font-bold text-xl">+6.5% <span class="text-a-r text-sm">❌&lt;15%</span></span></div>
+    <div class="flex justify-between py-2.5 border-b border-d-600/50"><span class="text-gray-400">最大回撤 <i class="tip">i<span class="tt">最惨时跌了多少</span></i></span><span class="text-a-r font-bold text-xl">-18.3% <span class="text-sm">❌&gt;10%</span></span></div>
+    <div class="flex justify-between py-2.5 border-b border-d-600/50"><span class="text-gray-400">Sharpe <i class="tip">i<span class="tt">每1块风险赚多少。&gt;1好</span></i></span><span class="text-white font-bold text-xl">0.85</span></div>
+    <div class="flex justify-between py-2.5 border-b border-d-600/50"><span class="text-gray-400">胜率 <i class="tip">i<span class="tt">100次交易赚钱的次数</span></i></span><span class="text-white font-bold text-xl">56%</span></div>
+    <div class="flex justify-between py-2.5 border-b border-d-600/50"><span class="text-gray-400">盈亏比 <i class="tip">i<span class="tt">赢的是亏的多少倍</span></i></span><span class="text-white font-bold text-xl">1.65</span></div>
+    <div class="flex justify-between py-2.5"><span class="text-gray-400">交易次数</span><span class="text-white text-lg">847笔</span></div>
+    <div class="flex justify-between py-2.5"><span class="text-gray-400">平均持仓</span><span class="text-white text-lg">8.3天</span></div>
+    <div class="flex justify-between py-2.5"><span class="text-gray-400">连败</span><span class="text-white text-lg">7次</span></div>
+  </div>
+</div>
+
+<!-- AI suggestion -->
+<div class="cd border-a-b/20 bg-a-b/5">
+  <h3 class="text-lg font-semibold text-a-b mb-3">💡 AI 建议</h3>
+  <p class="text-base text-gray-300 mb-4">单独用<b class="text-white">不满足目标</b>（年化6.5%&lt;15%，回撤18.3%&gt;10%）。但在<b class="text-a-g">低波牛市年化可达14%</b>。</p>
+  <div class="flex gap-3"><button class="bt bt-p" onclick="toast('⏳ 正在搜索最优参数，预计2分钟...')">优化参数</button><button class="bt bt-s" onclick="toast('⏳ 已加-10%止损，正在重新回测...')">加止损重测</button><button class="bt bt-o" onclick="toast('⏳ 正在搜索互补策略...')">组合使用</button></div>
+</div>
+
+<!-- 2. K-line with volume + indicators — INLINE -->
+<div class="cd">
+  <div class="flex justify-between items-center mb-2">
+    <h2 class="text-lg font-semibold text-white">📈 K线图 + 策略信号 + 指标</h2>
+    <div class="flex gap-1"><span class="pill on" onclick="pk2(this)">日线</span><span class="pill" onclick="pk2(this)">周线</span><span class="pill" onclick="pk2(this)">月线</span><span class="pill" onclick="pk2(this)">季线</span><span class="pill" onclick="pk2(this)">年线</span></div>
+  </div>
+  <div class="text-sm text-gray-500 mb-3">🟢 = 买入 | 🔴 = 卖出 | 蓝线 = SMA(20) | 底部 = 成交量 | 鼠标移动查看数据</div>
+  <div id="ch-kline" style="height:500px"></div>
+  <div class="kline-info" id="ki" style="grid-template-columns:repeat(6,1fr)">
+    <div><div class="label">开盘/收盘 <i class="tip" style="width:14px;height:14px;font-size:8px">i<span class="tt">开盘=当天第一笔交易价格。收盘=当天最后一笔交易价格。收盘>开盘=当天涨了。</span></i></div><div class="val" id="ki-oc">鼠标移到K线上查看</div></div>
+    <div><div class="label">最高/最低 <i class="tip" style="width:14px;height:14px;font-size:8px">i<span class="tt">当天交易中出现的最高价和最低价。最高-最低=当天的波动幅度。</span></i></div><div class="val" id="ki-hl">--</div></div>
+    <div><div class="label">成交量 <i class="tip" style="width:14px;height:14px;font-size:8px">i<span class="tt">当天一共买卖了多少股。量大=关注度高，量小=无人问津。</span></i></div><div class="val" id="ki-vol">--</div></div>
+    <div><div class="label">成交额 <i class="tip" style="width:14px;height:14px;font-size:8px">i<span class="tt">成交量×价格=一共交易了多少钱。比成交量更能反映真实的资金流动。</span></i></div><div class="val" id="ki-amt">--</div></div>
+    <div><div class="label">SMA(20) <i class="tip" style="width:14px;height:14px;font-size:8px">i<span class="tt">20日均线：过去20天收盘价的平均值。价格在均线上方=短期趋势向上。</span></i></div><div class="val text-a-b" id="ki-sma">--</div></div>
+    <div><div class="label">涨跌幅</div><div class="val" id="ki-chg">--</div></div>
+  </div>
+</div>
+
+<!-- 3. Heatmap — INLINE, TALL -->
+<div class="cd">
+  <h2 class="text-lg font-semibold text-white mb-1">📊 月度收益热力图 (20年 × 12月)</h2>
+  <div class="text-sm text-gray-500 mb-3">每格 = 该月收益百分比 | 绿=赚钱 红=亏钱 | 悬停看具体金额</div>
+  <div id="ch-hm" style="height:620px"></div>
+</div>
+
+</div><!-- end btr -->
+</div>
+
+<!-- ===== SCAN ===== -->
+<div id="p-scan" class="pg fade">
+<h1 class="text-2xl font-bold text-white mb-1">标的扫描</h1>
+<p class="text-sm text-gray-500 mb-6">用验证过的策略扫描市场，找出当前符合买入/卖出条件的标的</p>
+<div class="cd">
+  <div class="grid grid-cols-3 gap-4 items-end">
+    <div><label class="text-xs text-gray-500">使用策略</label><select class="inp mt-1"><option>双均线交叉+RSI (已验证)</option></select></div>
+    <div><label class="text-xs text-gray-500">扫描范围 <i class="tip" style="width:14px;height:14px;font-size:8px">i<span class="tt">预设指数成分股列表。S&P500=美国最大500家公司，NASDAQ100=科技股为主的100家。也可以选"自定义"手动输入股票代码。</span></i></label><select class="inp mt-1"><option>S&P 500 + NASDAQ 100</option><option>S&P 500 (500只)</option><option>NASDAQ 100 (100只)</option><option>道琼斯 30 (30只)</option><option>自定义 (输入代码)</option></select></div>
+    <button class="bt bt-p text-base" onclick="document.getElementById('sr').classList.remove('hidden');toast('✅ 扫描完成，找到2个标的');setTimeout(initAAPL,200)">📡 开始扫描</button>
+  </div>
+</div>
+<div id="sr" class="hidden">
+  <div class="text-lg text-white font-medium mb-4">找到 2 个符合条件的标的</div>
+  <div class="cd">
+    <div class="flex justify-between items-start mb-4">
+      <div><div class="flex items-center gap-3"><h3 class="text-xl font-bold text-white">AAPL</h3><span class="text-sm text-gray-500">Apple Inc.</span><span class="badge bg-a-g/20 text-a-g">🟢 买入信号</span></div><p class="text-sm text-gray-400 mt-1">短均线上穿长均线，RSI 45 (中性区，未超买 ✅)</p></div>
+      <div class="text-right"><div class="text-3xl font-bold text-white">$178.52</div><div class="text-sm text-a-g">+1.23% 今日</div></div>
+    </div>
+    <div class="grid grid-cols-4 gap-3 mb-4">
+      <div class="bg-d-800 rounded-lg p-4"><div class="text-xs text-gray-500 mb-1">建议入场区间</div><div class="text-white font-medium text-lg">$177.50 ~ $179</div></div>
+      <div class="bg-d-800 rounded-lg p-4"><div class="text-xs text-gray-500 mb-1">止损价 <i class="tip" style="width:14px;height:14px;font-size:8px">i<span class="tt">跌到这个价就卖出认赔，避免亏更多</span></i></div><div class="text-a-r font-medium text-lg">$170.20 (-4.6%)</div></div>
+      <div class="bg-d-800 rounded-lg p-4"><div class="text-xs text-gray-500 mb-1">目标价</div><div class="text-a-g font-medium text-lg">$192.00 (+7.5%)</div></div>
+      <div class="bg-d-800 rounded-lg p-4"><div class="text-xs text-gray-500 mb-1">盈亏比 <i class="tip" style="width:14px;height:14px;font-size:8px">i<span class="tt">如果对了赚$13.5，错了亏$8.3。1.63意味着赢的是亏的1.63倍。</span></i></div><div class="text-white font-medium text-lg">1.63</div></div>
+    </div>
+    <div class="text-sm text-gray-400 mb-4">建议仓位: 账户的 12% (<span class="text-white font-medium">$1,800</span>) | 如果止损，最多亏 <span class="text-a-r font-medium">$83</span> (账户的 0.55%)</div>
+    <!-- INLINE K-line -->
+    <div class="bg-d-800 rounded-lg p-4 mb-4">
+      <div class="flex justify-between items-center mb-2"><span class="text-sm text-gray-400">AAPL K线 + SMA20 + 成交量</span><div class="flex gap-1"><span class="pill on" style="min-height:32px;padding:4px 14px;font-size:12px" onclick="pk2(this)">日</span><span class="pill" style="min-height:32px;padding:4px 14px;font-size:12px" onclick="pk2(this)">周</span><span class="pill" style="min-height:32px;padding:4px 14px;font-size:12px" onclick="pk2(this)">月</span></div></div>
+      <div id="ch-aapl" style="height:350px"></div>
+    </div>
+    <div class="flex gap-3"><button class="bt bt-s text-base" onclick="toast('✅ 已模拟下单: 买入 AAPL 10股 @$178.52')">模拟下单</button><button class="bt bt-o text-base" onclick="addWatch('AAPL','$178.52','+1.23%');toast('✅ AAPL 已加入观察列表')">加入观察</button></div>
+  </div>
+  <div class="cd">
+    <div class="flex justify-between items-start"><div><div class="flex items-center gap-3"><h3 class="text-xl font-bold text-white">MSFT</h3><span class="text-sm text-gray-500">Microsoft</span><span class="badge bg-a-y/20 text-a-y">🟡 接近买入</span></div><p class="text-sm text-gray-400 mt-1">均线即将金叉，预计1-2天内触发买入信号</p></div><div class="text-right"><div class="text-3xl font-bold text-white">$425.30</div><div class="text-sm text-a-g">+0.85%</div></div></div>
+    <div class="flex gap-3 mt-4"><button class="bt bt-o text-base" onclick="addWatch('MSFT','$425.30','+0.85%');toast('✅ MSFT 已加入观察列表')">加入观察</button></div>
+  </div>
+</div>
+</div>
+
+<!-- ===== RISK ===== -->
+<div id="p-risk" class="pg fade">
+<h1 class="text-2xl font-bold text-white mb-1">风控护盾</h1>
+<p class="text-sm text-gray-500 mb-6">风控策略 = 交易策略的"保险丝"，永远优先级最高 | <b class="text-white">直接点击数值修改</b></p>
+
+<div class="cd border-a-g/20 flex items-center gap-6 text-base">
+  <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-a-g"></span><span class="text-white font-medium">风险评级: 中低</span></span>
+  <span class="text-gray-400">总持仓风险 <span class="text-white font-medium">3.2%</span></span>
+  <span class="text-gray-400">当前回撤 <span class="text-a-g font-medium">-3.2%</span></span>
+  <span class="text-gray-400">余量 <span class="text-a-g font-medium">6.8%</span></span>
+</div>
+
+<div class="grid grid-cols-2 gap-5">
+  <div class="cd">
+    <h2 class="text-lg font-semibold text-white mb-4">全局风控规则</h2>
+    <div class="space-y-3">
+      <div class="bg-d-800 rounded-lg p-4 flex justify-between items-center" id="rule-1">
+        <div><div class="text-base text-white">单笔最大亏损: <span class="text-xl font-bold rval">2</span><span class="text-gray-400">%</span> <button class="bt bt-o" style="min-height:30px;padding:4px 12px;font-size:12px;margin-left:8px" onclick="editRisk('rule-1','2','%','单笔亏损')">✏️ 修改</button></div><div class="text-sm text-gray-500 mt-1">每笔交易最多亏账户的这个比例</div></div><span class="text-a-g text-base">✅ 生效</span></div>
+      <div class="bg-d-800 rounded-lg p-4 flex justify-between items-center" id="rule-2">
+        <div><div class="text-base text-white">总回撤上限: <span class="text-xl font-bold rval">10</span><span class="text-gray-400">%</span> <button class="bt bt-o" style="min-height:30px;padding:4px 12px;font-size:12px;margin-left:8px" onclick="editRisk('rule-2','10','%','回撤上限')">✏️ 修改</button></div><div class="text-sm text-gray-500 mt-1">当前 -3.2% (安全)</div></div><span class="text-a-g text-base">✅ 安全</span></div>
+      <div class="bg-d-800 rounded-lg p-4 flex justify-between items-center" id="rule-3">
+        <div><div class="text-base text-white">最大持仓数: <span class="text-xl font-bold rval">5</span><span class="text-gray-400">个</span> <button class="bt bt-o" style="min-height:30px;padding:4px 12px;font-size:12px;margin-left:8px" onclick="editRisk('rule-3','5','个','最大持仓')">✏️ 修改</button></div><div class="text-sm text-gray-500 mt-1">当前 3 个</div></div><span class="text-a-g text-base">✅ 安全</span></div>
+      <div class="bg-d-800 rounded-lg p-4 flex justify-between items-center border border-a-y/30" id="rule-4">
+        <div><div class="text-base text-a-y">单行业上限: <span class="text-xl font-bold rval">40</span><span class="text-gray-400">%</span> <button class="bt bt-o" style="min-height:30px;padding:4px 12px;font-size:12px;margin-left:8px" onclick="editRisk('rule-4','40','%','行业上限')">✏️ 修改</button></div><div class="text-sm text-gray-500 mt-1">科技当前 45% — 超标!</div></div><span class="text-a-y text-base">⚠️ 超标</span></div>
+      <div class="bg-d-800 rounded-lg p-4 flex justify-between items-center" id="rule-5">
+        <div><div class="text-base text-white">危机暂停: VIX &gt; <span class="text-xl font-bold rval">30</span> <button class="bt bt-o" style="min-height:30px;padding:4px 12px;font-size:12px;margin-left:8px" onclick="editRisk('rule-5','30','','VIX阈值')">✏️ 修改</button></div><div class="text-sm text-gray-500 mt-1">当前 VIX 18.2 (正常)</div></div><span class="text-a-g text-base">✅ 正常</span></div>
+    </div>
+  </div>
+  <div class="cd border-a-b/20">
+    <h2 class="text-lg font-semibold text-a-b mb-4">💡 AI 兜底建议</h2>
+    <div class="space-y-3">
+      <div class="bg-d-800 rounded-lg p-4"><div class="text-white font-medium text-base mb-1">1. 对冲建议</div><div class="text-sm text-gray-400">买入 SPY Put ($370, 30天到期)，成本 $280</div><div class="text-sm text-gray-500 mt-1"><i class="tip mr-1">i<span class="tt">Put期权=看跌保险。花$280买份"保险"，如果市场暴跌，这个保险会赔你钱。最多亏$280。</span></i>花$280买"保险"，暴跌时少亏很多</div>
+      <button class="bt bt-s mt-3" onclick="toast('✅ 已模拟买入 SPY Put @$280')">执行对冲</button></div>
+      <div class="bg-d-800 rounded-lg p-4"><div class="text-a-y font-medium text-base mb-1">2. 减仓: 卖出 5股 NVDA</div><div class="text-sm text-gray-400">科技行业超配 5%。卖出 5 股 NVDA 后，科技占比从 45% 降至 39%，回到安全线以内。</div>
+      <button class="bt bt-o mt-3" onclick="toast('✅ 已模拟卖出 5股 NVDA')">执行减仓</button></div>
+      <div class="bg-d-800 rounded-lg p-4"><div class="text-white font-medium text-base mb-1">3. 保留现金</div><div class="text-sm text-gray-400">当前现金 15%，建议维持 ≥ 20%。留够"子弹"，好机会来了才有钱买。</div></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ===== WATCH ===== -->
+<div id="p-watch" class="pg fade">
+<h1 class="text-2xl font-bold text-white mb-1">观察列表</h1>
+<p class="text-sm text-gray-500 mb-6">从「标的扫描」加入的关注标的</p>
+<div id="watchlist"><div class="cd text-center text-gray-500 py-12 text-lg" id="we">还没有观察标的<br><span class="text-sm">去「标的扫描」找到感兴趣的标的后点击"加入观察"</span></div></div>
+</div>
+
+<!-- ===== CONFIG ===== -->
+<div id="p-cfg" class="pg fade">
+<h1 class="text-2xl font-bold text-white mb-1">系统配置</h1>
+<p class="text-sm text-gray-500 mb-6">所有 API 密钥在这里管理，不需要改代码</p>
+<div class="cd">
+  <h2 class="text-lg font-semibold text-white mb-4">数据源 & AI 接口</h2>
+  <div class="space-y-2">
+    <div class="flex items-center justify-between bg-d-800 rounded-lg p-4"><div class="flex items-center gap-3"><span class="w-3 h-3 rounded-full bg-a-g"></span><span class="text-base text-white">IBKR (盈透证券)</span></div><div class="flex items-center gap-3"><span class="text-sm text-gray-500 api-mask">●●●●●abc</span><input type="password" class="inp hidden" style="width:220px;padding:8px 12px;font-size:13px" placeholder="API Key"><button class="bt bt-o" style="min-height:36px;padding:8px 16px;font-size:13px" onclick="toggleApi(this)">编辑</button></div></div>
+    <div class="flex items-center justify-between bg-d-800 rounded-lg p-4"><div class="flex items-center gap-3"><span class="w-3 h-3 rounded-full bg-a-g"></span><span class="text-base text-white">Claude API</span></div><div class="flex items-center gap-3"><span class="text-sm text-gray-500 api-mask">●●●●●def</span><input type="password" class="inp hidden" style="width:220px;padding:8px 12px;font-size:13px" placeholder="API Key"><button class="bt bt-o" style="min-height:36px;padding:8px 16px;font-size:13px" onclick="toggleApi(this)">编辑</button></div></div>
+    <div class="flex items-center justify-between bg-d-800 rounded-lg p-4"><div class="flex items-center gap-3"><span class="w-3 h-3 rounded-full bg-a-g"></span><span class="text-base text-white">OpenAI</span></div><div class="flex items-center gap-3"><span class="text-sm text-gray-500 api-mask">●●●●●xyz</span><input type="password" class="inp hidden" style="width:220px;padding:8px 12px;font-size:13px" placeholder="API Key"><button class="bt bt-o" style="min-height:36px;padding:8px 16px;font-size:13px" onclick="toggleApi(this)">编辑</button></div></div>
+    <div class="flex items-center justify-between bg-d-800 rounded-lg p-4"><div class="flex items-center gap-3"><span class="w-3 h-3 rounded-full bg-a-g"></span><span class="text-base text-white">XAI (Grok)</span></div><div class="flex items-center gap-3"><span class="text-sm text-gray-500 api-mask">●●●●●ghi</span><input type="password" class="inp hidden" style="width:220px;padding:8px 12px;font-size:13px" placeholder="API Key"><button class="bt bt-o" style="min-height:36px;padding:8px 16px;font-size:13px" onclick="toggleApi(this)">编辑</button></div></div>
+    <div class="flex items-center justify-between bg-d-800 rounded-lg p-4"><div class="flex items-center gap-3"><span class="w-3 h-3 rounded-full bg-a-g"></span><span class="text-base text-white">yfinance</span></div><span class="text-sm text-gray-500">免费，无需配置</span></div>
+  </div>
+</div>
+</div>
+
+</main>
+</div>
+<div id="toast-el" class="toast hidden"></div>
+<script>
+function go(id){document.querySelectorAll('.pg').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.nb').forEach(n=>n.classList.remove('on'));document.getElementById('p-'+id).classList.add('on');var b=document.querySelector('[data-n="'+id+'"]');if(b)b.classList.add('on');document.getElementById('main').scrollTop=0}
+function pk(e){e.parentElement.querySelectorAll('.pill').forEach(p=>p.classList.remove('on'));e.classList.add('on')}
+function pk2(e){e.parentElement.querySelectorAll('.pill').forEach(p=>p.classList.remove('on'));e.classList.add('on')}
+function calcG(){var r=parseInt(document.getElementById('in-ret').value)||0,d=parseInt(document.getElementById('in-dd').value)||0;document.getElementById('rh').innerHTML='10万投入，一年后变 <span class="text-a-g font-medium">'+(10*(1+r/100)).toFixed(1)+'万</span>';document.getElementById('dh').innerHTML='10万账户最多跌到 <span class="text-a-r font-medium">'+(10*(1-d/100)).toFixed(1)+'万</span>'}
+function toast(m){var t=document.getElementById('toast-el');t.textContent=m;t.classList.remove('hidden');setTimeout(()=>t.classList.add('hidden'),3000)}
+function showBT(){document.getElementById('btr').classList.remove('hidden');setTimeout(initKline,100);setTimeout(initHM,200);setTimeout(initAAPL,300)}
+function addWatch(sym,price,chg){var e=document.getElementById('we');if(e)e.remove();var w=document.getElementById('watchlist');var d=document.createElement('div');d.className='cd flex items-center justify-between';d.innerHTML='<div class="flex items-center gap-4"><span class="text-lg font-bold text-white">'+sym+'</span><span class="text-base text-gray-400">'+price+'</span><span class="text-base text-a-g">'+chg+'</span></div><button class="bt bt-r" onclick="this.closest(\'.cd\').remove()">移除</button>';w.appendChild(d)}
+function toggleApi(btn){var row=btn.closest('.flex');var inp=row.querySelector('input');var mask=row.querySelector('.api-mask');if(inp.classList.contains('hidden')){inp.classList.remove('hidden');mask.classList.add('hidden');btn.textContent='保存';btn.className='bt bt-s';btn.style.cssText='min-height:36px;padding:8px 16px;font-size:13px'}else{inp.classList.add('hidden');mask.classList.remove('hidden');btn.textContent='编辑';btn.className='bt bt-o';btn.style.cssText='min-height:36px;padding:8px 16px;font-size:13px';toast('✅ API Key 已保存')}}
+
+function editRisk(ruleId,curVal,unit,label){
+  var el=document.getElementById(ruleId);
+  var valSpan=el.querySelector('.rval');
+  var btn=el.querySelector('button');
+  // Replace value span with input
+  var inp=document.createElement('input');
+  inp.type='number';inp.value=curVal;
+  inp.className='inp';inp.style.cssText='width:80px;padding:6px 10px;font-size:18px;font-weight:bold;display:inline;text-align:center';
+  valSpan.replaceWith(inp);
+  inp.focus();inp.select();
+  // Change button to save
+  btn.textContent='✅ 保存';btn.className='bt bt-s';btn.style.cssText='min-height:30px;padding:4px 12px;font-size:12px;margin-left:8px';
+  btn.onclick=function(){
+    var newVal=inp.value;
+    var span=document.createElement('span');span.className='text-xl font-bold rval';span.textContent=newVal;
+    inp.replaceWith(span);
+    btn.textContent='✏️ 修改';btn.className='bt bt-o';btn.style.cssText='min-height:30px;padding:4px 12px;font-size:12px;margin-left:8px';
+    btn.onclick=function(){editRisk(ruleId,newVal,unit,label)};
+    toast('✅ 已保存: '+label+' '+newVal+unit);
+  };
+}
+
+// K-line builder
+function mkChart(el,base,days){
+  el.innerHTML='';
+  var chart=LightweightCharts.createChart(el,{width:el.clientWidth,height:el.clientHeight,layout:{background:{color:'#0a0e1a'},textColor:'#9ca3af',fontSize:12},grid:{vertLines:{color:'#1a2035'},horzLines:{color:'#1a2035'}},crosshair:{mode:0},timeScale:{borderColor:'#232b3e'},rightPriceScale:{borderColor:'#232b3e'}});
+  var cs=chart.addCandlestickSeries({upColor:'#22c55e',downColor:'#ef4444',borderUpColor:'#22c55e',borderDownColor:'#ef4444',wickUpColor:'#22c55e',wickDownColor:'#ef4444'});
+  var kd=[],vd=[];var t=new Date(2024,0,2);
+  for(var i=0;i<days;i++){if(t.getDay()!==0&&t.getDay()!==6){var o=base+Math.sin(i/20)*25+(Math.random()-.5)*8;var h=o+Math.random()*6;var l=o-Math.random()*6;var c=l+Math.random()*(h-l);var vol=Math.round(40000000+Math.random()*40000000);kd.push({time:t.toISOString().slice(0,10),open:+o.toFixed(2),high:+h.toFixed(2),low:+l.toFixed(2),close:+c.toFixed(2),_vol:vol});vd.push({time:t.toISOString().slice(0,10),value:vol,color:c>=o?'rgba(34,197,94,.4)':'rgba(239,68,68,.4)'})}t.setDate(t.getDate()+1)}
+  cs.setData(kd);
+  var vs=chart.addHistogramSeries({priceFormat:{type:'volume'},priceScaleId:'vol'});
+  chart.priceScale('vol').applyOptions({scaleMargins:{top:.82,bottom:0}});
+  vs.setData(vd);
+  var sma=chart.addLineSeries({color:'#3b82f6',lineWidth:1.5,priceScaleId:'right',title:'SMA20'});
+  var sd=[];for(var i=19;i<kd.length;i++){var s=0;for(var j=i-19;j<=i;j++)s+=kd[j].close;sd.push({time:kd[i].time,value:+(s/20).toFixed(2)})}
+  sma.setData(sd);
+  var mk=[];for(var i=25;i<kd.length;i+=Math.floor(Math.random()*12+8)){mk.push({time:kd[i].time,position:'belowBar',color:'#22c55e',shape:'arrowUp',text:'买入'})}
+  for(var i=32;i<kd.length;i+=Math.floor(Math.random()*12+10)){mk.push({time:kd[i].time,position:'aboveBar',color:'#ef4444',shape:'arrowDown',text:'卖出'})}
+  mk.sort((a,b)=>a.time<b.time?-1:1);cs.setMarkers(mk);
+  chart.subscribeCrosshairMove(function(param){
+    if(!param.time)return;
+    var cd=param.seriesData.get(cs);var vl=param.seriesData.get(vs);var sm=param.seriesData.get(sma);
+    if(cd){
+      var oe=document.getElementById('ki-oc');if(oe)oe.textContent='开:$'+cd.open+' → 收:$'+cd.close;
+      var he=document.getElementById('ki-hl');if(he)he.textContent='高:$'+cd.high+' 低:$'+cd.low;
+      var ve=document.getElementById('ki-vol');if(ve&&vl)ve.textContent=(vl.value/1000000).toFixed(1)+' M 股';
+      var ae=document.getElementById('ki-amt');if(ae&&vl)ae.textContent='$'+(vl.value*cd.close/1000000000).toFixed(2)+' B';
+      var se=document.getElementById('ki-sma');if(se&&sm)se.textContent='$'+sm.value.toFixed(2);
+      var re=document.getElementById('ki-rsi');
+      var ce=document.getElementById('ki-chg');if(ce){var chg=((cd.close/cd.open-1)*100).toFixed(2);ce.textContent=(chg>=0?'+':'')+chg+'%';ce.style.color=chg>=0?'#22c55e':'#ef4444'}
+    }
+  });
+  chart.timeScale().fitContent();
+  new ResizeObserver(()=>{chart.applyOptions({width:el.clientWidth})}).observe(el);
+  return chart;
+}
+var _ci={};
+function initKline(){if(_ci.kl)return;_ci.kl=true;mkChart(document.getElementById('ch-kline'),400,300)}
+function initAAPL(){if(_ci.aa)return;_ci.aa=true;mkChart(document.getElementById('ch-aapl'),175,120)}
+function initHM(){
+  if(_ci.hm)return;_ci.hm=true;
+  var c=echarts.init(document.getElementById('ch-hm'));
+  var M=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  var Y=[];for(var y=2006;y<=2025;y++)Y.push(''+y);
+  var data=[];for(var y=0;y<Y.length;y++)for(var m=0;m<12;m++){var cr=(y===2&&m>=8)||(y===14&&m>=1&&m<=3)||(y===16&&m>=5&&m<=9);var v=cr?((Math.random()-.65)*12).toFixed(1):((Math.random()-.38)*8).toFixed(1);data.push([m,y,parseFloat(v)])}
+  c.setOption({tooltip:{formatter:p=>Y[p.data[1]]+' '+M[p.data[0]]+'<br/>月收益: '+(p.data[2]>0?'+':'')+p.data[2]+'%'},grid:{top:5,right:5,bottom:10,left:44},xAxis:{type:'category',data:M,axisLabel:{color:'#9ca3af',fontSize:12},axisLine:{lineStyle:{color:'#232b3e'}}},yAxis:{type:'category',data:Y,axisLabel:{color:'#9ca3af',fontSize:11},axisLine:{lineStyle:{color:'#232b3e'}}},visualMap:{min:-8,max:8,show:false,inRange:{color:['#991b1b','#dc2626','#1a2035','#16a34a','#15803d']}},series:[{type:'heatmap',data:data,label:{show:true,formatter:p=>(p.data[2]>0?'+':'')+p.data[2]+'%',color:'#e5e7eb',fontSize:10},itemStyle:{borderWidth:1,borderColor:'#0a0e1a'}}]});
+  window.addEventListener('resize',()=>c.resize());
+}
+</script>
+</body>
+</html>

@@ -126,12 +126,20 @@
 {% if strategies %}
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
     {% for s in strategies %}
-    <div class="discover-card bg-dark-700 rounded-xl border border-dark-600 hover:border-dark-500 transition-colors p-5 flex flex-col gap-3">
+    {# 根据胜率决定卡片视觉层级 #}
+    {% set is_top = s.win_rate_pct >= 70 %}
+    {% set is_mid = s.win_rate_pct >= 60 and s.win_rate_pct < 70 %}
+    <div class="discover-card bg-dark-700 rounded-xl border {{ 'border-accent-green/40 shadow-sm shadow-accent-green/5' if is_top else 'border-dark-500' if is_mid else 'border-dark-600' }} hover:border-gray-400 transition-colors p-5 flex flex-col gap-3">
 
-        <!-- 卡头：名称 + badges -->
+        <!-- 卡头：名称 + badges + 推荐标 -->
         <div class="flex items-start justify-between gap-3">
             <div class="flex-1 min-w-0">
-                <h3 class="font-bold text-white text-base leading-tight">{{ s.name }}</h3>
+                <div class="flex items-center gap-2 mb-1">
+                    <h3 class="font-bold text-white text-base leading-tight">{{ s.name }}</h3>
+                    {% if is_top %}
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-accent-green/20 text-accent-green border border-accent-green/30 flex-shrink-0">⭐ 高胜率</span>
+                    {% endif %}
+                </div>
                 <div class="flex flex-wrap gap-1.5 mt-1.5">
                     <!-- Instrument badge -->
                     {% set inst_color = {
@@ -170,37 +178,37 @@
                     <span class="text-xs px-2 py-0.5 rounded-full bg-dark-600 text-gray-400 border border-dark-500">{{ style_label }}</span>
                 </div>
             </div>
+            <!-- 年化预期快捷显示 -->
+            <div class="text-right flex-shrink-0">
+                <div class="text-sm font-bold {{ 'text-accent-green' if s.annual_return_range[1] >= 40 else 'text-accent-blue' if s.annual_return_range[1] >= 20 else 'text-gray-400' }}">
+                    {{ s.annual_return_range[0] }}-{{ s.annual_return_range[1] }}%
+                </div>
+                <div class="text-xs text-gray-600">年化预期</div>
+            </div>
         </div>
 
         <!-- 描述 -->
         <p class="text-sm text-gray-300 leading-relaxed line-clamp-2">{{ s.description }}</p>
 
         <!-- 统计数据 -->
-        <div class="flex items-center gap-4 py-2 px-3 bg-dark-800 rounded-lg">
-            <div class="text-center">
-                <div class="text-sm font-bold text-accent-green">{{ s.annual_return_range[0] }}-{{ s.annual_return_range[1] }}%</div>
-                <div class="text-xs text-gray-500">年化预期</div>
+        <div class="grid grid-cols-3 gap-2">
+            <div class="bg-dark-800 rounded-lg p-2.5 text-center">
+                <div class="text-sm font-bold {{ 'text-accent-green' if s.win_rate_pct >= 70 else 'text-accent-blue' if s.win_rate_pct >= 60 else 'text-gray-400' }}">{{ s.win_rate_pct }}%</div>
+                <div class="text-xs text-gray-500 mt-0.5">历史胜率</div>
             </div>
-            <div class="w-px h-8 bg-dark-600"></div>
-            <div class="text-center">
-                <div class="text-sm font-bold text-accent-blue">{{ s.win_rate_pct }}%</div>
-                <div class="text-xs text-gray-500">历史胜率</div>
-            </div>
-            <div class="w-px h-8 bg-dark-600"></div>
-            <div class="text-center">
+            <div class="bg-dark-800 rounded-lg p-2.5 text-center">
                 {% if s.risk_level == 'low' %}
-                    <div class="text-sm font-bold text-accent-green">低</div>
+                    <div class="text-sm font-bold text-accent-green">低风险</div>
                 {% elif s.risk_level == 'high' %}
-                    <div class="text-sm font-bold text-accent-red">高</div>
+                    <div class="text-sm font-bold text-accent-red">高风险</div>
                 {% else %}
-                    <div class="text-sm font-bold text-accent-yellow">中</div>
+                    <div class="text-sm font-bold text-accent-yellow">中风险</div>
                 {% endif %}
-                <div class="text-xs text-gray-500">风险等级</div>
+                <div class="text-xs text-gray-500 mt-0.5">风险等级</div>
             </div>
-            <div class="w-px h-8 bg-dark-600"></div>
-            <div class="text-center flex-1">
-                <div class="text-xs text-gray-400 truncate">{{ s.source }}</div>
-                <div class="text-xs text-gray-500">数据来源</div>
+            <div class="bg-dark-800 rounded-lg p-2.5 text-center">
+                <div class="text-xs text-gray-400 truncate font-medium">{{ s.source }}</div>
+                <div class="text-xs text-gray-500 mt-0.5">数据来源</div>
             </div>
         </div>
 

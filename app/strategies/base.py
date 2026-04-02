@@ -35,6 +35,9 @@ class BacktestMetrics:
     final_equity: float = 0
     equity_curve: list = field(default_factory=list)
     trades: list = field(default_factory=list)
+    max_consecutive_losses: int = 0
+    avg_holding_days: float = 0
+    daily_details: list = None
 
 
 STRATEGY_REGISTRY: dict[str, type] = {}

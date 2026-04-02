@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Header -->
+    <div>
+        <h1 class="text-2xl font-bold text-white">&#x1F441; &#x89C2;&#x5BDF;&#x5217;&#x8868;</h1>
+        <p class="text-gray-400 mt-1 text-sm">&#x4ECE;&#x300C;&#x6807;&#x7684;&#x626B;&#x63CF;&#x300D;&#x52A0;&#x5165;&#x7684;&#x5173;&#x6CE8;&#x6807;&#x7684;</p>
+    </div>
+
+    <!-- Content -->
+    {% if not items %}
+    <!-- Empty State -->
+    <div class="bg-dark-700 border border-dark-600 rounded-xl p-16 text-center">
+        <div class="text-4xl mb-4">&#x1F441;</div>
+        <p class="text-gray-300 text-lg font-semibold">&#x8FD8;&#x6CA1;&#x6709;&#x89C2;&#x5BDF;&#x6807;&#x7684;</p>
+        <p class="text-gray-500 text-sm mt-2 max-w-md mx-auto">&#x53BB;&#x300C;&#x6807;&#x7684;&#x626B;&#x63CF;&#x300D;&#x627E;&#x5230;&#x611F;&#x5174;&#x8DA3;&#x7684;&#x6807;&#x7684;&#x540E;&#x70B9;&#x51FB;&#x201C;&#x52A0;&#x5165;&#x89C2;&#x5BDF;&#x201D;</p>
+        <a href="/scan" class="inline-block mt-6 px-5 py-2.5 bg-accent-blue hover:bg-blue-600 text-white text-sm font-semibold rounded-lg transition-colors">
+            &#x53BB;&#x626B;&#x63CF;&#x6807;&#x7684;
+        </a>
+    </div>
+    {% else %}
+    <!-- Watchlist Items -->
+    <div class="space-y-3" id="watchlist-container">
+        {% for item in items %}
+        <div class="watchlist-card bg-dark-700 border border-dark-600 rounded-xl p-4 flex items-center justify-between gap-4 transition-opacity duration-300 cursor-pointer hover:border-dark-500"
+             onclick="window.location='/backtest?symbol={{ item.symbol }}'">
+            <div class="flex items-center gap-6">
+                <span class="text-lg font-bold text-white">{{ item.symbol }}</span>
+                <span class="text-white font-semibold">${{ "%.2f"|format(item.price) }}</span>
+                <span class="text-sm font-semibold {{ 'text-green-400' if item.change_pct >= 0 else 'text-red-400' }}">
+                    {{ "%.2f"|format(item.change_pct) }}%
+                </span>
+            </div>
+            <div class="flex items-center gap-4">
+                <span class="text-xs text-gray-500">{{ item.added_date }} 从 {{ item.added_from }} 加入</span>
+                <button class="text-xs px-3 py-1.5 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors"
+                        hx-delete="/watchlist/remove/{{ item.id }}"
+                        hx-target="closest .watchlist-card"
+                        hx-swap="outerHTML swap:0.3s"
+                        onclick="event.stopPropagation()">
+                    移除
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

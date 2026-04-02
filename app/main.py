@@ -2,25 +2,29 @@
 Goal-Driven Trading OS — FastAPI Application
 Phase 1: 目标设定 + 仓位计算器 + 手动持仓 + 交易日志
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 import time
+import pandas as pd
 
 from fastapi import FastAPI, Depends, Request, Form, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from models import (init_db, get_db, UserGoals, Position, TradeJournal, JournalCompliance,
                      StrategyConfig, BacktestRun, TradeSignal, StrategyLeaderboard,
-                     AlertConfig, AlertHistory, ExecutionLog, ApiConfig, Base, engine)
+                     AlertConfig, AlertHistory, ExecutionLog, ApiConfig, WatchlistItem, Base, engine)
 from calculator import calculate_position_size, derive_constraints, check_can_open_position
 from schemas import GoalsCreate, PositionCreate, CalculateRequest, PositionClose
 from market_data import fetch_current_price, fetch_vix, detect_market_regime, fetch_stock_history, compute_technicals
 from sync import sync_positions_from_broker
 from stock_screener import SECTORS, diagnose_stock, screen_sector, build_combo
 from ibkr_options import fetch_ibkr_options_chain, filter_options_for_sell_put
+from strategy_library import get_library as get_strategy_library, filter_library, get_strategy_by_id
+from strategy_hunter import compute_match_score, search_github_strategies, ai_generate_strategy
+from scanner import scan_index, INDEX_MAP
 
 app = FastAPI(title="Goal-Driven Trading OS", version="0.1.0")
 
@@ -40,6 +44,15 @@ def startup():
     from strategy_seeds import seed_strategies
     seed_strategies(db)
     db.close()
+    # 启动定时任务
+    from scheduler import init_scheduler
+    init_scheduler()
+
+
+@app.on_event("shutdown")
+def shutdown():
+    from scheduler import shutdown_scheduler
+    shutdown_scheduler()
 
 
 # ===== 策略参数中文标签 + 描述 =====
@@ -103,9 +116,16 @@ _scan_cache: dict = {}
 
 # ===== 页面路由 =====
 
-# ===== 交易机会 (首页) =====
+# ===== v4: 首页重定向到目标设定 =====
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/", response_class=RedirectResponse)
+def home_redirect():
+    return RedirectResponse("/goals", status_code=302)
+
+
+# ===== [LEGACY] 交易机会 =====
+
+@app.get("/legacy/opportunities", response_class=HTMLResponse)
 def opportunities_page(request: Request, sector: str = "TECH", db: Session = Depends(get_db)):
     """交易机会：板块筛选 + AI 诊断 + 期权链"""
     goals = db.query(UserGoals).first()
@@ -130,6 +150,8 @@ def opportunities_page(request: Request, sector: str = "TECH", db: Session = Dep
             else:
                 entry["opportunity_count"] = None  # 尚未扫描
             visible_sectors[k] = entry
+    # 活跃策略数（用于首页提示）
+    active_configs = db.query(StrategyConfig).filter(StrategyConfig.is_active == True).all()
     return templates.TemplateResponse("opportunities.html", {
         "request": request,
         "sectors": visible_sectors,
@@ -137,12 +159,14 @@ def opportunities_page(request: Request, sector: str = "TECH", db: Session = Dep
         "goals": goals,
         "regime": regime,
         "cached_html": cached_html,
+        "has_strategies": bool(active_configs),
+        "active_strategy_count": len(active_configs),
     })
 
 
 # ===== 我的持仓 =====
 
-@app.get("/positions", response_class=HTMLResponse)
+@app.get("/legacy/positions", response_class=HTMLResponse)
 def positions_page(request: Request, db: Session = Depends(get_db)):
     goals = db.query(UserGoals).order_by(UserGoals.updated_at.desc()).first()
 
@@ -432,7 +456,7 @@ def get_regime():
 
 # ===== Phase 2: Strategies (will be populated next) =====
 
-@app.get("/strategies", response_class=HTMLResponse)
+@app.get("/legacy/strategies", response_class=HTMLResponse)
 def strategies_page(request: Request, db: Session = Depends(get_db)):
     configs = db.query(StrategyConfig).all()
     runs = db.query(BacktestRun).order_by(BacktestRun.created_at.desc()).limit(20).all()
@@ -489,14 +513,24 @@ def configure_strategy(
 
 
 @app.post("/strategies/{config_id}/backtest", response_class=HTMLResponse)
-def run_backtest_endpoint(request: Request, config_id: int, db: Session = Depends(get_db)):
+def run_backtest_endpoint(
+    request: Request,
+    config_id: int,
+    start_date: str = Form(None),
+    end_date: str = Form(None),
+    db: Session = Depends(get_db),
+):
     config = db.query(StrategyConfig).filter(StrategyConfig.id == config_id).first()
     if not config:
         raise HTTPException(status_code=404, detail="Strategy config not found")
 
     from backtester import run_full_backtest
     goals = db.query(UserGoals).first()
-    result = run_full_backtest(config, goals, db)
+    result = run_full_backtest(
+        config, goals, db,
+        start_date=start_date or None,
+        end_date=end_date or None,
+    )
 
     return templates.TemplateResponse("partials/backtest_result.html", {
         "request": request,
@@ -521,7 +555,7 @@ def run_stress_test_endpoint(request: Request, config_id: int, db: Session = Dep
     })
 
 
-@app.get("/strategies/match", response_class=HTMLResponse)
+@app.get("/legacy/strategies/match", response_class=HTMLResponse)
 def match_strategies(request: Request, db: Session = Depends(get_db)):
     goals = db.query(UserGoals).first()
     if not goals:
@@ -537,7 +571,7 @@ def match_strategies(request: Request, db: Session = Depends(get_db)):
     })
 
 
-@app.get("/strategies/leaderboard", response_class=HTMLResponse)
+@app.get("/legacy/strategies/leaderboard", response_class=HTMLResponse)
 def leaderboard_page(request: Request, db: Session = Depends(get_db)):
     leaderboard = db.query(StrategyLeaderboard).order_by(StrategyLeaderboard.sharpe_ratio.desc()).all()
     return templates.TemplateResponse("partials/leaderboard_table.html", {
@@ -559,7 +593,7 @@ def refresh_leaderboard(request: Request, db: Session = Depends(get_db)):
 
 # ===== 策略管理 (CRUD) =====
 
-@app.get("/strategies/manage", response_class=HTMLResponse)
+@app.get("/legacy/strategies/manage", response_class=HTMLResponse)
 def strategy_manage_page(request: Request, db: Session = Depends(get_db)):
     configs = db.query(StrategyConfig).order_by(StrategyConfig.is_active.desc(), StrategyConfig.strategy_name).all()
     return templates.TemplateResponse("strategy_manage.html", {
@@ -568,7 +602,7 @@ def strategy_manage_page(request: Request, db: Session = Depends(get_db)):
     })
 
 
-@app.get("/strategies/edit/{config_id}", response_class=HTMLResponse)
+@app.get("/legacy/strategies/edit/{config_id}", response_class=HTMLResponse)
 def strategy_edit_page(request: Request, config_id: int, db: Session = Depends(get_db)):
     config = db.query(StrategyConfig).filter(StrategyConfig.id == config_id).first()
     if not config:
@@ -697,25 +731,33 @@ def strategy_create(
 
 # ===== 策略发现 + AI 研究 =====
 
-@app.get("/strategies/discover", response_class=HTMLResponse)
+@app.get("/legacy/strategies/discover", response_class=HTMLResponse)
 def strategy_discover_page(
     request: Request,
     instrument: str = None,
     direction: str = None,
     style: str = None,
     risk_level: str = None,
-    min_return: int = None,
+    min_return: str = None,   # accept str to handle empty string from filter links
     db: Session = Depends(get_db),
 ):
     """策略发现：从经过验证的策略库中找到适合你目标的策略"""
     from strategy_library import filter_library
 
+    # convert min_return: "" or None → None, valid int string → int
+    min_return_int = None
+    if min_return:
+        try:
+            min_return_int = int(min_return)
+        except (ValueError, TypeError):
+            min_return_int = None
+
     strategies = filter_library(
-        instrument=instrument,
-        direction=direction,
-        style=style,
-        risk_level=risk_level,
-        min_return=min_return,
+        instrument=instrument or None,
+        direction=direction or None,
+        style=style or None,
+        risk_level=risk_level or None,
+        min_return=min_return_int,
     )
 
     # Check which library strategies are already adopted (by matching strategy_name with library id)
@@ -777,7 +819,7 @@ def strategy_adopt(request: Request, strategy_id: str, db: Session = Depends(get
     )
 
 
-@app.get("/strategies/research", response_class=HTMLResponse)
+@app.get("/legacy/strategies/research", response_class=HTMLResponse)
 def strategy_research_page(request: Request, db: Session = Depends(get_db)):
     """AI 策略研究：告诉我你的目标，我帮你找有效策略并验证"""
     return templates.TemplateResponse("strategy_research.html", {
@@ -873,7 +915,7 @@ async def strategy_research_adopt(
 
 # ===== 标的筛选 + AI 诊断 + 组合推荐 + 期权链 =====
 
-@app.get("/screener")
+@app.get("/legacy/screener")
 def screener_page(sector: str = "TECH"):
     """旧 URL 兼容：重定向到首页"""
     return RedirectResponse(url=f"/?sector={sector}", status_code=301)
@@ -904,6 +946,7 @@ def scan_sector(request: Request, sector: str = Form("TECH"), db: Session = Depe
 
     # Use multi-strategy opportunity engine if goals set
     from opportunity_engine import find_opportunities
+    import json as _json
     account_balance = 100000
     if goals:
         from broker import fetch_account_info
@@ -911,12 +954,27 @@ def scan_sector(request: Request, sector: str = Form("TECH"), db: Session = Depe
         if "equity" in acct:
             account_balance = acct["equity"]
 
+    # 加载用户启用的策略配置
+    active_configs = db.query(StrategyConfig).filter(StrategyConfig.is_active == True).all()
+    strategy_configs = [
+        {
+            "id": cfg.id,
+            "strategy_name": cfg.strategy_name,
+            "display_name": cfg.display_name or cfg.strategy_name,
+            "instrument": cfg.instrument,
+            "direction": cfg.direction or "neutral",
+            "params": _json.loads(cfg.params_yaml or "{}"),
+        }
+        for cfg in active_configs
+    ]
+
     opps = find_opportunities(
         goals_return=goals.annual_return_target if goals else 0.15,
         goals_drawdown=goals.max_drawdown if goals else 0.10,
         risk_per_trade=goals.risk_per_trade if goals else 0.02,
         account_balance=account_balance,
         sectors=[sector],
+        strategy_configs=strategy_configs if strategy_configs else None,
     )
 
     # Also get stock diagnostics for the table
@@ -931,6 +989,8 @@ def scan_sector(request: Request, sector: str = Form("TECH"), db: Session = Depe
         "total_strategies": opps.get("total_strategies", 0),
         "total_compatible": opps.get("total_compatible", 0),
         "sector_name": sector_name,
+        "has_strategies": bool(strategy_configs),
+        "active_strategy_count": len(strategy_configs),
     }
     resp = templates.TemplateResponse("partials/screener_results.html", tpl_ctx)
 
@@ -997,7 +1057,7 @@ def options_chain_api(symbol: str, right: str = "P", dte_min: int = 20, dte_max:
 
 # ===== Phase 3: Multi-Market =====
 
-@app.get("/portfolio", response_class=HTMLResponse)
+@app.get("/legacy/portfolio", response_class=HTMLResponse)
 def portfolio_page(request: Request, db: Session = Depends(get_db)):
     positions = db.query(Position).filter(Position.is_open == True).all()
     goals = db.query(UserGoals).first()
@@ -1021,7 +1081,7 @@ def portfolio_page(request: Request, db: Session = Depends(get_db)):
 
 # ===== 交易 (merged: execution + journal + calculator) =====
 
-@app.get("/trade", response_class=HTMLResponse)
+@app.get("/legacy/trade", response_class=HTMLResponse)
 def trade_page(request: Request, db: Session = Depends(get_db)):
     pending = db.query(TradeSignal).filter(TradeSignal.status == "pending").all()
     confirmed = db.query(TradeSignal).filter(TradeSignal.status == "confirmed").all()
@@ -1038,7 +1098,7 @@ def trade_page(request: Request, db: Session = Depends(get_db)):
     })
 
 # Keep /execution as alias
-@app.get("/execution", response_class=HTMLResponse)
+@app.get("/legacy/execution", response_class=HTMLResponse)
 def execution_page(request: Request, db: Session = Depends(get_db)):
     return trade_page(request, db)
 
@@ -1095,7 +1155,7 @@ def execute_signal(request: Request, signal_id: int, db: Session = Depends(get_d
 
 # ===== 交易记录 =====
 
-@app.get("/history", response_class=HTMLResponse)
+@app.get("/legacy/history", response_class=HTMLResponse)
 def history_page(request: Request, db: Session = Depends(get_db)):
     from performance import compute_portfolio_performance
     perf = compute_portfolio_performance(db)
@@ -1109,14 +1169,14 @@ def history_page(request: Request, db: Session = Depends(get_db)):
     })
 
 # Keep old URL as alias
-@app.get("/performance", response_class=HTMLResponse)
+@app.get("/legacy/performance", response_class=HTMLResponse)
 def performance_page(request: Request, db: Session = Depends(get_db)):
     return history_page(request, db)
 
 
 # ===== Phase 5: Risk + Alerts =====
 
-@app.get("/risk", response_class=HTMLResponse)
+@app.get("/legacy/risk", response_class=HTMLResponse)
 def risk_page(request: Request, db: Session = Depends(get_db)):
     from risk_engine import compute_portfolio_risk
     risk = compute_portfolio_risk(db)
@@ -1130,7 +1190,7 @@ def risk_page(request: Request, db: Session = Depends(get_db)):
     })
 
 
-@app.get("/alerts/config", response_class=HTMLResponse)
+@app.get("/legacy/alerts/config", response_class=HTMLResponse)
 def alerts_config_page(request: Request, db: Session = Depends(get_db)):
     config = db.query(AlertConfig).first()
     return templates.TemplateResponse("alerts_config.html", {
@@ -1178,7 +1238,7 @@ def test_alert(request: Request, db: Session = Depends(get_db)):
     return HTMLResponse(f'<div class="p-3 text-sm {"text-green-600" if result.get("delivered") else "text-red-600"}">{result.get("message", "发送完成")}</div>')
 
 
-@app.get("/alerts/history", response_class=HTMLResponse)
+@app.get("/legacy/alerts/history", response_class=HTMLResponse)
 def alerts_history(request: Request, db: Session = Depends(get_db)):
     alerts = db.query(AlertHistory).order_by(AlertHistory.created_at.desc()).limit(50).all()
     return templates.TemplateResponse("alerts_history.html", {
@@ -1209,7 +1269,7 @@ API_SERVICES = [
 ]
 
 
-@app.get("/settings", response_class=HTMLResponse)
+@app.get("/legacy/settings", response_class=HTMLResponse)
 def settings_page(request: Request, db: Session = Depends(get_db)):
     configs = {}
     for svc in API_SERVICES:
@@ -1262,3 +1322,949 @@ def save_api_config(
 
     db.commit()
     return HTMLResponse(f'<div class="text-accent-green text-xs py-2">{cfg.display_name} 配置已保存</div>')
+
+
+# ===== K线图数据 API =====
+
+@app.get("/api/chart/{symbol}")
+def chart_data_api(symbol: str, period: str = "1y"):
+    """返回 K 线图数据（lightweight-charts 格式）"""
+    df = fetch_stock_history(symbol.upper(), period=period)
+    if df.empty:
+        return {"error": f"No data for {symbol}", "candles": [], "volumes": []}
+
+    df = compute_technicals(df)
+    candles = []
+    volumes = []
+    sma20 = []
+    sma50 = []
+    sma200 = []
+
+    for idx, row in df.iterrows():
+        ts = int(idx.timestamp())
+        candles.append({
+            "time": ts, "open": round(row["open"], 2),
+            "high": round(row["high"], 2), "low": round(row["low"], 2),
+            "close": round(row["close"], 2),
+        })
+        color = "rgba(34,197,94,0.3)" if row["close"] >= row["open"] else "rgba(239,68,68,0.3)"
+        volumes.append({"time": ts, "value": int(row["volume"]), "color": color})
+
+        if pd.notna(row.get("sma_20")):
+            sma20.append({"time": ts, "value": round(row["sma_20"], 2)})
+        if pd.notna(row.get("sma_50")):
+            sma50.append({"time": ts, "value": round(row["sma_50"], 2)})
+        if pd.notna(row.get("sma_200")):
+            sma200.append({"time": ts, "value": round(row["sma_200"], 2)})
+
+    return {
+        "symbol": symbol.upper(),
+        "candles": candles,
+        "volumes": volumes,
+        "sma20": sma20,
+        "sma50": sma50,
+        "sma200": sma200,
+    }
+
+
+# ===== 组合仪表盘 =====
+
+@app.get("/legacy/dashboard", response_class=HTMLResponse)
+def dashboard_page(request: Request, db: Session = Depends(get_db)):
+    """组合级仪表盘：资产曲线 + 风险预算 + 月度热力图"""
+    from performance import compute_portfolio_performance
+    from risk_engine import compute_portfolio_risk
+
+    perf = compute_portfolio_performance(db)
+    risk = compute_portfolio_risk(db)
+    goals = db.query(UserGoals).first()
+    positions = db.query(Position).filter(Position.is_open == True).all()
+    regime = detect_market_regime()
+
+    # 行业分布
+    sector_exposure = {}
+    for p in positions:
+        m = p.market or "unknown"
+        sector_exposure[m] = sector_exposure.get(m, 0) + (p.risk_pct_of_account or 0)
+
+    # Paper orders
+    from broker import get_paper_orders
+    recent_orders = get_paper_orders()[:10]
+
+    # Scheduler status
+    from scheduler import get_scheduler_status
+    scheduler_status = get_scheduler_status()
+
+    return templates.TemplateResponse("dashboard.html", {
+        "request": request,
+        "perf": perf,
+        "risk": risk,
+        "goals": goals,
+        "positions": positions,
+        "regime": regime,
+        "sector_exposure": sector_exposure,
+        "recent_orders": recent_orders,
+        "scheduler": scheduler_status,
+    })
+
+
+# ===== Paper Trading 订单 API =====
+
+@app.post("/api/paper-order", response_class=HTMLResponse)
+def paper_order(
+    request: Request,
+    symbol: str = Form(...),
+    qty: int = Form(...),
+    side: str = Form("buy"),
+    order_type: str = Form("market"),
+    db: Session = Depends(get_db),
+):
+    """提交 Paper Trading 订单"""
+    from broker import submit_order as broker_submit
+    result = broker_submit(symbol=symbol.upper(), qty=qty, side=side, order_type=order_type, paper=True)
+    if "error" in result:
+        return HTMLResponse(f'<div class="text-accent-red text-sm p-2">{result["error"]}</div>')
+    return HTMLResponse(
+        f'<div class="text-accent-green text-sm p-2">Paper 订单成交: '
+        f'{result["side"].upper()} {result["quantity"]} {result["symbol"]} @ ${result["fill_price"]}'
+        f'<span class="text-gray-500 ml-2">(ID: {result["order_id"]})</span></div>'
+    )
+
+
+# ===== Scheduler Status =====
+
+@app.get("/api/scheduler")
+def scheduler_status():
+    from scheduler import get_scheduler_status
+    return get_scheduler_status()
+
+
+# ===== Backtest API (JSON) =====
+
+def _metrics_to_dict(m) -> dict:
+    """Convert BacktestMetrics dataclass to JSON-safe dict."""
+    return {
+        "total_return": m.total_return,
+        "annual_return": m.annual_return,
+        "max_drawdown": m.max_drawdown,
+        "sharpe_ratio": m.sharpe_ratio,
+        "sortino_ratio": m.sortino_ratio,
+        "win_rate": m.win_rate,
+        "total_trades": m.total_trades,
+        "profit_factor": m.profit_factor,
+        "avg_win": m.avg_win,
+        "avg_loss": m.avg_loss,
+        "final_equity": m.final_equity,
+        "max_consecutive_losses": m.max_consecutive_losses,
+        "avg_holding_days": m.avg_holding_days,
+    }
+
+
+@app.post("/api/backtest/run")
+def api_backtest_run(payload: dict, db: Session = Depends(get_db)):
+    """
+    运行完整回测并返回详细 JSON 结果（含每日明细）。
+    """
+    import json as _json
+    from backtester import run_full_backtest
+
+    strategy_name = payload.get("strategy_name")
+    symbol = payload.get("symbol", "SPY")
+    start_date = payload.get("start_date")
+    end_date = payload.get("end_date")
+    cost_model = payload.get("cost_model", "default")
+
+    if not strategy_name:
+        return JSONResponse({"error": "strategy_name is required"}, status_code=400)
+
+    # 默认日期：5 年前到今天
+    if not start_date:
+        from datetime import timedelta
+        start_date = (datetime.now() - timedelta(days=5 * 365)).strftime("%Y-%m-%d")
+    if not end_date:
+        end_date = datetime.now().strftime("%Y-%m-%d")
+
+    # Find or create StrategyConfig
+    config = db.query(StrategyConfig).filter(
+        StrategyConfig.strategy_name == strategy_name,
+        StrategyConfig.symbol == symbol,
+    ).first()
+    if not config:
+        config = StrategyConfig(
+            strategy_name=strategy_name,
+            symbol=symbol,
+            symbol_pool=symbol,
+        )
+        db.add(config)
+        db.commit()
+        db.refresh(config)
+
+    goals = db.query(UserGoals).first()
+    result = run_full_backtest(
+        config, goals, db,
+        cost_model_name=cost_model,
+        start_date=start_date,
+        end_date=end_date,
+        collect_daily=True,
+    )
+
+    if "error" in result:
+        return JSONResponse({"error": result["error"]}, status_code=400)
+
+    metrics = result["metrics"]
+    report = result["report"]
+    wf = result["walk_forward"]
+
+    # Warnings
+    warnings = []
+    try:
+        from datetime import timedelta
+        d0 = datetime.strptime(start_date, "%Y-%m-%d")
+        d1 = datetime.strptime(end_date, "%Y-%m-%d")
+        if (d1 - d0).days < 365:
+            warnings.append("数据量不足1年，统计结果参考价值有限。建议至少3年。")
+    except Exception:
+        pass
+
+    return {
+        "metrics": _metrics_to_dict(metrics),
+        "trades": (metrics.trades or [])[:100],
+        "daily_details": metrics.daily_details or [],
+        "monthly_returns": report.get("monthly_returns", []),
+        "walk_forward": {
+            "in_sample": _metrics_to_dict(wf["in_sample"]),
+            "out_of_sample": _metrics_to_dict(wf["out_of_sample"]),
+            "overfit_ratio": wf["overfit_ratio"],
+        },
+        "compatible": result["compatible"],
+        "warnings": warnings,
+    }
+
+
+@app.get("/api/backtest/daily/{run_id}")
+def api_backtest_daily(run_id: int, db: Session = Depends(get_db)):
+    """
+    返回已存储回测运行的每日明细。
+    """
+    import json as _json
+    from backtester import run_full_backtest
+
+    run = db.query(BacktestRun).filter(BacktestRun.id == run_id).first()
+    if not run:
+        raise HTTPException(status_code=404, detail="Backtest run not found")
+
+    config = db.query(StrategyConfig).filter(StrategyConfig.id == run.strategy_config_id).first()
+    if not config:
+        raise HTTPException(status_code=404, detail="Strategy config not found")
+
+    # Re-run with collect_daily=True for the stored date range
+    goals = db.query(UserGoals).first()
+    result = run_full_backtest(
+        config, goals, db=None,
+        start_date=run.start_date,
+        end_date=run.end_date,
+        collect_daily=True,
+    )
+
+    if "error" in result:
+        return JSONResponse({"error": result["error"]}, status_code=400)
+
+    metrics = result["metrics"]
+    return {
+        "run_id": run_id,
+        "start_date": run.start_date,
+        "end_date": run.end_date,
+        "daily_details": metrics.daily_details or [],
+    }
+
+
+# ============================================================
+# QuantPrism v4 — 7-page architecture routes
+# ============================================================
+
+# ===== Page 1: 设定目标 =====
+
+@app.get("/goals", response_class=HTMLResponse)
+def goals_page(request: Request, db: Session = Depends(get_db)):
+    goals = db.query(UserGoals).order_by(UserGoals.updated_at.desc()).first()
+    constraints = None
+    if goals:
+        constraints = derive_constraints(goals.max_drawdown, goals.risk_per_trade)
+    return templates.TemplateResponse("qp_goals.html", {
+        "request": request,
+        "goals": goals,
+        "constraints": constraints,
+    })
+
+
+@app.post("/goals/save", response_class=HTMLResponse)
+def save_goals_v4(
+    request: Request,
+    annual_return_target: float = Form(...),
+    max_drawdown: float = Form(...),
+    risk_per_trade: float = Form(2.0),
+    asset_classes: str = Form(""),
+    holding_period: str = Form("days_weeks"),
+    redirect_to: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    goals = db.query(UserGoals).first()
+    if goals:
+        goals.annual_return_target = annual_return_target / 100
+        goals.max_drawdown = max_drawdown / 100
+        goals.risk_per_trade = risk_per_trade / 100
+        goals.asset_classes = asset_classes
+        goals.holding_period = holding_period
+    else:
+        goals = UserGoals(
+            annual_return_target=annual_return_target / 100,
+            max_drawdown=max_drawdown / 100,
+            risk_per_trade=risk_per_trade / 100,
+            asset_classes=asset_classes,
+            holding_period=holding_period,
+        )
+        db.add(goals)
+
+    constraints = derive_constraints(goals.max_drawdown, goals.risk_per_trade)
+    goals.max_positions = constraints.get("max_positions")
+    goals.max_position_pct = constraints.get("max_position_pct")
+    db.commit()
+
+    if redirect_to == "hunt":
+        return RedirectResponse("/hunt", status_code=303)
+
+    return templates.TemplateResponse("partials/goals_display.html", {
+        "request": request,
+        "goals": goals,
+        "constraints": constraints,
+        "saved": True,
+    })
+
+
+# ===== Page 2: 策略猎手 =====
+
+@app.get("/hunt", response_class=HTMLResponse)
+def hunt_page(request: Request, db: Session = Depends(get_db)):
+    goals = db.query(UserGoals).order_by(UserGoals.updated_at.desc()).first()
+    # Pre-load library strategies for initial display
+    library = get_strategy_library()
+    strategies = []
+    if goals:
+        goals_dict = {
+            "annual_return": goals.annual_return_target,
+            "max_drawdown": goals.max_drawdown,
+            "holding_period": goals.holding_period or "days_weeks",
+        }
+        for s in library:
+            score = compute_match_score(s, goals_dict)
+            strategies.append({**s, "match_pct": round(score)})
+        strategies.sort(key=lambda x: x["match_pct"], reverse=True)
+        strategies = strategies[:10]  # Top 10
+    else:
+        strategies = library[:10]
+        for s in strategies:
+            s["match_pct"] = 50  # Default if no goals
+
+    return templates.TemplateResponse("qp_hunt.html", {
+        "request": request,
+        "goals": goals,
+        "strategies": strategies,
+    })
+
+
+@app.post("/hunt/search", response_class=HTMLResponse)
+def hunt_search(request: Request, db: Session = Depends(get_db)):
+    """Search GitHub + AI for strategies matching goals"""
+    goals = db.query(UserGoals).order_by(UserGoals.updated_at.desc()).first()
+    if not goals:
+        return HTMLResponse('<div class="text-center text-gray-400 py-8">请先设定投资目标</div>')
+
+    goals_dict = {
+        "annual_return": goals.annual_return_target,
+        "max_drawdown": goals.max_drawdown,
+        "holding_period": goals.holding_period or "days_weeks",
+    }
+
+    # Search library
+    library = get_strategy_library()
+    results = []
+    for s in library:
+        score = compute_match_score(s, goals_dict)
+        results.append({**s, "match_pct": round(score), "source": s.get("source", "library")})
+
+    # Try GitHub search (non-blocking, catch errors)
+    try:
+        gh_results = search_github_strategies(
+            f"trading strategy {goals.holding_period or 'swing'} python",
+            max_results=3,
+        )
+        for r in gh_results:
+            score = compute_match_score(r, goals_dict)
+            results.append({**r, "match_pct": round(score), "source": "github"})
+    except Exception:
+        pass
+
+    results.sort(key=lambda x: x["match_pct"], reverse=True)
+
+    return templates.TemplateResponse("partials/hunt_results.html", {
+        "request": request,
+        "strategies": results[:15],
+        "goals": goals,
+    })
+
+
+@app.post("/hunt/ai-generate", response_class=HTMLResponse)
+def hunt_ai_generate(request: Request, db: Session = Depends(get_db)):
+    """Ask AI to generate a new strategy"""
+    goals = db.query(UserGoals).order_by(UserGoals.updated_at.desc()).first()
+    if not goals:
+        return HTMLResponse('<div class="text-center text-gray-400 py-4">请先设定投资目标</div>')
+
+    goals_dict = {
+        "annual_return": goals.annual_return_target,
+        "max_drawdown": goals.max_drawdown,
+        "holding_period": goals.holding_period or "days_weeks",
+        "asset_classes": goals.asset_classes or "us_stocks,etf",
+    }
+
+    try:
+        strategy = ai_generate_strategy(goals_dict)
+        if strategy:
+            score = compute_match_score(strategy, goals_dict)
+            strategy["match_pct"] = round(score)
+            strategy["source"] = "ai"
+            return templates.TemplateResponse("partials/hunt_results.html", {
+                "request": request,
+                "strategies": [strategy],
+                "goals": goals,
+            })
+    except Exception:
+        pass
+
+    return HTMLResponse('<div class="text-center text-gray-400 py-4">AI 暂时无法生成策略，请稍后再试</div>')
+
+
+# ===== Page 3: 回测实验室 =====
+
+@app.get("/backtest", response_class=HTMLResponse)
+def backtest_page(request: Request, strategy: str = "", symbol: str = "", db: Session = Depends(get_db)):
+    goals = db.query(UserGoals).order_by(UserGoals.updated_at.desc()).first()
+    configs = db.query(StrategyConfig).all()
+    # Sort: put strategies that actually trade (sma, rsi, bollinger) first
+    trade_strats = ["sma_crossover", "rsi_momentum", "bollinger_reversion"]
+    configs.sort(key=lambda c: (0 if c.strategy_name in trade_strats else 1, c.strategy_name))
+    strategy_names = [c.display_name or c.strategy_name for c in configs]
+    if not strategy_names:
+        from strategies import get_all_strategies
+        strategy_names = sorted(get_all_strategies().keys())
+
+    five_years_ago = (datetime.now() - timedelta(days=5*365)).strftime('%Y-%m-%d')
+    today = datetime.now().strftime('%Y-%m-%d')
+
+    return templates.TemplateResponse("qp_backtest.html", {
+        "request": request,
+        "goals": goals,
+        "strategies": strategy_names,
+        "configs": configs,
+        "preselect_strategy": strategy,
+        "preselect_symbol": symbol or "SPY",
+        "five_years_ago": five_years_ago,
+        "today": today,
+    })
+
+
+@app.post("/backtest/run", response_class=HTMLResponse)
+def backtest_run(
+    request: Request,
+    strategy_id: int = Form(0),
+    strategy_name: str = Form(""),
+    symbol: str = Form("SPY"),
+    start_date: str = Form("2006-01-01"),
+    end_date: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    import json as _json
+    from backtester import run_full_backtest
+
+    goals = db.query(UserGoals).order_by(UserGoals.updated_at.desc()).first()
+
+    # Find or create a config for this backtest
+    config = None
+    if strategy_id:
+        config = db.query(StrategyConfig).filter(StrategyConfig.id == strategy_id).first()
+    if not config and strategy_name:
+        config = db.query(StrategyConfig).filter(StrategyConfig.strategy_name == strategy_name).first()
+    if not config:
+        # Use first active config or create a temp one
+        config = db.query(StrategyConfig).filter(StrategyConfig.is_active == True).first()
+
+    if not config:
+        return HTMLResponse('<div class="text-center text-red-400 py-8">未找到策略配置，请先在策略猎手中选择策略</div>')
+
+    # Override symbol
+    original_pool = config.symbol_pool
+    config.symbol_pool = symbol
+
+    if not end_date:
+        end_date = datetime.now().strftime('%Y-%m-%d')
+
+    result = run_full_backtest(config, goals, db=None, start_date=start_date, end_date=end_date, collect_daily=True)
+    config.symbol_pool = original_pool  # restore
+
+    if "error" in result:
+        return HTMLResponse(f'<div class="text-center text-red-400 py-8">回测失败: {result["error"]}</div>')
+
+    metrics = result["metrics"]
+
+    # Prepare chart data
+    chart_data = []
+    heatmap_data = []
+
+    if hasattr(metrics, "daily_details") and metrics.daily_details:
+        for d in metrics.daily_details:
+            if "date" in d:
+                chart_data.append({
+                    "time": d["date"],
+                    "open": round(d.get("open", d.get("close", 0)), 2),
+                    "high": round(d.get("high", d.get("close", 0)), 2),
+                    "low": round(d.get("low", d.get("close", 0)), 2),
+                    "close": round(d.get("close", 0), 2),
+                    "volume": d.get("volume", 0),
+                })
+
+    # Compute monthly returns from daily_details (equity column)
+    if hasattr(metrics, "daily_details") and metrics.daily_details:
+        monthly = {}
+        for d in metrics.daily_details:
+            dt = d.get("date", "")
+            val = d.get("equity", 0)
+            if len(dt) >= 7 and val:
+                ym = dt[:7]  # YYYY-MM
+                if ym not in monthly:
+                    monthly[ym] = {"start": val, "end": val}
+                monthly[ym]["end"] = val
+
+        for ym, vals in sorted(monthly.items()):
+            parts = ym.split("-")
+            if len(parts) == 2:
+                y, m = int(parts[0]), int(parts[1])
+                ret = ((vals["end"] / vals["start"]) - 1) * 100 if vals["start"] else 0
+                heatmap_data.append([m - 1, y, round(ret, 1)])
+
+    # Trade markers for chart
+    trades_markers = []
+    if hasattr(metrics, "trades") and metrics.trades:
+        for t in metrics.trades:
+            if "entry_date" in t:
+                trades_markers.append({"time": t["entry_date"], "type": "buy", "price": t.get("entry_price", 0)})
+            if "exit_date" in t:
+                trades_markers.append({"time": t["exit_date"], "type": "sell", "price": t.get("exit_price", 0)})
+
+    return templates.TemplateResponse("partials/backtest_inline.html", {
+        "request": request,
+        "metrics": {
+            "total_return": round(metrics.total_return, 4) if hasattr(metrics, "total_return") else 0,
+            "annual_return": round(metrics.annual_return, 4) if hasattr(metrics, "annual_return") else 0,
+            "max_drawdown": round(metrics.max_drawdown, 4) if hasattr(metrics, "max_drawdown") else 0,
+            "sharpe_ratio": round(metrics.sharpe_ratio, 2) if hasattr(metrics, "sharpe_ratio") else 0,
+            "win_rate": round(metrics.win_rate, 4) if hasattr(metrics, "win_rate") else 0,
+            "profit_factor": round(metrics.profit_factor, 2) if hasattr(metrics, "profit_factor") else 0,
+            "total_trades": metrics.total_trades if hasattr(metrics, "total_trades") else 0,
+            "avg_hold_days": round(metrics.avg_hold_days, 1) if hasattr(metrics, "avg_hold_days") else 0,
+            "max_consecutive_losses": metrics.max_consecutive_losses if hasattr(metrics, "max_consecutive_losses") else 0,
+        },
+        "goals": goals,
+        "symbol": symbol,
+        "chart_data": _json.dumps(chart_data),
+        "heatmap_data": _json.dumps(heatmap_data),
+        "trades_markers": _json.dumps(trades_markers),
+    })
+
+
+# ===== Page 4: 标的扫描 =====
+
+@app.get("/scan", response_class=HTMLResponse)
+def scan_page(request: Request, db: Session = Depends(get_db)):
+    goals = db.query(UserGoals).order_by(UserGoals.updated_at.desc()).first()
+    configs = db.query(StrategyConfig).filter(StrategyConfig.is_active == True).all()
+    strategy_names = [c.display_name or c.strategy_name for c in configs]
+    return templates.TemplateResponse("qp_scan.html", {
+        "request": request,
+        "goals": goals,
+        "strategies": strategy_names,
+        "configs": configs,
+    })
+
+
+@app.post("/scan/run", response_class=HTMLResponse)
+async def scan_run(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    form = await request.form()
+    strategy_name = form.get("strategy_name", "sma_crossover")
+    scan_ranges = form.getlist("scan_range")  # checkboxes: stocks, etf, options
+    if not scan_ranges:
+        scan_ranges = ["stocks", "etf"]
+
+    goals = db.query(UserGoals).order_by(UserGoals.updated_at.desc()).first()
+
+    # Map checkbox values to index names
+    index_name = "all"  # default: scan everything
+    if "stocks" in scan_ranges and "etf" not in scan_ranges:
+        index_name = "sp500"
+    elif "etf" in scan_ranges and "stocks" not in scan_ranges:
+        index_name = "nasdaq100"  # ETFs are in nasdaq100 top
+
+    # Find the config for this strategy
+    config = db.query(StrategyConfig).filter(
+        StrategyConfig.strategy_name == strategy_name,
+        StrategyConfig.is_active == True,
+    ).first()
+
+    import yaml
+    params = yaml.safe_load(config.params_yaml) if config and config.params_yaml else {}
+
+    try:
+        result = scan_index(index_name, strategy_name, params)
+        matches = result.get("matches", [])
+    except Exception as e:
+        return HTMLResponse(f'<div class="text-center text-red-400 py-8">扫描失败: {str(e)}</div>')
+
+    # Map scanner results to template fields
+    results = []
+    account_balance = 15000
+    for m in matches[:20]:
+        symbol = m.get("symbol", "")
+        price = m.get("current_price", 0)
+        stop_loss = m.get("stop_loss", price * 0.95)
+        target = m.get("target_price", price * 1.10)
+        risk_reward = m.get("risk_reward", 0)
+        suggested_pct = m.get("suggested_position_pct", 5.0)
+        position_amount = account_balance * suggested_pct / 100
+        max_loss = position_amount * (abs(price - stop_loss) / price) if price else 0
+
+        # Build signal reason from available data
+        rsi = m.get("rsi", 50)
+        atr_pct = m.get("atr_pct", 0)
+        days_since = m.get("days_since_signal", 0)
+        signal_date = m.get("signal_date", "")
+        reason = f"策略 {m.get('strategy_name', '')} 在 {signal_date} 发出买入信号"
+        if rsi:
+            reason += f"，RSI {rsi}"
+        if days_since == 0:
+            reason += "（今日信号）"
+        elif days_since <= 1:
+            reason += "（昨日信号）"
+
+        results.append({
+            "symbol": symbol,
+            "company_name": symbol,
+            "signal_type": "buy" if m.get("signal_direction") == "long" else m.get("signal_direction", "buy"),
+            "signal_reason": reason,
+            "price": round(price, 2),
+            "change_pct": round(atr_pct, 2),
+            "entry_low": round(m.get("entry_zone", price * 0.995), 2),
+            "entry_high": round(price, 2),
+            "stop_loss": round(stop_loss, 2),
+            "stop_loss_pct": round((stop_loss / price - 1) * 100, 1) if price else 0,
+            "target": round(target, 2),
+            "target_pct": round((target / price - 1) * 100, 1) if price else 0,
+            "risk_reward": risk_reward,
+            "position_pct": suggested_pct,
+            "position_amount": round(position_amount, 0),
+            "max_loss": round(max_loss, 0),
+            "max_loss_pct": round(max_loss / account_balance * 100, 2) if account_balance else 0,
+        })
+
+    return templates.TemplateResponse("partials/scan_results.html", {
+        "request": request,
+        "results": results,
+        "scan_count": result.get("symbols_scanned", 0),
+        "scan_time": result.get("scan_time_sec", 0),
+    })
+
+
+@app.post("/scan/paper-order", response_class=HTMLResponse)
+def scan_paper_order(
+    request: Request,
+    symbol: str = Form(...),
+    price: float = Form(0),
+    quantity: int = Form(1),
+    db: Session = Depends(get_db),
+):
+    signal = TradeSignal(
+        symbol=symbol,
+        direction="long",
+        signal_price=price,
+        signal_quantity=quantity,
+        status="pending",
+    )
+    db.add(signal)
+    db.commit()
+    return HTMLResponse(f'<span class="text-accent-green text-sm">✅ 已模拟下单: 买入 {symbol} {quantity}股 @${price}</span>')
+
+
+# ===== Page 5: 风控护盾 (v4 rewrite) =====
+
+@app.get("/risk", response_class=HTMLResponse)
+def risk_page_v4(request: Request, db: Session = Depends(get_db)):
+    from risk_engine import compute_portfolio_risk
+    goals = db.query(UserGoals).order_by(UserGoals.updated_at.desc()).first()
+    positions = db.query(Position).filter(Position.is_open == True).all()
+    risk_data = compute_portfolio_risk(db)
+    alert_config = db.query(AlertConfig).first()
+
+    # Derive rating
+    headroom = risk_data.get("drawdown_headroom", 1)
+    if headroom > 0.05:
+        rating = "safe"
+        rating_color = "green"
+    elif headroom > 0.02:
+        rating = "caution"
+        rating_color = "yellow"
+    else:
+        rating = "danger"
+        rating_color = "red"
+
+    risk_data["rating"] = rating
+    risk_data["rating_color"] = rating_color
+    risk_data["headroom"] = round(headroom * 100, 1)
+
+    # Build rules list
+    rules = [
+        {
+            "id": "max_loss_per_trade",
+            "label": "单笔最大亏损",
+            "value": round((goals.risk_per_trade if goals else 0.02) * 100, 0),
+            "unit": "%",
+            "description": "每笔交易最多亏账户的这个比例",
+            "status": "safe",
+        },
+        {
+            "id": "max_drawdown",
+            "label": "总回撤上限",
+            "value": round((goals.max_drawdown if goals else 0.10) * 100, 0),
+            "unit": "%",
+            "description": f"当前 -{round(risk_data.get('current_drawdown', 0) * 100, 1)}%",
+            "status": "safe" if risk_data.get("current_drawdown", 0) < (goals.max_drawdown if goals else 0.10) else "warning",
+        },
+        {
+            "id": "max_positions",
+            "label": "最大持仓数",
+            "value": goals.max_positions if goals and goals.max_positions else 5,
+            "unit": "个",
+            "description": f"当前 {len(positions)} 个",
+            "status": "safe" if len(positions) <= (goals.max_positions or 5) else "warning",
+        },
+        {
+            "id": "sector_limit",
+            "label": "单行业上限",
+            "value": 40,
+            "unit": "%",
+            "description": "防止单一行业过度集中",
+            "status": "safe",
+        },
+        {
+            "id": "vix_threshold",
+            "label": "危机暂停: VIX >",
+            "value": round(alert_config.vix_spike_threshold if alert_config else 30, 0),
+            "unit": "",
+            "description": f"当前 VIX {round(risk_data.get('vix', 18), 1)}",
+            "status": "safe" if risk_data.get("vix", 18) < (alert_config.vix_spike_threshold if alert_config else 30) else "warning",
+        },
+    ]
+
+    # AI suggestions (static defaults, can be enhanced later)
+    ai_suggestions = [
+        {
+            "title": "对冲建议",
+            "description": "买入 SPY Put 对冲下行风险，花小钱买保险",
+            "action_label": "执行对冲",
+        },
+        {
+            "title": "保留现金",
+            "description": "建议维持 ≥ 20% 现金，留够子弹应对好机会",
+            "action_label": None,
+        },
+    ]
+
+    return templates.TemplateResponse("qp_risk.html", {
+        "request": request,
+        "risk_data": risk_data,
+        "rules": rules,
+        "goals": goals,
+        "positions": positions,
+        "ai_suggestions": ai_suggestions,
+    })
+
+
+@app.post("/risk/rules", response_class=HTMLResponse)
+def save_risk_rules(
+    request: Request,
+    rule_id: str = Form(""),
+    value: float = Form(0),
+    db: Session = Depends(get_db),
+):
+    goals = db.query(UserGoals).first()
+    alert_config = db.query(AlertConfig).first()
+
+    if rule_id == "max_loss_per_trade" and goals:
+        goals.risk_per_trade = value / 100
+    elif rule_id == "max_drawdown" and goals:
+        goals.max_drawdown = value / 100
+    elif rule_id == "max_positions" and goals:
+        goals.max_positions = int(value)
+    elif rule_id == "vix_threshold" and alert_config:
+        alert_config.vix_spike_threshold = value
+
+    db.commit()
+    return HTMLResponse('<span class="text-accent-green text-sm">✅ 已保存</span>')
+
+
+# ===== Page 6: 观察列表 =====
+
+@app.get("/watchlist", response_class=HTMLResponse)
+def watchlist_page(request: Request, db: Session = Depends(get_db)):
+    items_db = db.query(WatchlistItem).order_by(WatchlistItem.created_at.desc()).all()
+    items = []
+    for item in items_db:
+        price = 0
+        change_pct = 0
+        try:
+            data = fetch_current_price(item.symbol)
+            if isinstance(data, dict):
+                price = data.get("price", 0)
+                change_pct = data.get("change_pct", 0) * 100
+            else:
+                price = float(data)
+        except Exception:
+            pass
+        items.append({
+            "id": item.id,
+            "symbol": item.symbol,
+            "price": round(price, 2) if price else 0,
+            "change_pct": round(change_pct, 2),
+            "added_date": item.created_at.strftime("%m/%d") if item.created_at else "",
+            "added_from": item.added_from or "manual",
+        })
+
+    return templates.TemplateResponse("qp_watchlist.html", {
+        "request": request,
+        "items": items,
+    })
+
+
+@app.post("/watchlist/add", response_class=HTMLResponse)
+def watchlist_add(
+    request: Request,
+    symbol: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    existing = db.query(WatchlistItem).filter(WatchlistItem.symbol == symbol.upper()).first()
+    if not existing:
+        db.add(WatchlistItem(symbol=symbol.upper(), added_from="scanner"))
+        db.commit()
+    return HTMLResponse(f'<span class="text-accent-green text-sm">✅ {symbol.upper()} 已加入观察列表</span>')
+
+
+@app.delete("/watchlist/remove/{item_id}", response_class=HTMLResponse)
+def watchlist_remove(item_id: int, db: Session = Depends(get_db)):
+    item = db.query(WatchlistItem).filter(WatchlistItem.id == item_id).first()
+    if item:
+        db.delete(item)
+        db.commit()
+    return HTMLResponse("")
+
+
+# ===== Page 7: 系统配置 (v4 slim) =====
+
+@app.get("/settings", response_class=HTMLResponse)
+def settings_page_v4(request: Request, db: Session = Depends(get_db)):
+    api_configs = db.query(ApiConfig).all()
+    return templates.TemplateResponse("qp_settings.html", {
+        "request": request,
+        "api_configs": api_configs,
+    })
+
+
+# ===== v4 Redirects: old routes → new pages =====
+
+@app.get("/dashboard", response_class=RedirectResponse)
+def redirect_dashboard():
+    return RedirectResponse("/goals", status_code=301)
+
+
+@app.get("/strategies", response_class=RedirectResponse)
+def redirect_strategies():
+    return RedirectResponse("/hunt", status_code=301)
+
+
+@app.get("/strategies/discover", response_class=RedirectResponse)
+def redirect_strategies_discover():
+    return RedirectResponse("/hunt", status_code=301)
+
+
+@app.get("/strategies/research", response_class=RedirectResponse)
+def redirect_strategies_research():
+    return RedirectResponse("/hunt", status_code=301)
+
+
+@app.get("/strategies/manage", response_class=RedirectResponse)
+def redirect_strategies_manage():
+    return RedirectResponse("/hunt", status_code=301)
+
+
+@app.get("/strategies/match", response_class=RedirectResponse)
+def redirect_strategies_match():
+    return RedirectResponse("/hunt", status_code=301)
+
+
+@app.get("/strategies/leaderboard", response_class=RedirectResponse)
+def redirect_strategies_leaderboard():
+    return RedirectResponse("/hunt", status_code=301)
+
+
+@app.get("/screener", response_class=RedirectResponse)
+def redirect_screener():
+    return RedirectResponse("/scan", status_code=301)
+
+
+@app.get("/portfolio", response_class=RedirectResponse)
+def redirect_portfolio():
+    return RedirectResponse("/risk", status_code=301)
+
+
+@app.get("/positions", response_class=RedirectResponse)
+def redirect_positions():
+    return RedirectResponse("/risk", status_code=301)
+
+
+@app.get("/trade", response_class=RedirectResponse)
+def redirect_trade():
+    return RedirectResponse("/risk", status_code=301)
+
+
+@app.get("/execution", response_class=RedirectResponse)
+def redirect_execution():
+    return RedirectResponse("/risk", status_code=301)
+
+
+@app.get("/history", response_class=RedirectResponse)
+def redirect_history():
+    return RedirectResponse("/risk", status_code=301)
+
+
+@app.get("/performance", response_class=RedirectResponse)
+def redirect_performance():
+    return RedirectResponse("/risk", status_code=301)
+
+
+@app.get("/alerts/config", response_class=RedirectResponse)
+def redirect_alerts_config():
+    return RedirectResponse("/risk", status_code=301)
+
+
+@app.get("/alerts/history", response_class=RedirectResponse)
+def redirect_alerts_history():
+    return RedirectResponse("/risk", status_code=301)

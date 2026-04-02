@@ -1,0 +1,131 @@
+{% if not results %}
+<div class="bg-dark-700 border border-dark-600 rounded-xl p-12 text-center">
+    <p class="text-gray-400 text-lg">&#x672A;&#x627E;&#x5230;&#x7B26;&#x5408;&#x6761;&#x4EF6;&#x7684;&#x6807;&#x7684;</p>
+    <p class="text-gray-500 text-sm mt-2">&#x5C1D;&#x8BD5;&#x66F4;&#x6362;&#x7B56;&#x7565;&#x6216;&#x6269;&#x5927;&#x626B;&#x63CF;&#x8303;&#x56F4;</p>
+</div>
+{% else %}
+
+<div class="space-y-4">
+    <p class="text-sm text-gray-400">&#x627E;&#x5230; <span class="text-white font-semibold">{{ results|length }}</span> &#x4E2A;&#x7B26;&#x5408;&#x6761;&#x4EF6;&#x7684;&#x6807;&#x7684;</p>
+
+    {% for r in results %}
+    <div class="bg-dark-700 border border-dark-600 rounded-xl p-5 space-y-4">
+
+        <!-- Header Row -->
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <span class="text-xl font-bold text-white">{{ r.symbol }}</span>
+                <span class="text-sm text-gray-400">{{ r.company_name }}</span>
+                {% if r.signal_type == 'buy' %}
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-500/20 text-green-400 border border-green-500/30">&#x1F7E2; &#x4E70;&#x5165;&#x4FE1;&#x53F7;</span>
+                {% elif r.signal_type == 'approaching' %}
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">&#x1F7E1; &#x63A5;&#x8FD1;&#x4E70;&#x5165;</span>
+                {% else %}
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30">&#x1F534; &#x5356;&#x51FA;&#x4FE1;&#x53F7;</span>
+                {% endif %}
+            </div>
+            <div class="text-right">
+                <span class="text-xl font-bold text-white">${{ "%.2f"|format(r.price) }}</span>
+                <span class="ml-2 text-sm font-semibold {{ 'text-green-400' if r.change_pct >= 0 else 'text-red-400' }}">
+                    {{ "%.2f"|format(r.change_pct) }}%
+                </span>
+            </div>
+        </div>
+
+        <!-- Signal Reason -->
+        <p class="text-sm text-gray-300 bg-dark-600/50 rounded-lg px-4 py-2.5">{{ r.signal_reason }}</p>
+
+        <!-- 4-Column Stats Grid -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="bg-dark-600 rounded-lg p-3">
+                <div class="text-xs text-gray-500 mb-1">&#x5EFA;&#x8BAE;&#x5165;&#x573A;&#x533A;&#x95F4;</div>
+                <div class="text-sm font-semibold text-white">${{ "%.2f"|format(r.entry_low) }} - ${{ "%.2f"|format(r.entry_high) }}</div>
+            </div>
+            <div class="bg-dark-600 rounded-lg p-3">
+                <div class="text-xs text-gray-500 mb-1">&#x6B62;&#x635F;&#x4EF7;</div>
+                <div class="text-sm font-semibold text-red-400">${{ "%.2f"|format(r.stop_loss) }} <span class="text-xs text-gray-500">({{ "%.1f"|format(r.stop_loss_pct) }}%)</span></div>
+            </div>
+            <div class="bg-dark-600 rounded-lg p-3">
+                <div class="text-xs text-gray-500 mb-1">&#x76EE;&#x6807;&#x4EF7;</div>
+                <div class="text-sm font-semibold text-green-400">${{ "%.2f"|format(r.target) }} <span class="text-xs text-gray-500">(+{{ "%.1f"|format(r.target_pct) }}%)</span></div>
+            </div>
+            <div class="bg-dark-600 rounded-lg p-3">
+                <div class="text-xs text-gray-500 mb-1">&#x76C8;&#x4E8F;&#x6BD4;</div>
+                <div class="text-sm font-semibold text-accent-blue">{{ "%.1f"|format(r.risk_reward) }} : 1</div>
+            </div>
+        </div>
+
+        <!-- Position Sizing -->
+        <div class="text-sm text-gray-400 bg-dark-800/50 rounded-lg px-4 py-2.5">
+            &#x5EFA;&#x8BAE;&#x4ED3;&#x4F4D;: &#x8D26;&#x6237;&#x7684; <span class="text-white font-semibold">{{ "%.1f"|format(r.position_pct) }}%</span>
+            (<span class="text-white">${{ "%.0f"|format(r.position_amount) }}</span>)
+            &nbsp;|&nbsp;
+            &#x5982;&#x679C;&#x6B62;&#x635F;&#xFF0C;&#x6700;&#x591A;&#x4E8F;
+            <span class="text-red-400 font-semibold">${{ "%.0f"|format(r.max_loss) }}</span>
+            (&#x8D26;&#x6237;&#x7684; <span class="text-red-400">{{ "%.1f"|format(r.max_loss_pct) }}%</span>)
+        </div>
+
+        <!-- Chart Placeholder -->
+        <div id="ch-{{ r.symbol }}" class="w-full rounded-lg bg-dark-800 border border-dark-600" style="height: 350px;"></div>
+
+        <!-- Action Buttons -->
+        <div class="flex gap-3">
+            <button class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg px-4 py-2.5 text-sm transition-colors"
+                    hx-post="/scan/paper-order"
+                    hx-vals='{"symbol": "{{ r.symbol }}", "entry_low": {{ r.entry_low }}, "entry_high": {{ r.entry_high }}, "stop_loss": {{ r.stop_loss }}, "target": {{ r.target }}, "position_pct": {{ r.position_pct }}}'
+                    hx-swap="none"
+                    onclick="this.innerText='&#x2705; &#x5DF2;&#x63D0;&#x4EA4;'; this.disabled=true;">
+                &#x6A21;&#x62DF;&#x4E0B;&#x5355;
+            </button>
+            <button class="flex-1 border border-gray-500 text-gray-300 hover:bg-dark-600 font-semibold rounded-lg px-4 py-2.5 text-sm transition-colors"
+                    hx-post="/watchlist/add"
+                    hx-vals='{"symbol": "{{ r.symbol }}", "from": "scan"}'
+                    hx-swap="none"
+                    onclick="this.innerText='&#x2705; &#x5DF2;&#x52A0;&#x5165;'; this.disabled=true;">
+                &#x52A0;&#x5165;&#x89C2;&#x5BDF;
+            </button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- TradingView Lightweight Charts Init -->
+<script>
+(function() {
+    const symbols = [{% for r in results %}"{{ r.symbol }}"{% if not loop.last %},{% endif %}{% endfor %}];
+    symbols.forEach(function(sym) {
+        const container = document.getElementById('ch-' + sym);
+        if (!container || !window.LightweightCharts) return;
+        const chart = LightweightCharts.createChart(container, {
+            width: container.clientWidth,
+            height: 350,
+            layout: { background: { color: '#111827' }, textColor: '#9ca3af' },
+            grid: { vertLines: { color: '#1a2035' }, horzLines: { color: '#1a2035' } },
+            crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+            rightPriceScale: { borderColor: '#232b3e' },
+            timeScale: { borderColor: '#232b3e', timeVisible: true },
+        });
+        const candleSeries = chart.addCandlestickSeries({
+            upColor: '#22c55e', downColor: '#ef4444',
+            borderUpColor: '#22c55e', borderDownColor: '#ef4444',
+            wickUpColor: '#22c55e', wickDownColor: '#ef4444',
+        });
+        // Fetch candle data from existing API
+        fetch('/api/chart/' + sym + '?period=3mo')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data && data.candles && data.candles.length) {
+                    candleSeries.setData(data.candles);
+                    chart.timeScale().fitContent();
+                }
+            })
+            .catch(function() {});
+        // Responsive resize
+        new ResizeObserver(() => {
+            chart.applyOptions({ width: container.clientWidth });
+        }).observe(container);
+    });
+})();
+</script>
+
+{% endif %}

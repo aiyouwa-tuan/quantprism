@@ -1,7 +1,7 @@
 # Goal-Driven Trading OS — Software Design Document
 
-**Version:** 1.0.0
-**Date:** 2026-03-31
+**Version:** 1.2.0
+**Date:** 2026-04-02
 **Author:** AI-assisted (Claude)
 **Status:** Approved
 
@@ -27,6 +27,10 @@
 | VIX | CBOE 波动率指数，衡量市场恐慌程度 |
 | ATR | 平均真实波幅，衡量价格波动范围 |
 | HTMX | 轻量前端框架，通过 HTML 属性实现 AJAX |
+| dry_run | 模拟交易模式，信号和下单流程不变，但订单不发往真实券商 |
+| Hyperopt | 超参数优化，自动搜索策略参数空间找出满足目标的最优参数组合 |
+| Regime | 市场状态分类（低波牛市/正常/高波/危机），基于 VIX 水平判断 |
+| Paper Trading | 模拟实盘，用真实价格但不用真实资金，用于验证策略实时行为 |
 
 ---
 
@@ -34,6 +38,8 @@
 
 ### 产品描述
 风险优先的量化交易系统。用户设定收益/回撤目标 → 系统推导约束 → 匹配策略 → 回测验证 → 执行交易 → 监控风险。
+
+> 产品版本路线图见 `docs/ROADMAP.md`。
 
 ### 设计目标
 - **性能：** 单用户本地运行，API 响应 < 200ms
@@ -447,4 +453,6 @@ app/
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
-| 1.0.0 | 2026-03-31 | 初始版本，Phase 1-5 完整实现 |
+| 1.0.0 | 2026-03-31 | 初始版本，Phase 1-5 架构设计，CEO + Eng Review 通过 |
+| 1.1.0 | 2026-03-31 | 实现：策略发现库 + AI 研究管线 + Backtester v2（WF + 危机测试）+ IBKR 实时数据集成 |
+| 1.2.0 | 2026-04-02 | 规划：v1.0/v1.5/v2.0 版本路线图 + 三大新机制（dry_run + Optimizer + Regime Pipeline）+ v1.5 Regime Analyzer 写入 SDD + TODOS |

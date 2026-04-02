@@ -1,9 +1,8 @@
 """
-Goal-Driven Trading OS — Broker API (IBKR)
-Priority: Web API → subprocess worker (避免 asyncio 冲突) → None
+Goal-Driven Trading OS — Broker API (IBKR) v2
+支持：读取持仓 + Paper Trading 下单 + 订单状态跟踪
 
-ib_insync 和 uvicorn 都用 asyncio，直接调用会冲突。
-解决方案：用 subprocess 调用 ibkr_fetch_worker.py 获取数据。
+连接优先级: Web API → subprocess worker → disconnected
 """
 import os
 import sys
@@ -11,15 +10,16 @@ import json
 import logging
 import subprocess
 from pathlib import Path
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 APP_DIR = Path(__file__).resolve().parent
-PYTHON = sys.executable  # 当前 Python 解释器路径
+PYTHON = sys.executable
 WORKER = str(APP_DIR / "ibkr_fetch_worker.py")
 
 
-def _run_worker(command: str, timeout: int = 15) -> dict | list:
+def _run_worker(command: str, timeout: int = 15) -> dict:
     """通过子进程调用 IBKR worker（避免 asyncio 冲突）"""
     try:
         result = subprocess.run(
@@ -40,7 +40,6 @@ def _run_worker(command: str, timeout: int = 15) -> dict | list:
 
 def get_connection_mode() -> str:
     """检测当前连接方式"""
-    # Try Web API first
     try:
         from ibkr_web_api import check_auth_status
         status = check_auth_status()
@@ -49,7 +48,6 @@ def get_connection_mode() -> str:
     except Exception:
         pass
 
-    # Try ib_insync via worker
     result = _run_worker("account", timeout=12)
     if isinstance(result, dict) and "error" not in result:
         return "ib_insync"
@@ -59,7 +57,6 @@ def get_connection_mode() -> str:
 
 def fetch_account_info() -> dict:
     """获取 IBKR 账户信息"""
-    # Try Web API first
     try:
         from ibkr_web_api import web_fetch_account
         result = web_fetch_account()
@@ -68,16 +65,14 @@ def fetch_account_info() -> dict:
     except Exception:
         pass
 
-    # Fall back to subprocess worker
     result = _run_worker("account")
     if isinstance(result, dict):
         return result
     return {"error": "IBKR 未连接"}
 
 
-def fetch_positions() -> list[dict]:
+def fetch_positions() -> list:
     """获取 IBKR 所有持仓"""
-    # Try Web API first
     try:
         from ibkr_web_api import web_fetch_positions
         result = web_fetch_positions()
@@ -86,7 +81,6 @@ def fetch_positions() -> list[dict]:
     except Exception:
         pass
 
-    # Fall back to subprocess worker
     result = _run_worker("positions")
     if isinstance(result, list):
         return result
@@ -94,19 +88,87 @@ def fetch_positions() -> list[dict]:
 
 
 def fetch_portfolio() -> dict:
-    """获取完整组合数据（账户 + 持仓 + 实时 P&L）"""
+    """获取完整组合数据"""
     result = _run_worker("portfolio", timeout=30)
     if isinstance(result, dict) and "error" not in result:
         return result
-    return {"error": result.get("error", "IBKR 未连接") if isinstance(result, dict) else "IBKR 未连接", "positions": [], "position_count": 0}
+    return {
+        "error": result.get("error", "IBKR 未连接") if isinstance(result, dict) else "IBKR 未连接",
+        "positions": [], "position_count": 0,
+    }
+
+
+# ========== Paper Trading 订单系统 ==========
+
+_paper_orders: list = []
+_next_order_id = 1000
 
 
 def submit_order(symbol: str = "", qty: float = 0, side: str = "buy",
-                 order_type: str = "market", limit_price: float = None) -> dict:
-    """提交 IBKR 订单 (暂时只支持读取模式)"""
-    return {"error": "当前为只读模式。需要在 TWS 中取消勾选 'Read-Only API' 才能下单。"}
+                 order_type: str = "market", limit_price: float = None,
+                 paper: bool = True) -> dict:
+    """
+    提交订单
+    paper=True: 模拟成交（Paper Trading）
+    paper=False: 通过 IBKR 真实下单
+    """
+    global _next_order_id
+
+    if not symbol or qty <= 0:
+        return {"error": "请提供有效的标的代码和数量"}
+
+    if paper:
+        from market_data import fetch_current_price
+        price_data = fetch_current_price(symbol)
+        fill_price = price_data.get("price", 0)
+        if fill_price <= 0:
+            return {"error": f"无法获取 {symbol} 的实时价格"}
+
+        if order_type == "limit" and limit_price:
+            if side == "buy" and limit_price < fill_price:
+                fill_price = limit_price
+            elif side == "sell" and limit_price > fill_price:
+                fill_price = limit_price
+
+        order_id = f"PAPER-{_next_order_id}"
+        _next_order_id += 1
+
+        order = {
+            "order_id": order_id,
+            "symbol": symbol.upper(),
+            "side": side,
+            "quantity": qty,
+            "order_type": order_type,
+            "limit_price": limit_price,
+            "fill_price": round(fill_price, 2),
+            "status": "filled",
+            "filled_at": datetime.utcnow().isoformat(),
+            "paper": True,
+            "commission": round(max(qty * 0.005, 1.0), 2),
+        }
+        _paper_orders.append(order)
+        logger.info(f"[Paper] {side.upper()} {qty} {symbol} @ ${fill_price:.2f}")
+        return order
+
+    else:
+        mode = get_connection_mode()
+        if mode == "disconnected":
+            return {"error": "IBKR 未连接。请确保 TWS 正在运行。"}
+        return {"error": "真实下单需要在 TWS 中取消 'Read-Only API'"}
+
+
+def get_paper_orders() -> list:
+    """获取所有 Paper Trading 订单"""
+    return list(reversed(_paper_orders))
+
+
+def get_order_status(order_id: str) -> dict:
+    """查询订单状态"""
+    for order in _paper_orders:
+        if order["order_id"] == order_id:
+            return order
+    return {"error": f"订单 {order_id} 不存在"}
 
 
 def disconnect():
-    """断开 IBKR 连接（worker 模式无需断开）"""
     pass

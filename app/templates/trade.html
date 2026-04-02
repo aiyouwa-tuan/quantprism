@@ -1,43 +1,103 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="flex justify-between items-center mb-6">
-    <h1 class="text-xl font-bold text-white">交易</h1>
-    <button hx-post="/execution/generate" hx-target="#signals" hx-swap="innerHTML"
-            class="bg-accent-blue text-white px-5 py-2 rounded-lg text-sm font-medium hover:brightness-110">生成策略信号</button>
+    <div>
+        <h1 class="text-xl font-bold text-white">交易执行</h1>
+        <p class="text-sm text-gray-500 mt-0.5">策略信号 → 人工确认 → Paper/Live 执行</p>
+    </div>
+    <div class="flex gap-2">
+        <button hx-post="/execution/generate" hx-target="#signals" hx-swap="innerHTML"
+                class="bg-accent-blue text-white px-5 py-2 rounded-lg text-sm font-medium hover:brightness-110">
+            生成策略信号
+        </button>
+        <a href="/dashboard" class="bg-dark-700 border border-dark-600 text-gray-400 hover:text-white px-4 py-2 rounded-lg text-sm transition">
+            仪表盘
+        </a>
+    </div>
+</div>
+
+<!-- 执行模式提示 -->
+<div class="bg-accent-blue/10 border border-accent-blue/30 rounded-lg p-3 mb-4 flex items-center gap-3">
+    <span class="w-2 h-2 rounded-full bg-accent-blue animate-pulse"></span>
+    <span class="text-xs text-accent-blue">Paper Trading 模式 — 所有订单模拟成交，不连接真实账户</span>
+    <span class="flex-1"></span>
+    <span class="text-xs text-gray-500">切换到真实模式需要在 TWS 关闭 Read-Only API</span>
 </div>
 
 <div class="grid grid-cols-3 gap-6">
     <!-- 左：信号 + 执行 -->
     <div class="col-span-2 space-y-4">
+        <!-- 待处理信号 -->
         <div class="bg-dark-700 rounded-xl border border-dark-600">
-            <div class="px-5 py-3 border-b border-dark-600"><h2 class="text-sm font-semibold text-white">待处理信号</h2></div>
+            <div class="px-5 py-3 border-b border-dark-600 flex justify-between items-center">
+                <h2 class="text-sm font-semibold text-white">待处理信号</h2>
+                <span class="text-xs text-gray-500">确认后点击「执行」自动下单</span>
+            </div>
             <div id="signals" class="p-5">{% include "partials/signal_list.html" %}</div>
         </div>
 
+        <!-- Paper Trading 快速下单 -->
+        <div class="bg-dark-700 rounded-xl border border-accent-blue/30 p-5">
+            <h3 class="text-sm font-semibold text-accent-blue mb-3">Paper 快速下单</h3>
+            <form hx-post="/api/paper-order" hx-target="#quick-paper-result" hx-swap="innerHTML" class="flex gap-2 items-end">
+                <div class="flex-1">
+                    <label class="text-xs text-gray-500">标的</label>
+                    <input type="text" name="symbol" placeholder="AAPL" required
+                           class="w-full bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white mt-0.5">
+                </div>
+                <div class="w-24">
+                    <label class="text-xs text-gray-500">数量</label>
+                    <input type="number" name="qty" value="10" min="1" required
+                           class="w-full bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white mt-0.5">
+                </div>
+                <div class="w-24">
+                    <label class="text-xs text-gray-500">方向</label>
+                    <select name="side" class="w-full bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white mt-0.5">
+                        <option value="buy">买入</option>
+                        <option value="sell">卖出</option>
+                    </select>
+                </div>
+                <button type="submit" class="bg-accent-green text-dark-900 px-5 py-2 rounded text-sm font-bold hover:brightness-110">下单</button>
+            </form>
+            <div id="quick-paper-result" class="mt-2"></div>
+        </div>
+
+        <!-- 最近执行 -->
         <div class="bg-dark-700 rounded-xl border border-dark-600">
             <div class="px-5 py-3 border-b border-dark-600"><h2 class="text-sm font-semibold text-white">最近执行</h2></div>
             <div class="p-5">
                 {% if recent_executed %}
                 {% for s in recent_executed %}
-                <div class="flex justify-between items-center border-b border-dark-600/50 py-2">
-                    <span class="text-white text-sm font-medium">{{ s.symbol }} · {{ s.direction }}</span>
+                <div class="flex justify-between items-center border-b border-dark-600/50 py-2.5">
+                    <div class="flex items-center gap-3">
+                        <span class="w-2 h-2 rounded-full {{ 'bg-accent-green' if s.direction == 'long' else 'bg-accent-red' }}"></span>
+                        <span class="text-white text-sm font-medium">{{ s.symbol }}</span>
+                        <span class="text-xs px-1.5 py-0.5 rounded {{ 'bg-accent-green/20 text-accent-green' if s.direction == 'long' else 'bg-accent-red/20 text-accent-red' }}">{{ s.direction }}</span>
+                    </div>
                     <div class="text-xs text-gray-400">
                         ${{ "%.2f"|format(s.execution_price or 0) }} × {{ s.execution_quantity or 0 }}
-                        <span class="ml-2">{{ s.execution_time.strftime('%m/%d %H:%M') if s.execution_time else '' }}</span>
+                        <span class="ml-2 text-gray-600">{{ s.execution_time.strftime('%m/%d %H:%M') if s.execution_time else '' }}</span>
                     </div>
                 </div>
                 {% endfor %}
-                {% else %}<p class="text-gray-500 text-sm text-center py-4">还没有执行记录</p>{% endif %}
+                {% else %}
+                <div class="text-center py-8">
+                    <svg class="w-8 h-8 text-gray-700 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    <p class="text-gray-500 text-sm">还没有执行记录</p>
+                    <p class="text-gray-600 text-xs mt-1">生成信号 → 确认 → 执行</p>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
 
-    <!-- 右：仓位计算器 + 交易日志 -->
+    <!-- 右侧 -->
     <div class="space-y-4">
         <!-- 仓位计算器 -->
         <div class="bg-dark-700 rounded-xl border border-dark-600 p-5">
             <h3 class="text-sm font-semibold text-white mb-3">仓位计算器</h3>
-            <p class="text-xs text-gray-500 mb-2" title="根据你的账户资金和风险设置，计算每笔交易应该买多少股">输入账户资金、入场价和止损价，计算建议股数</p>
             <form hx-post="/calculate" hx-target="#calc-result" hx-swap="innerHTML" class="space-y-2">
                 <input type="number" name="account_balance" step="0.01" placeholder="账户资金 $"
                        class="w-full bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white">
@@ -47,15 +107,15 @@
                     <input type="number" name="stop_loss" step="0.01" placeholder="止损价"
                            class="bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white">
                 </div>
-                <button type="submit" class="w-full bg-accent-blue text-white py-2 rounded text-sm hover:brightness-110">计算</button>
+                <button type="submit" class="w-full bg-accent-blue text-white py-2 rounded text-sm hover:brightness-110">计算建议股数</button>
             </form>
             <div id="calc-result" class="mt-2"></div>
         </div>
 
         <!-- 交易日志 -->
         <div class="bg-dark-700 rounded-xl border border-dark-600 p-5">
-            <h3 class="text-sm font-semibold text-white mb-3">交易日志</h3>
-            <p class="text-xs text-gray-500 mb-2">记录每次交易的理由和情绪，积累数据发现你的交易模式</p>
+            <h3 class="text-sm font-semibold text-white mb-2">交易日志</h3>
+            <p class="text-xs text-gray-600 mb-3">记录交易理由和情绪，积累数据发现模式</p>
             <form hx-post="/journal" hx-target="#journal-list" hx-swap="innerHTML" class="space-y-2">
                 <div class="grid grid-cols-2 gap-2">
                     <input type="text" name="symbol" placeholder="代码" class="bg-dark-800 border border-dark-500 rounded px-2 py-1.5 text-sm text-white" required>

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="space-y-6">
+    <div>
+        <h1 class="text-xl font-bold text-white">标的扫描</h1>
+        <p class="text-gray-400 mt-1 text-sm">用验证过的策略扫描市场，找出当前符合买入/卖出条件的标的</p>
+    </div>
+
+    <!-- 配置栏 -->
+    <div class="bg-dark-700 border border-dark-600 rounded-xl p-5">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end" id="scan-config">
+            <div>
+                <label class="block text-xs text-gray-400 mb-1.5">使用策略</label>
+                <select name="strategy_name" class="w-full bg-dark-800 border border-dark-500 rounded-lg px-3 py-2 text-sm text-white focus:border-accent-blue focus:outline-none">
+                    {% for c in configs %}
+                    <option value="{{ c.strategy_name }}">{{ c.display_name or c.strategy_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1.5">扫描范围 <span class="text-gray-600">(可多选)</span></label>
+                <div class="flex flex-wrap gap-2 mt-1">
+                    {% for val, label in [('stocks', '美股股票'), ('etf', 'ETF'), ('options', '期权')] %}
+                    <label class="cursor-pointer">
+                        <input type="checkbox" name="scan_range" value="{{ val }}" class="hidden peer"
+                               {{ 'checked' if val in ['stocks', 'etf'] }}>
+                        <span class="peer-checked:bg-accent-blue peer-checked:text-white peer-checked:border-accent-blue
+                                     bg-dark-800 border border-dark-500 text-gray-400 hover:text-white hover:border-dark-400
+                                     px-4 py-2 rounded-full text-sm inline-block transition-all cursor-pointer">
+                            {{ label }}
+                        </span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            <div>
+                <button type="button"
+                        hx-post="/scan/run"
+                        hx-target="#scan-results"
+                        hx-swap="innerHTML"
+                        hx-include="#scan-config"
+                        hx-indicator="#scan-loading"
+                        class="w-full bg-accent-blue text-white font-semibold rounded-lg px-4 py-2.5 text-sm hover:brightness-110 transition flex items-center justify-center gap-2">
+                    📡 开始扫描
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="scan-loading" class="htmx-indicator text-center py-12">
+        <div class="inline-flex items-center gap-3 text-gray-400">
+            <div class="w-5 h-5 border-2 border-accent-blue border-t-transparent rounded-full animate-spin"></div>
+            正在扫描，可能需要 30-60 秒...
+        </div>
+    </div>
+
+    <!-- 结果区 -->
+    <div id="scan-results"></div>
+</div>
+{% endblock %}

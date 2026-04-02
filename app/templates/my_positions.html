@@ -2,22 +2,28 @@
 {% block content %}
 
 {% if show_journal_reminder %}
-<div class="bg-accent-yellow/10 border border-accent-yellow/30 rounded-lg p-3 mb-4 text-sm text-accent-yellow">
-    连续 {{ compliance.trades_without_journal }} 笔交易没写日志。<a href="/history" class="underline">去记录</a>
+<div class="bg-accent-yellow/10 border border-accent-yellow/30 rounded-lg p-3 mb-4 text-sm text-accent-yellow flex justify-between items-center">
+    <span>连续 {{ compliance.trades_without_journal }} 笔交易没写日志。记录理由和情绪，3 个月后出个人交易模式分析。</span>
+    <a href="/history" class="underline text-xs ml-4 whitespace-nowrap">去记录 &rarr;</a>
 </div>
 {% endif %}
 
-<!-- 顶部状态卡片 -->
 <div class="flex justify-between items-center mb-6">
-    <h1 class="text-xl font-bold text-white">我的持仓</h1>
-    <button hx-post="/sync-positions" hx-target="#positions-area" hx-swap="innerHTML"
-            class="text-sm text-gray-400 hover:text-white px-4 py-2 rounded-lg bg-dark-700 border border-dark-600 hover:border-gray-500">
-        刷新
-    </button>
+    <div>
+        <h1 class="text-xl font-bold text-white">我的持仓</h1>
+        <p class="text-sm text-gray-500 mt-0.5">实时跟踪所有持仓状态和风险</p>
+    </div>
+    <div class="flex gap-2">
+        <button hx-post="/sync-positions" hx-target="#positions-area" hx-swap="innerHTML"
+                class="text-sm text-gray-400 hover:text-white px-4 py-2 rounded-lg bg-dark-700 border border-dark-600 hover:border-gray-500 transition">
+            <span class="refresh-icon">&#x21bb;</span> 同步 IBKR
+        </button>
+    </div>
 </div>
 
+<!-- 顶部状态卡片 -->
 <div class="grid grid-cols-3 sm:grid-cols-5 gap-3 mb-6">
-    {% if account and account.equity %}
+    {% if account and account.get('equity') %}
     <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
         <div class="text-xs text-gray-500">净资产</div>
         <div class="text-xl font-bold text-white">${{ "{:,.0f}".format(account.equity) }}</div>
@@ -29,7 +35,7 @@
     {% endif %}
     <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
         <div class="text-xs text-gray-500">持仓数</div>
-        <div class="text-xl font-bold text-white">{{ positions|length }}</div>
+        <div class="text-xl font-bold text-white">{{ positions|length }}{% if constraints %} <span class="text-sm text-gray-500">/ {{ constraints.max_positions }}</span>{% endif %}</div>
     </div>
     <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
         <div class="text-xs text-gray-500">未实现盈亏</div>
@@ -38,13 +44,42 @@
         </div>
     </div>
     <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
-        <div class="text-xs text-gray-500">市场</div>
+        <div class="text-xs text-gray-500">总风险</div>
         <div class="flex items-center gap-2 mt-1">
-            <span class="w-2.5 h-2.5 rounded-full {{ 'bg-accent-green' if regime.regime in ['low_vol','normal'] else 'bg-accent-yellow' if regime.regime == 'mid_vol' else 'bg-accent-red' }}"></span>
-            <span class="text-sm font-bold text-white">VIX {{ regime.vix }}</span>
+            {% set total_risk = positions|sum(attribute='risk_pct_of_account') if positions else 0 %}
+            <div class="flex-1 bg-dark-800 rounded-full h-2">
+                <div class="h-2 rounded-full {{ 'bg-accent-green' if total_risk < 0.05 else 'bg-accent-yellow' if total_risk < 0.08 else 'bg-accent-red' }}"
+                     style="width: {{ [total_risk * 100 * 10, 100]|min }}%"></div>
+            </div>
+            <span class="text-sm font-bold {{ 'text-accent-green' if total_risk < 0.05 else 'text-accent-yellow' if total_risk < 0.08 else 'text-accent-red' }}">{{ "%.1f"|format(total_risk * 100) }}%</span>
         </div>
     </div>
 </div>
+
+<!-- 持仓卡片网格（新增：迷你卡片视图） -->
+{% if positions %}
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-4">
+    {% for p in positions[:12] %}
+    <a href="/diagnose/{{ p.symbol }}" class="bg-dark-700 rounded-xl border border-dark-600 p-3 hover:border-gray-500 transition block">
+        <div class="flex justify-between items-center">
+            <span class="text-white font-bold text-sm">{{ p.symbol }}</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded {{ 'bg-accent-blue/20 text-accent-blue' if p.market == 'stock' else 'bg-accent-yellow/20 text-accent-yellow' if p.market == 'crypto' else 'bg-purple-500/20 text-purple-400' }}">{{ p.market }}</span>
+        </div>
+        <div class="text-xs text-gray-500 mt-1">{{ "%.0f"|format(p.quantity) }} {{ '张' if p.market == 'option' else '股' }} @ ${{ "%.2f"|format(p.entry_price) }}</div>
+        {% if p.unrealized_pnl and p.unrealized_pnl != 0 %}
+        <div class="mt-1 text-sm font-bold {{ 'text-accent-green' if p.unrealized_pnl >= 0 else 'text-accent-red' }}">
+            {{ '+' if p.unrealized_pnl >= 0 else '' }}${{ "{:,.0f}".format(p.unrealized_pnl) }}
+        </div>
+        {% endif %}
+        <!-- 风险条 -->
+        <div class="mt-1.5 w-full bg-dark-800 rounded-full h-1">
+            <div class="h-1 rounded-full {{ 'bg-accent-green' if (p.risk_pct_of_account or 0) < 0.02 else 'bg-accent-yellow' if (p.risk_pct_of_account or 0) < 0.03 else 'bg-accent-red' }}"
+                 style="width: {{ [(p.risk_pct_of_account or 0) * 100 * 20, 100]|min }}%"></div>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
 
 <!-- 持仓表格 -->
 <div class="bg-dark-700 rounded-xl border border-dark-600">
@@ -53,48 +88,56 @@
     </div>
 </div>
 
-<!-- 手动添加 -->
-<div class="bg-dark-700 rounded-xl border border-dark-600 mt-4">
-    <details>
-        <summary class="px-5 py-3 text-sm text-gray-400 cursor-pointer hover:text-white">+ 手动添加持仓</summary>
-        <form hx-post="/positions" hx-target="#positions-area" hx-swap="innerHTML" class="px-5 pb-5 space-y-3">
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-                <input type="text" name="symbol" placeholder="代码" class="bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white" required>
-                <select name="market" class="bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white">
-                    <option value="stock">美股</option><option value="crypto">加密</option><option value="option">期权</option>
-                </select>
-                <input type="number" name="entry_price" step="0.01" placeholder="入场价" class="bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white" required>
-                <input type="number" name="stop_loss" step="0.01" placeholder="止损价" class="bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white" required>
-                <input type="number" name="quantity" step="0.01" placeholder="数量" class="bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white" required>
-                <input type="number" name="account_balance" step="0.01" placeholder="账户资金" class="bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white" required>
+<!-- 手动添加 + 计算器 -->
+<div class="grid grid-cols-2 gap-4 mt-4">
+    <div class="bg-dark-700 rounded-xl border border-dark-600">
+        <details>
+            <summary class="px-5 py-3 text-sm text-gray-400 cursor-pointer hover:text-white">+ 手动添加持仓</summary>
+            <form hx-post="/positions" hx-target="#positions-area" hx-swap="innerHTML" class="px-5 pb-5 space-y-3">
+                <div class="grid grid-cols-3 gap-2">
+                    <input type="text" name="symbol" placeholder="代码" class="bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white" required>
+                    <select name="market" class="bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white">
+                        <option value="stock">美股</option><option value="crypto">加密</option><option value="option">期权</option>
+                    </select>
+                    <input type="number" name="account_balance" step="0.01" placeholder="账户资金" class="bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white" required>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <input type="number" name="entry_price" step="0.01" placeholder="入场价" class="bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white" required>
+                    <input type="number" name="stop_loss" step="0.01" placeholder="止损价" class="bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white" required>
+                    <input type="number" name="quantity" step="0.01" placeholder="数量" class="bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white" required>
+                </div>
+                <div class="flex gap-2">
+                    <input type="text" name="entry_reason" placeholder="进场理由" class="flex-1 bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white">
+                    <button type="submit" class="bg-accent-green text-dark-900 px-5 py-2 rounded text-sm font-bold hover:brightness-110">添加</button>
+                </div>
+            </form>
+        </details>
+    </div>
+
+    <!-- 仓位计算器 -->
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-5">
+        <h3 class="text-sm font-semibold text-white mb-3">仓位计算器</h3>
+        <form hx-post="/calculate" hx-target="#calc-result" hx-swap="innerHTML" class="flex gap-2 items-end flex-wrap">
+            <div class="flex-1 min-w-[100px]">
+                <label class="text-xs text-gray-500">账户资金</label>
+                <input type="number" name="account_balance" step="0.01" placeholder="$" class="w-full bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white mt-0.5">
             </div>
-            <div class="flex gap-2">
-                <input type="text" name="entry_reason" placeholder="进场理由" class="flex-1 bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white">
-                <button type="submit" class="bg-accent-green text-dark-900 px-5 py-2 rounded text-sm font-bold hover:brightness-110">添加</button>
+            <div class="flex-1 min-w-[80px]">
+                <label class="text-xs text-gray-500">入场价</label>
+                <input type="number" name="entry_price" step="0.01" class="w-full bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white mt-0.5">
             </div>
+            <div class="flex-1 min-w-[80px]">
+                <label class="text-xs text-gray-500">止损价</label>
+                <input type="number" name="stop_loss" step="0.01" class="w-full bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white mt-0.5">
+            </div>
+            <button type="submit" class="bg-accent-blue text-white px-4 py-2 rounded text-sm hover:brightness-110">计算</button>
         </form>
-    </details>
+        <div id="calc-result" class="mt-2"></div>
+    </div>
 </div>
 
-<!-- 仓位计算器 -->
-<div class="bg-dark-700 rounded-xl border border-dark-600 mt-4 p-5">
-    <h3 class="text-sm font-semibold text-white mb-3">仓位计算器</h3>
-    <form hx-post="/calculate" hx-target="#calc-result" hx-swap="innerHTML" class="flex gap-2 items-end">
-        <div>
-            <label class="text-xs text-gray-500">账户资金</label>
-            <input type="number" name="account_balance" step="0.01" placeholder="$" class="w-full bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white">
-        </div>
-        <div>
-            <label class="text-xs text-gray-500">入场价</label>
-            <input type="number" name="entry_price" step="0.01" class="w-full bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white">
-        </div>
-        <div>
-            <label class="text-xs text-gray-500">止损价</label>
-            <input type="number" name="stop_loss" step="0.01" class="w-full bg-dark-800 border border-dark-500 rounded px-3 py-2 text-sm text-white">
-        </div>
-        <button type="submit" class="bg-accent-blue text-white px-5 py-2 rounded text-sm hover:brightness-110">计算</button>
-        <div id="calc-result" class="flex-1"></div>
-    </form>
-</div>
-
+<style>
+.htmx-request .refresh-icon { animation: spin 1s linear infinite; display: inline-block; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+</style>
 {% endblock %}

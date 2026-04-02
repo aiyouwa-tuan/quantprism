@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="mb-6">
+    <h1 class="text-xl font-bold text-white">回测实验室</h1>
+    <p class="text-sm text-gray-400 mt-1">验证策略历史表现，精确到每一天</p>
+</div>
+
+<!-- 配置栏 -->
+<div class="bg-dark-700 border border-dark-600 rounded-xl p-5 mb-6">
+    <div class="flex items-end gap-4" id="bt-form">
+        <!-- 策略 -->
+        <div class="flex-1">
+            <label class="block text-xs text-gray-400 mb-1.5">策略</label>
+            <select name="strategy_id" id="sel-strategy"
+                    class="w-full bg-dark-800 border border-dark-500 rounded-lg px-3 py-2 text-sm text-white focus:border-accent-blue focus:outline-none">
+                {% for c in configs %}
+                <option value="{{ c.id }}" {{ 'selected' if preselect_strategy == c.strategy_name or preselect_strategy == (c.display_name or c.strategy_name) }}>{{ c.display_name or c.strategy_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- 标的 -->
+        <div class="flex-1">
+            <label class="block text-xs text-gray-400 mb-1.5">标的</label>
+            <input type="text" name="symbol" id="inp-symbol" list="symbol-list"
+                   value="{{ preselect_symbol or 'SPY' }}"
+                   class="w-full bg-dark-800 border border-dark-500 rounded-lg px-3 py-2 text-sm text-white focus:border-accent-blue focus:outline-none"
+                   placeholder="输入代码">
+            <datalist id="symbol-list">
+                {% for sym in ['SPY', 'QQQ', 'AAPL', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'IWM', 'DIA', 'TLT', 'GLD'] %}
+                <option value="{{ sym }}">
+                {% endfor %}
+            </datalist>
+        </div>
+
+        <!-- 开始日期 -->
+        <div class="flex-1">
+            <label class="block text-xs text-gray-400 mb-1.5">开始日期</label>
+            <input type="date" name="start_date" id="inp-start" value="{{ five_years_ago or '2021-04-02' }}"
+                   class="w-full bg-dark-800 border border-dark-500 rounded-lg px-3 py-2 text-sm text-white focus:border-accent-blue focus:outline-none">
+        </div>
+
+        <!-- 结束日期 -->
+        <div class="flex-1">
+            <label class="block text-xs text-gray-400 mb-1.5">结束日期</label>
+            <input type="date" name="end_date" id="inp-end" value="{{ today or '2026-04-02' }}"
+                   class="w-full bg-dark-800 border border-dark-500 rounded-lg px-3 py-2 text-sm text-white focus:border-accent-blue focus:outline-none">
+        </div>
+
+        <!-- 开始回测 -->
+        <div>
+            <button type="button" id="btn-backtest"
+                    hx-post="/backtest/run"
+                    hx-target="#backtest-results"
+                    hx-swap="innerHTML"
+                    hx-include="#bt-form"
+                    hx-indicator="#bt-spinner"
+                    class="bg-accent-blue text-white px-6 py-2 rounded-lg text-sm font-bold hover:brightness-110 transition whitespace-nowrap">
+                &#x25B6; 开始回测
+            </button>
+        </div>
+    </div>
+
+    <div id="bt-spinner" class="htmx-indicator text-center py-3 mt-2">
+        <div class="inline-block w-6 h-6 border-2 border-accent-blue border-t-transparent rounded-full animate-spin"></div>
+        <span class="text-sm text-gray-400 ml-2">正在回测... 计算每一笔交易</span>
+    </div>
+</div>
+
+<!-- 回测结果区域 -->
+<div id="backtest-results">
+    <div class="text-center py-20">
+        <div class="text-5xl mb-4">&#x1F9EA;</div>
+        <p class="text-gray-500 text-sm">选择策略和标的，点击「开始回测」查看历史表现</p>
+        {% if goals %}
+        <p class="text-xs text-gray-600 mt-2">
+            回测将对比你的目标：年化 {{ '%.0f'|format(goals.annual_return_target * 100) }}% / 回撤 &le; {{ '%.0f'|format(goals.max_drawdown * 100) }}%
+        </p>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

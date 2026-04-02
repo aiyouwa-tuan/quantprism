@@ -4,11 +4,31 @@
         <span class="text-white font-medium">{{ sector_name }} 板块扫描完成</span>
         <span class="text-gray-400 text-sm ml-3">{{ results|length }} 只标的</span>
     </div>
-    <div class="flex gap-4 text-sm">
+    <div class="flex gap-4 text-sm items-center">
         <span class="text-accent-green">{{ total_compatible }} 个交易机会</span>
-        <span class="text-gray-500">{{ total_strategies }} 种策略测试</span>
+        {% if has_strategies %}
+        <span class="text-xs bg-accent-green/10 text-accent-green border border-accent-green/30 px-2 py-0.5 rounded-full">
+            按 {{ active_strategy_count }} 个策略筛选
+        </span>
+        {% else %}
+        <span class="text-xs bg-dark-600 text-gray-500 border border-dark-500 px-2 py-0.5 rounded-full">
+            默认模式（未配置策略）
+        </span>
+        {% endif %}
     </div>
 </div>
+
+{% if not has_strategies %}
+<div class="bg-accent-yellow/5 border border-accent-yellow/20 rounded-lg p-3 mb-4 flex items-start gap-2">
+    <span class="text-accent-yellow mt-0.5">⚠</span>
+    <div>
+        <span class="text-xs text-accent-yellow font-medium">未配置策略</span>
+        <span class="text-xs text-gray-400 ml-2">当前显示的是全策略默认扫描结果。</span>
+        <a href="/strategies/manage" class="text-xs text-accent-blue hover:underline ml-1">去配置策略 →</a>
+        <span class="text-xs text-gray-500 ml-2">配置后，交易机会将只显示你启用的策略类型，并注明触发来源。</span>
+    </div>
+</div>
+{% endif %}
 
 <!-- 筛选栏 -->
 <div class="bg-dark-700 rounded-lg border border-dark-600 p-3 mb-4 flex gap-3 items-center flex-wrap" id="opp-filters">
@@ -43,7 +63,7 @@
          data-inst="{{ 'stock' if opp.strategy == 'buy_stock' else 'option' }}" data-sub="{{ opp.strategy }}"
          onclick="window.location='/diagnose/{{ opp.symbol }}'">
         <div class="flex justify-between items-start">
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2 flex-wrap">
                 <span class="text-white font-bold">{{ opp.symbol }}</span>
                 <span class="text-xs px-2 py-0.5 rounded
                     {{ 'bg-accent-green/20 text-accent-green' if opp.strategy == 'sell_put'
@@ -54,6 +74,11 @@
                     {{ opp.strategy_name }}
                 </span>
                 <span class="text-xs text-gray-500">{{ opp.direction }}</span>
+                {% if opp.triggered_by %}
+                <span class="text-xs px-2 py-0.5 rounded-full bg-dark-600 border border-dark-500 text-gray-400">
+                    触发: {{ opp.triggered_by }}
+                </span>
+                {% endif %}
             </div>
             <div class="flex items-center gap-3">
                 <span class="text-xs px-2 py-1 rounded {{ 'bg-accent-green/20 text-accent-green' if opp.risk_level == 'low' else 'bg-accent-yellow/20 text-accent-yellow' if opp.risk_level == 'medium' else 'bg-accent-red/20 text-accent-red' }}">

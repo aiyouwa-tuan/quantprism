@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuantPrism - Product Design Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: { extend: { colors: {
+                dark: { 950:'#060914', 900:'#0a0e1a', 800:'#111827', 700:'#1a2035', 600:'#232b3e', 500:'#2d3650', 400:'#3d4760' },
+                accent: { green:'#22c55e', red:'#ef4444', blue:'#3b82f6', yellow:'#eab308', orange:'#f97316', purple:'#a855f7', cyan:'#06b6d4' }
+            }}}
+        }
+    </script>
+    <style>
+        body { background: #0a0e1a; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #111827; }
+        ::-webkit-scrollbar-thumb { background: #2d3650; border-radius: 3px; }
+        .nav-item { transition: all 0.15s; }
+        .nav-item:hover { background: rgba(45,54,80,0.5); }
+        .nav-item.active { background: #2d3650; color: white; }
+        .page { display: none; }
+        .page.active { display: block; }
+        .paper-bar { height: 3px; background: linear-gradient(90deg, #f97316, #fb923c, #f97316); }
+        .kpi-card { transition: transform 0.15s; }
+        .kpi-card:hover { transform: translateY(-2px); }
+        .pipeline-step { position: relative; }
+        .pipeline-arrow::after { content: '\2192'; position: absolute; right: -16px; top: 50%; transform: translateY(-50%); color: #3d4760; font-size: 16px; }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+        .fade-in { animation: fadeIn 0.25s ease-out; }
+        @keyframes pulse2 { 0%,100%{opacity:1} 50%{opacity:0.5} }
+        .pulse2 { animation: pulse2 2s infinite; }
+    </style>
+</head>
+<body class="text-gray-300 min-h-screen flex flex-col">
+
+<div class="paper-bar w-full flex-shrink-0"></div>
+
+<!-- Header -->
+<header class="bg-dark-800 border-b border-dark-600 px-6 py-2.5 flex items-center justify-between flex-shrink-0">
+    <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2">
+            <div class="w-6 h-6 rounded bg-gradient-to-br from-accent-blue to-accent-purple flex items-center justify-center text-[10px] font-bold text-white">QP</div>
+            <span class="text-base font-bold text-white tracking-tight">QuantPrism</span>
+        </div>
+        <span class="text-[9px] text-gray-600 border border-dark-500 rounded px-1.5 py-0.5">DEMO</span>
+    </div>
+    <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2 bg-dark-700 border border-dark-600 rounded-lg px-3 py-1">
+            <span class="w-2 h-2 rounded-full bg-accent-green"></span>
+            <span class="text-xs text-gray-300">VIX 18.2</span>
+            <span class="text-[10px] text-gray-500">正常</span>
+        </div>
+        <span class="bg-accent-orange/20 text-accent-orange text-[10px] font-bold px-2 py-0.5 rounded border border-accent-orange/30">PAPER</span>
+    </div>
+</header>
+
+<div class="flex flex-1 overflow-hidden">
+<!-- Sidebar -->
+<nav class="w-44 bg-dark-800 border-r border-dark-600 flex flex-col py-3 px-2.5 gap-0.5 flex-shrink-0 overflow-y-auto">
+    <button onclick="go('dash')" data-p="dash" class="nav-item active flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-left w-full">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/></svg>控制台</button>
+    <button onclick="go('bt')" data-p="bt" class="nav-item flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-left w-full">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>回测报告</button>
+    <button onclick="go('risk')" data-p="risk" class="nav-item flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-left w-full">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>风控中心</button>
+    <button onclick="go('opt')" data-p="opt" class="nav-item flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-left w-full">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>参数优化</button>
+    <button onclick="go('perf')" data-p="perf" class="nav-item flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-left w-full">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>绩效分析</button>
+    <button onclick="go('mkt')" data-p="mkt" class="nav-item flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-left w-full">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"/></svg>市场全景</button>
+</nav>
+
+<!-- Main -->
+<main class="flex-1 overflow-y-auto p-5" id="main">
+
+<!-- ====== DASHBOARD ====== -->
+<div id="pg-dash" class="page active fade-in">
+<div class="flex justify-between items-center mb-4">
+    <div><h1 class="text-lg font-bold text-white">控制台</h1><p class="text-[11px] text-gray-500">执行管线 + 组合总览 + 风险状态</p></div>
+    <div class="text-[10px] text-gray-600">2026-04-02 09:32</div>
+</div>
+
+<!-- Pipeline -->
+<div class="bg-dark-700 rounded-xl border border-dark-600 p-3 mb-4">
+    <div class="text-[10px] text-gray-500 mb-2">执行管线 (Signal &rarr; Filter &rarr; Risk &rarr; Confirm)</div>
+    <div class="grid grid-cols-4 gap-3">
+        <div class="pipeline-step pipeline-arrow bg-dark-800 rounded-lg p-3 border border-dark-600">
+            <div class="text-[10px] text-gray-400">信号生成</div>
+            <div class="text-xl font-bold text-white">5</div>
+            <div class="text-[9px] text-gray-500 mb-1">SMA+RSI+BB</div>
+            <div class="w-full bg-dark-600 rounded-full h-1"><div class="bg-accent-blue h-1 rounded-full" style="width:100%"></div></div>
+        </div>
+        <div class="pipeline-step pipeline-arrow bg-dark-800 rounded-lg p-3 border border-dark-600">
+            <div class="text-[10px] text-gray-400">Regime 过滤</div>
+            <div class="text-xl font-bold text-accent-green">3</div>
+            <div class="text-[9px] text-gray-500 mb-1">2 个被过滤(危机策略)</div>
+            <div class="w-full bg-dark-600 rounded-full h-1"><div class="bg-accent-green h-1 rounded-full" style="width:60%"></div></div>
+        </div>
+        <div class="pipeline-step pipeline-arrow bg-dark-800 rounded-lg p-3 border border-dark-600">
+            <div class="text-[10px] text-gray-400">风控检查</div>
+            <div class="text-xl font-bold text-accent-yellow">2</div>
+            <div class="text-[9px] text-gray-500 mb-1">1 个超限(行业集中)</div>
+            <div class="w-full bg-dark-600 rounded-full h-1"><div class="bg-accent-yellow h-1 rounded-full" style="width:40%"></div></div>
+        </div>
+        <div class="bg-dark-800 rounded-lg p-3 border border-accent-blue/40">
+            <div class="text-[10px] text-accent-blue">待确认</div>
+            <div class="text-xl font-bold text-accent-blue">2</div>
+            <div class="text-[9px] text-accent-blue/60 mb-1">AAPL BUY, QQQ BUY</div>
+            <div class="w-full bg-dark-600 rounded-full h-1"><div class="bg-accent-blue h-1 rounded-full pulse2" style="width:100%"></div></div>
+        </div>
+    </div>
+</div>
+
+<!-- KPI -->
+<div class="grid grid-cols-5 gap-3 mb-4">
+    <div class="kpi-card bg-dark-700 rounded-xl p-3 border border-dark-600"><div class="text-[10px] text-gray-500">总盈亏</div><div class="text-xl font-bold text-accent-green">+$2,340</div><div class="text-[10px] text-accent-green mt-0.5">+12.4% YTD</div></div>
+    <div class="kpi-card bg-dark-700 rounded-xl p-3 border border-dark-600"><div class="text-[10px] text-gray-500">本月</div><div class="text-xl font-bold text-accent-green">+$580</div><div class="text-[10px] text-gray-400 mt-0.5">22 笔交易</div></div>
+    <div class="kpi-card bg-dark-700 rounded-xl p-3 border border-dark-600"><div class="text-[10px] text-gray-500">胜率</div><div class="text-xl font-bold text-white">62%</div><div class="text-[10px] text-gray-400 mt-0.5">盈亏比 1.82</div></div>
+    <div class="kpi-card bg-dark-700 rounded-xl p-3 border border-dark-600"><div class="text-[10px] text-gray-500">Sharpe</div><div class="text-xl font-bold text-white">1.35</div><div class="text-[10px] text-accent-green mt-0.5">&gt;1.0 良好</div></div>
+    <div class="kpi-card bg-dark-700 rounded-xl p-3 border border-dark-600"><div class="text-[10px] text-gray-500">回撤余量</div><div class="text-xl font-bold text-accent-green">6.8%</div><div class="text-[10px] text-gray-400 mt-0.5">限额 10%</div></div>
+</div>
+
+<!-- Equity + Goal -->
+<div class="grid grid-cols-3 gap-4 mb-4">
+    <div class="col-span-2 bg-dark-700 rounded-xl border border-dark-600 p-4">
+        <div class="flex justify-between items-center mb-2">
+            <h2 class="text-sm font-semibold text-white">权益曲线 vs SPY 基准</h2>
+            <div class="flex gap-1 text-[10px]">
+                <button class="px-2 py-0.5 rounded bg-dark-500 text-white">3M</button>
+                <button class="px-2 py-0.5 rounded text-gray-500">YTD</button>
+                <button class="px-2 py-0.5 rounded text-gray-500">ALL</button>
+            </div>
+        </div>
+        <div id="dash-equity" style="height:280px"></div>
+    </div>
+    <div class="space-y-3">
+        <div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
+            <h2 class="text-sm font-semibold text-white mb-2">年度目标</h2>
+            <div id="dash-goal" style="height:130px"></div>
+            <div class="text-center text-[10px] text-gray-500 mt-1">剩余 9 个月 | 需月均 +0.76%</div>
+        </div>
+        <div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
+            <h2 class="text-sm font-semibold text-white mb-2">风险预算</h2>
+            <div class="space-y-2">
+                <div><div class="flex justify-between text-[10px] mb-0.5"><span class="text-gray-400">持仓风险</span><span class="text-white">3.2% / 10%</span></div><div class="w-full bg-dark-800 rounded-full h-1.5"><div class="bg-accent-green h-1.5 rounded-full" style="width:32%"></div></div></div>
+                <div><div class="flex justify-between text-[10px] mb-0.5"><span class="text-gray-400">回撤</span><span class="text-accent-green">-3.2%</span></div><div class="w-full bg-dark-800 rounded-full h-1.5"><div class="bg-accent-green h-1.5 rounded-full" style="width:32%"></div></div></div>
+                <div class="pt-2 border-t border-dark-600 text-[10px]">
+                    <div class="text-gray-500 mb-1">行业暴露</div>
+                    <div class="flex justify-between py-0.5"><span class="text-gray-300">科技</span><span class="text-white">45%</span></div>
+                    <div class="flex justify-between py-0.5"><span class="text-gray-300">医疗</span><span class="text-white">20%</span></div>
+                    <div class="flex justify-between py-0.5"><span class="text-gray-300">金融</span><span class="text-white">15%</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Monthly + Positions -->
+<div class="grid grid-cols-2 gap-4">
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
+        <h2 class="text-sm font-semibold text-white mb-2">月度收益热力图</h2>
+        <div id="dash-monthly" style="height:180px"></div>
+    </div>
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
+        <div class="flex justify-between items-center mb-2"><h2 class="text-sm font-semibold text-white">活跃持仓</h2><span class="text-[10px] text-gray-500">4 个</span></div>
+        <table class="w-full text-[11px]">
+            <thead><tr class="text-gray-500 border-b border-dark-600"><th class="text-left py-1.5">标的</th><th class="text-left">方向</th><th class="text-right">盈亏</th><th class="text-right">持仓天数</th><th class="text-right">风险占比</th></tr></thead>
+            <tbody>
+                <tr class="border-b border-dark-600/50"><td class="py-2 text-white font-medium">AAPL</td><td class="text-accent-green">多</td><td class="text-right text-accent-green">+2.3%</td><td class="text-right text-gray-400">5d</td><td class="text-right"><div class="inline-flex items-center gap-1"><div class="w-10 bg-dark-800 rounded-full h-1"><div class="bg-accent-green h-1 rounded-full" style="width:40%"></div></div><span class="text-gray-400">1.2%</span></div></td></tr>
+                <tr class="border-b border-dark-600/50"><td class="py-2 text-white font-medium">NVDA</td><td class="text-accent-green">多</td><td class="text-right text-accent-red">-0.8%</td><td class="text-right text-gray-400">3d</td><td class="text-right"><div class="inline-flex items-center gap-1"><div class="w-10 bg-dark-800 rounded-full h-1"><div class="bg-accent-yellow h-1 rounded-full" style="width:50%"></div></div><span class="text-gray-400">1.5%</span></div></td></tr>
+                <tr class="border-b border-dark-600/50"><td class="py-2 text-white font-medium">QQQ</td><td class="text-accent-green">多</td><td class="text-right text-accent-green">+1.5%</td><td class="text-right text-gray-400">8d</td><td class="text-right"><div class="inline-flex items-center gap-1"><div class="w-10 bg-dark-800 rounded-full h-1"><div class="bg-accent-green h-1 rounded-full" style="width:33%"></div></div><span class="text-gray-400">1.0%</span></div></td></tr>
+                <tr><td class="py-2 text-white font-medium">SPY</td><td class="text-accent-red">空</td><td class="text-right text-accent-green">+0.3%</td><td class="text-right text-gray-400">12d</td><td class="text-right"><div class="inline-flex items-center gap-1"><div class="w-10 bg-dark-800 rounded-full h-1"><div class="bg-accent-green h-1 rounded-full" style="width:27%"></div></div><span class="text-gray-400">0.8%</span></div></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+</div>
+
+<!-- ====== BACKTEST REPORT ====== -->
+<div id="pg-bt" class="page fade-in">
+<div class="mb-4">
+    <h1 class="text-lg font-bold text-white">回测报告: SMA 交叉策略</h1>
+    <p class="text-[11px] text-gray-500">标的: SPY | 回测区间: 2021-01-01 ~ 2025-12-31 (5年) | 初始资金: $100,000 | 基准: SPY Buy&Hold</p>
+</div>
+
+<!-- KPI -->
+<div class="grid grid-cols-8 gap-2 mb-4">
+    <div class="bg-dark-700 rounded-lg p-2.5 border border-dark-600 text-center"><div class="text-[9px] text-gray-500">总收益</div><div class="text-sm font-bold text-accent-green">+45.2%</div><div class="text-[8px] text-accent-green">达标</div></div>
+    <div class="bg-dark-700 rounded-lg p-2.5 border border-dark-600 text-center"><div class="text-[9px] text-gray-500">年化</div><div class="text-sm font-bold text-accent-green">+7.8%</div><div class="text-[8px] text-accent-green">&gt;目标</div></div>
+    <div class="bg-dark-700 rounded-lg p-2.5 border border-dark-600 text-center"><div class="text-[9px] text-gray-500">Sharpe</div><div class="text-sm font-bold text-white">1.35</div><div class="text-[8px] text-accent-green">&gt;1.0</div></div>
+    <div class="bg-dark-700 rounded-lg p-2.5 border border-dark-600 text-center"><div class="text-[9px] text-gray-500">最大回撤</div><div class="text-sm font-bold text-accent-green">-12.4%</div><div class="text-[8px] text-accent-green">&lt;目标15%</div></div>
+    <div class="bg-dark-700 rounded-lg p-2.5 border border-dark-600 text-center"><div class="text-[9px] text-gray-500">胜率</div><div class="text-sm font-bold text-white">58%</div><div class="text-[8px] text-gray-400">423笔</div></div>
+    <div class="bg-dark-700 rounded-lg p-2.5 border border-dark-600 text-center"><div class="text-[9px] text-gray-500">盈亏比</div><div class="text-sm font-bold text-white">1.82</div><div class="text-[8px] text-accent-green">&gt;1.5</div></div>
+    <div class="bg-dark-700 rounded-lg p-2.5 border border-dark-600 text-center"><div class="text-[9px] text-gray-500">vs 基准</div><div class="text-sm font-bold text-accent-green">+3.2%</div><div class="text-[8px] text-accent-green">跑赢</div></div>
+    <div class="bg-dark-700 rounded-lg p-2.5 border border-dark-600 text-center"><div class="text-[9px] text-gray-500">Calmar</div><div class="text-sm font-bold text-white">0.63</div><div class="text-[8px] text-gray-400">年化/回撤</div></div>
+</div>
+
+<!-- 5-Year Equity Curve - THE MAIN CHART -->
+<div class="bg-dark-700 rounded-xl border border-dark-600 p-4 mb-4">
+    <div class="flex justify-between items-center mb-1">
+        <h2 class="text-sm font-semibold text-white">5 年权益曲线 (可交互: 悬停查看任意日期的净值、涨幅、回撤)</h2>
+        <div class="flex gap-1 text-[10px]">
+            <button class="px-2 py-0.5 rounded bg-dark-500 text-white">全部5年</button>
+            <button class="px-2 py-0.5 rounded text-gray-500">近3年</button>
+            <button class="px-2 py-0.5 rounded text-gray-500">近1年</button>
+        </div>
+    </div>
+    <div class="text-[10px] text-gray-500 mb-2">鼠标悬停: 查看每日净值、累计收益率、当前回撤、对比基准涨幅 | 拖拽选区: 放大任意时间段</div>
+    <div id="bt-equity" style="height:380px"></div>
+</div>
+
+<!-- Drawdown -->
+<div class="bg-dark-700 rounded-xl border border-dark-600 p-4 mb-4">
+    <h2 class="text-sm font-semibold text-white mb-1">水下回撤图 (标注 Top 5 最大回撤期间)</h2>
+    <div class="text-[10px] text-gray-500 mb-2">悬停查看每日回撤深度 | 红色区域标注最大回撤前5名的起止时间和幅度</div>
+    <div id="bt-drawdown" style="height:250px"></div>
+</div>
+
+<!-- Monthly Heatmap + Trade Scatter -->
+<div class="grid grid-cols-2 gap-4 mb-4">
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
+        <h2 class="text-sm font-semibold text-white mb-1">60 个月收益热力图</h2>
+        <div class="text-[10px] text-gray-500 mb-2">每格 = 一个月的收益 | 深绿=大赚 深红=大亏 | 一眼看出季节性规律</div>
+        <div id="bt-heatmap" style="height:250px"></div>
+    </div>
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
+        <h2 class="text-sm font-semibold text-white mb-1">每笔交易: 持仓天数 vs 收益率</h2>
+        <div class="text-[10px] text-gray-500 mb-2">每个点 = 一笔交易 | 绿=盈利 红=亏损 | 发现最佳持仓周期</div>
+        <div id="bt-scatter" style="height:250px"></div>
+    </div>
+</div>
+
+<!-- Regime Analysis + PnL Distribution -->
+<div class="grid grid-cols-2 gap-4 mb-4">
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
+        <h2 class="text-sm font-semibold text-white mb-1">不同市场环境下的策略表现</h2>
+        <div class="text-[10px] text-gray-500 mb-2">按 VIX 分4个环境 | 每个环境的收益、回撤、Sharpe、交易次数</div>
+        <div id="bt-regime" style="height:280px"></div>
+    </div>
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
+        <h2 class="text-sm font-semibold text-white mb-1">盈亏分布直方图</h2>
+        <div class="text-[10px] text-gray-500 mb-2">X轴=单笔盈亏% | Y轴=出现次数 | 了解策略的收益特征</div>
+        <div id="bt-dist" style="height:280px"></div>
+    </div>
+</div>
+
+<!-- Crisis Test + Rolling Sharpe -->
+<div class="grid grid-cols-2 gap-4 mb-4">
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
+        <h2 class="text-sm font-semibold text-white mb-1">危机压力测试</h2>
+        <div class="text-[10px] text-gray-500 mb-2">策略在4次历史危机期间的表现 vs SPY 基准</div>
+        <div id="bt-crisis" style="height:260px"></div>
+    </div>
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
+        <h2 class="text-sm font-semibold text-white mb-1">滚动 Sharpe Ratio (90天窗口)</h2>
+        <div class="text-[10px] text-gray-500 mb-2">策略稳定性指标 | 在1.0以上=表现良好 | 波动大=策略不稳定</div>
+        <div id="bt-rolling" style="height:260px"></div>
+    </div>
+</div>
+
+<!-- Trade Detail Table -->
+<div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
+    <h2 class="text-sm font-semibold text-white mb-2">最近交易明细 (共 423 笔)</h2>
+    <table class="w-full text-[11px]">
+        <thead><tr class="text-gray-500 border-b border-dark-600"><th class="text-left py-1.5">#</th><th class="text-left">日期</th><th class="text-left">方向</th><th class="text-right">入场价</th><th class="text-right">出场价</th><th class="text-right">盈亏%</th><th class="text-right">盈亏$</th><th class="text-right">持仓天</th><th class="text-left">退出原因</th></tr></thead>
+        <tbody>
+            <tr class="border-b border-dark-600/30"><td class="py-1.5 text-gray-400">423</td><td class="text-gray-300">2025-12-28</td><td class="text-accent-green">BUY</td><td class="text-right text-gray-300">$595.20</td><td class="text-right text-gray-300">$608.40</td><td class="text-right text-accent-green">+2.22%</td><td class="text-right text-accent-green">+$1,320</td><td class="text-right text-gray-400">8</td><td class="text-gray-400">信号反转</td></tr>
+            <tr class="border-b border-dark-600/30"><td class="py-1.5 text-gray-400">422</td><td class="text-gray-300">2025-12-15</td><td class="text-accent-green">BUY</td><td class="text-right text-gray-300">$588.50</td><td class="text-right text-gray-300">$582.30</td><td class="text-right text-accent-red">-1.05%</td><td class="text-right text-accent-red">-$620</td><td class="text-right text-gray-400">5</td><td class="text-gray-400">止损</td></tr>
+            <tr class="border-b border-dark-600/30"><td class="py-1.5 text-gray-400">421</td><td class="text-gray-300">2025-12-02</td><td class="text-accent-green">BUY</td><td class="text-right text-gray-300">$579.80</td><td class="text-right text-gray-300">$590.10</td><td class="text-right text-accent-green">+1.78%</td><td class="text-right text-accent-green">+$1,030</td><td class="text-right text-gray-400">11</td><td class="text-gray-400">信号反转</td></tr>
+            <tr class="border-b border-dark-600/30"><td class="py-1.5 text-gray-400">420</td><td class="text-gray-300">2025-11-20</td><td class="text-accent-red">SHORT</td><td class="text-right text-gray-300">$582.40</td><td class="text-right text-gray-300">$579.80</td><td class="text-right text-accent-green">+0.45%</td><td class="text-right text-accent-green">+$260</td><td class="text-right text-gray-400">3</td><td class="text-gray-400">信号反转</td></tr>
+            <tr><td class="py-1.5 text-gray-400">419</td><td class="text-gray-300">2025-11-08</td><td class="text-accent-green">BUY</td><td class="text-right text-gray-300">$570.20</td><td class="text-right text-gray-300">$583.90</td><td class="text-right text-accent-green">+2.40%</td><td class="text-right text-accent-green">+$1,370</td><td class="text-right text-gray-400">9</td><td class="text-gray-400">信号反转</td></tr>
+        </tbody>
+    </table>
+    <div class="text-center mt-2 text-[10px] text-gray-500">显示最近 5 笔 | 共 423 笔交易 | 完整列表可导出 CSV</div>
+</div>
+</div>
+
+<!-- ====== RISK ====== -->
+<div id="pg-risk" class="page fade-in">
+<h1 class="text-lg font-bold text-white mb-1">风控中心</h1>
+<p class="text-[11px] text-gray-500 mb-4">回撤监控 + 暴露分析 + 压力测试 + 风险事件</p>
+
+<div class="bg-dark-700 rounded-xl border border-accent-green/20 p-3 mb-4 flex items-center gap-6 text-[11px]">
+    <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-accent-green"></span><span class="text-white font-medium">风险评级: 中低</span></div>
+    <div class="text-gray-400">回撤 <span class="text-white">-3.2%</span></div>
+    <div class="text-gray-400">VaR(95%) <span class="text-white">-$2,100</span></div>
+    <div class="text-gray-400">余量 <span class="text-accent-green">6.8%</span></div>
+    <div class="text-gray-400">暴露度 <span class="text-white">72%</span></div>
+</div>
+
+<div class="grid grid-cols-3 gap-4 mb-4">
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
+        <h2 class="text-sm font-semibold text-white mb-2">风险预算仪表</h2>
+        <div id="risk-gauge" style="height:220px"></div>
+    </div>
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
+        <h2 class="text-sm font-semibold text-white mb-2">行业暴露</h2>
+        <div id="risk-pie" style="height:220px"></div>
+    </div>
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
+        <h2 class="text-sm font-semibold text-white mb-2">压力场景 (VIX=35)</h2>
+        <div class="space-y-2 mt-4">
+            <div><div class="flex justify-between text-[11px] mb-0.5"><span class="text-gray-300">NVDA</span><span class="text-accent-red">-$720</span></div><div class="w-full bg-dark-800 rounded h-4"><div class="bg-accent-red/50 h-4 rounded flex items-center pl-1 text-[9px] text-white" style="width:85%">-8.5%</div></div></div>
+            <div><div class="flex justify-between text-[11px] mb-0.5"><span class="text-gray-300">AAPL</span><span class="text-accent-red">-$420</span></div><div class="w-full bg-dark-800 rounded h-4"><div class="bg-accent-red/40 h-4 rounded flex items-center pl-1 text-[9px] text-white" style="width:50%">-5.2%</div></div></div>
+            <div><div class="flex justify-between text-[11px] mb-0.5"><span class="text-gray-300">QQQ</span><span class="text-accent-red">-$310</span></div><div class="w-full bg-dark-800 rounded h-4"><div class="bg-accent-red/35 h-4 rounded flex items-center pl-1 text-[9px] text-white" style="width:37%">-4.1%</div></div></div>
+            <div><div class="flex justify-between text-[11px] mb-0.5"><span class="text-gray-300">SPY (空头对冲)</span><span class="text-accent-green">+$180</span></div><div class="w-full bg-dark-800 rounded h-4"><div class="bg-accent-green/40 h-4 rounded flex items-center pl-1 text-[9px] text-white" style="width:21%">+2.1%</div></div></div>
+            <div class="pt-2 border-t border-dark-600 flex justify-between text-[11px]"><span class="text-white font-medium">总计预估损失</span><span class="text-accent-red font-medium">-$1,270</span></div>
+        </div>
+    </div>
+</div>
+
+<div class="bg-dark-700 rounded-xl border border-dark-600 p-4 mb-4">
+    <h2 class="text-sm font-semibold text-white mb-2">实时回撤曲线</h2>
+    <div id="risk-dd" style="height:220px"></div>
+</div>
+
+<div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
+    <h2 class="text-sm font-semibold text-white mb-3">风险事件时间线</h2>
+    <div class="relative pl-6 space-y-3">
+        <div class="absolute left-2 top-0 bottom-0 w-px bg-dark-500"></div>
+        <div class="relative"><div class="absolute -left-4 top-1 w-2.5 h-2.5 rounded-full bg-accent-blue border-2 border-dark-700"></div><div class="ml-2"><span class="text-[10px] text-gray-400">今天 09:30</span><div class="text-[11px] text-white">新增持仓 MSFT — 通过 Regime 和风控检查</div></div></div>
+        <div class="relative"><div class="absolute -left-4 top-1 w-2.5 h-2.5 rounded-full bg-accent-yellow border-2 border-dark-700"></div><div class="ml-2"><span class="text-[10px] text-gray-400">03/28</span><div class="text-[11px] text-accent-yellow">回撤警告触发 -5% (阈值 -5%)</div></div></div>
+        <div class="relative"><div class="absolute -left-4 top-1 w-2.5 h-2.5 rounded-full bg-accent-orange border-2 border-dark-700"></div><div class="ml-2"><span class="text-[10px] text-gray-400">03/25</span><div class="text-[11px] text-accent-orange">行业超配: 科技 48% (限额 40%)</div></div></div>
+        <div class="relative"><div class="absolute -left-4 top-1 w-2.5 h-2.5 rounded-full bg-accent-red border-2 border-dark-700"></div><div class="ml-2"><span class="text-[10px] text-gray-400">03/15</span><div class="text-[11px] text-accent-red">止损触发: TSLA -$320 (-8.2%)</div></div></div>
+    </div>
+</div>
+</div>
+
+<!-- ====== OPTIMIZER ====== -->
+<div id="pg-opt" class="page fade-in">
+<h1 class="text-lg font-bold text-white mb-1">参数优化器</h1>
+<p class="text-[11px] text-gray-500 mb-4">Goal-Driven: 满足回撤约束 &rarr; 最大化 Sharpe</p>
+
+<div class="bg-dark-700 rounded-xl border border-dark-600 p-3 mb-4">
+    <div class="grid grid-cols-4 gap-3 items-end">
+        <div><label class="text-[10px] text-gray-500 block mb-0.5">策略</label><select class="w-full bg-dark-800 border border-dark-500 rounded px-2 py-1.5 text-sm text-white"><option>SMA 交叉</option></select></div>
+        <div><label class="text-[10px] text-gray-500 block mb-0.5">优化目标</label><select class="w-full bg-dark-800 border border-dark-500 rounded px-2 py-1.5 text-sm text-white"><option>Goal-Driven (DD&lt;10% &rarr; Max Sharpe)</option></select></div>
+        <div><label class="text-[10px] text-gray-500 block mb-0.5">约束: 最大回撤 &le;</label><input type="text" value="10%" class="w-full bg-dark-800 border border-dark-500 rounded px-2 py-1.5 text-sm text-white"></div>
+        <div><button class="w-full bg-accent-blue text-white px-3 py-1.5 rounded text-sm font-medium">开始优化</button></div>
+    </div>
+    <div class="mt-2 flex items-center gap-2"><div class="flex-1 bg-dark-800 rounded-full h-1.5"><div class="bg-accent-blue h-1.5 rounded-full" style="width:78%"></div></div><span class="text-[10px] text-gray-400">156/200 | 78%</span></div>
+</div>
+
+<div class="grid grid-cols-2 gap-4 mb-4">
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
+        <h2 class="text-sm font-semibold text-white mb-1">参数热力图</h2>
+        <div class="text-[10px] text-gray-500 mb-2">颜色 = Sharpe | 稳定区域(相邻格接近) = 实盘更可靠</div>
+        <div id="opt-heatmap" style="height:320px"></div>
+    </div>
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
+        <h2 class="text-sm font-semibold text-white mb-2">结果排行</h2>
+        <table class="w-full text-[11px]">
+            <thead><tr class="text-gray-500 border-b border-dark-600"><th class="text-left py-1.5">#</th><th>Trades</th><th>W/D/L</th><th class="text-right">收益</th><th class="text-right">回撤</th><th class="text-right">Sharpe</th></tr></thead>
+            <tbody>
+                <tr class="border-b border-dark-600/50 bg-accent-green/5"><td class="py-2 text-accent-yellow font-bold">1</td><td class="text-center text-white">423</td><td class="text-center text-gray-300">171/241/11</td><td class="text-right text-accent-green font-medium">+20.9%</td><td class="text-right text-white">8.2%</td><td class="text-right"><span class="bg-accent-green/20 text-accent-green px-1.5 py-0.5 rounded text-[10px]">1.82</span></td></tr>
+                <tr class="border-b border-dark-600/50"><td class="py-2 text-gray-400">2</td><td class="text-center text-white">389</td><td class="text-center text-gray-300">160/210/19</td><td class="text-right text-accent-green">+18.2%</td><td class="text-right text-white">6.1%</td><td class="text-right"><span class="bg-accent-green/20 text-accent-green px-1.5 py-0.5 rounded text-[10px]">1.65</span></td></tr>
+                <tr class="border-b border-dark-600/50"><td class="py-2 text-gray-400">3</td><td class="text-center text-white">401</td><td class="text-center text-gray-300">165/220/16</td><td class="text-right text-accent-green">+16.8%</td><td class="text-right text-white">7.5%</td><td class="text-right"><span class="bg-accent-green/20 text-accent-green px-1.5 py-0.5 rounded text-[10px]">1.58</span></td></tr>
+                <tr class="border-b border-dark-600/50"><td class="py-2 text-gray-400">4</td><td class="text-center text-white">350</td><td class="text-center text-gray-300">140/190/20</td><td class="text-right text-accent-green">+15.1%</td><td class="text-right text-accent-yellow">9.8%</td><td class="text-right"><span class="bg-accent-yellow/20 text-accent-yellow px-1.5 py-0.5 rounded text-[10px]">1.42</span></td></tr>
+                <tr><td class="py-2 text-gray-400">5</td><td class="text-center text-white">380</td><td class="text-center text-gray-300">155/200/25</td><td class="text-right text-accent-green">+14.5%</td><td class="text-right text-white">8.9%</td><td class="text-right"><span class="bg-accent-green/20 text-accent-green px-1.5 py-0.5 rounded text-[10px]">1.38</span></td></tr>
+            </tbody>
+        </table>
+        <div class="mt-4 p-3 bg-dark-800 rounded-lg border border-accent-green/20">
+            <div class="text-[11px] text-white font-medium mb-2">最优参数 vs 当前</div>
+            <div class="grid grid-cols-2 gap-2 text-[10px]">
+                <div class="flex justify-between"><span class="text-gray-400">Sharpe</span><span><span class="text-gray-500">0.92</span> &rarr; <span class="text-accent-green font-bold">1.82</span></span></div>
+                <div class="flex justify-between"><span class="text-gray-400">收益</span><span><span class="text-gray-500">+8.5%</span> &rarr; <span class="text-accent-green font-bold">+20.9%</span></span></div>
+                <div class="flex justify-between"><span class="text-gray-400">回撤</span><span><span class="text-gray-500">-15.2%</span> &rarr; <span class="text-accent-green font-bold">-8.2%</span></span></div>
+                <div class="flex justify-between"><span class="text-gray-400">胜率</span><span><span class="text-gray-500">52%</span> &rarr; <span class="text-accent-green font-bold">58%</span></span></div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+<!-- ====== PERFORMANCE ====== -->
+<div id="pg-perf" class="page fade-in">
+<h1 class="text-lg font-bold text-white mb-1">绩效分析</h1>
+<p class="text-[11px] text-gray-500 mb-4">交易行为分析 + 策略归因 + 情绪胜率</p>
+
+<div class="bg-dark-700 rounded-xl border border-dark-600 p-4 mb-4">
+    <h2 class="text-sm font-semibold text-white mb-1">2026 每日盈亏 (日历热力图)</h2>
+    <div id="perf-cal" style="height:170px"></div>
+</div>
+
+<div class="grid grid-cols-2 gap-4 mb-4">
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
+        <h2 class="text-sm font-semibold text-white mb-2">策略收益归因</h2>
+        <div id="perf-attr" style="height:250px"></div>
+    </div>
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
+        <h2 class="text-sm font-semibold text-white mb-1">情绪 x 市场条件 &rarr; 胜率</h2>
+        <div class="text-[10px] text-gray-500 mb-1">颜色越绿胜率越高 | 找出你的最佳交易状态</div>
+        <div id="perf-emotion" style="height:240px"></div>
+    </div>
+</div>
+</div>
+
+<!-- ====== MARKET ====== -->
+<div id="pg-mkt" class="page fade-in">
+<h1 class="text-lg font-bold text-white mb-1">市场全景</h1>
+<p class="text-[11px] text-gray-500 mb-4">板块热力图 + Regime 温度计</p>
+
+<div class="bg-dark-700 rounded-xl border border-dark-600 p-4 mb-4">
+    <h2 class="text-sm font-semibold text-white mb-2">板块热力图 (面积=市值权重, 颜色=今日涨跌)</h2>
+    <div id="mkt-tree" style="height:420px"></div>
+</div>
+
+<div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
+    <h2 class="text-sm font-semibold text-white mb-3">Regime 温度计</h2>
+    <div class="flex items-center gap-1">
+        <div class="h-8 flex-1 rounded-l-lg bg-gradient-to-r from-blue-900 to-blue-600 flex items-center justify-center text-[10px] text-blue-200">&lt;12 冰冻</div>
+        <div class="h-8 flex-1 bg-gradient-to-r from-green-800 to-green-500 flex items-center justify-center text-[10px] text-green-100">12-15 低波</div>
+        <div class="h-8 flex-1 bg-gradient-to-r from-yellow-700 to-yellow-500 flex items-center justify-center text-[10px] text-yellow-100 ring-2 ring-white/30">15-20 正常 (当前)</div>
+        <div class="h-8 flex-1 bg-gradient-to-r from-orange-700 to-orange-500 flex items-center justify-center text-[10px] text-orange-100">20-30 高波</div>
+        <div class="h-8 flex-1 rounded-r-lg bg-gradient-to-r from-red-800 to-red-500 flex items-center justify-center text-[10px] text-red-100">&gt;30 危机</div>
+    </div>
+    <div class="mt-3 text-[11px] text-gray-400">VIX = 18.2 | 适合策略: 均值回归, 动量, 趋势跟踪</div>
+</div>
+</div>
+
+</main>
+</div>
+
+<script>
+// Navigation
+function go(id) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('pg-'+id).classList.add('active');
+    document.querySelector('[data-p="'+id+'"]').classList.add('active');
+    document.getElementById('main').scrollTop = 0;
+    setTimeout(() => initCharts(id), 50);
+}
+
+// Generate 5 years of daily data
+function gen5YearData() {
+    var dates = [], equity = [100000], spy = [100000];
+    var d = new Date(2021,0,2);
+    var end = new Date(2025,11,31);
+    while (d <= end) {
+        if (d.getDay() !== 0 && d.getDay() !== 6) {
+            dates.push(d.toISOString().slice(0,10));
+            var last = equity[equity.length-1];
+            var slast = spy[spy.length-1];
+            // Add regime-based returns
+            var month = d.getMonth();
+            var year = d.getFullYear();
+            var crisis = (year===2022 && month>=5 && month<=9);
+            var bull = (year===2021 || (year===2023 && month>=6) || year===2024);
+            var eRet = crisis ? (Math.random()-0.55)*0.018 : bull ? (Math.random()-0.42)*0.012 : (Math.random()-0.47)*0.014;
+            var sRet = crisis ? (Math.random()-0.56)*0.02 : bull ? (Math.random()-0.41)*0.013 : (Math.random()-0.48)*0.015;
+            equity.push(Math.max(last * (1+eRet), last*0.85));
+            spy.push(Math.max(slast * (1+sRet), slast*0.85));
+        }
+        d.setDate(d.getDate()+1);
+    }
+    return { dates, equity: equity.slice(1), spy: spy.slice(1) };
+}
+
+var _5y = gen5YearData();
+var _chartCache = {};
+
+function initCharts(page) {
+    if (_chartCache[page]) return;
+    _chartCache[page] = true;
+
+    if (page === 'dash') initDash();
+    if (page === 'bt') initBT();
+    if (page === 'risk') initRisk();
+    if (page === 'opt') initOpt();
+    if (page === 'perf') initPerf();
+    if (page === 'mkt') initMkt();
+}
+
+function ec(id) { var el = document.getElementById(id); return el ? echarts.init(el) : null; }
+
+// ===== DASHBOARD =====
+function initDash() {
+    // Equity
+    var c = ec('dash-equity');
+    if (c) {
+        var n = 60;
+        c.setOption({
+            tooltip: { trigger:'axis', backgroundColor:'#1a2035', borderColor:'#232b3e', textStyle:{color:'#d1d5db',fontSize:11} },
+            legend: { data:['账户','SPY'], textStyle:{color:'#6b7280',fontSize:10}, top:0 },
+            grid: { top:30, right:15, bottom:25, left:50 },
+            xAxis: { type:'category', data:_5y.dates.slice(-n), axisLabel:{color:'#4b5563',fontSize:9}, axisLine:{lineStyle:{color:'#232b3e'}} },
+            yAxis: { type:'value', axisLabel:{color:'#4b5563',fontSize:9,formatter:v=>'$'+(v/1000).toFixed(0)+'k'}, splitLine:{lineStyle:{color:'#1a2035'}} },
+            series: [
+                { name:'账户', type:'line', data:_5y.equity.slice(-n), lineStyle:{color:'#22c55e',width:2}, areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'rgba(34,197,94,0.15)'},{offset:1,color:'rgba(34,197,94,0)'}]}}, symbol:'none', smooth:true },
+                { name:'SPY', type:'line', data:_5y.spy.slice(-n), lineStyle:{color:'#6b7280',width:1,type:'dashed'}, symbol:'none', smooth:true }
+            ]
+        });
+        window.addEventListener('resize', ()=>c.resize());
+    }
+
+    // Goal gauge
+    var g = ec('dash-goal');
+    if (g) {
+        g.setOption({
+            series:[{ type:'gauge', startAngle:200, endAngle:-20, min:0, max:15, center:['50%','65%'], radius:'90%',
+                axisLine:{lineStyle:{width:14,color:[[0.33,'#232b3e'],[0.55,'#22c55e'],[1,'#232b3e']]}},
+                pointer:{length:'55%',width:3,itemStyle:{color:'#22c55e'}},
+                axisTick:{show:false}, splitLine:{show:false},
+                axisLabel:{color:'#4b5563',fontSize:9,distance:-25,formatter:v=>v+'%'},
+                detail:{formatter:'{value}%',color:'#fff',fontSize:20,offsetCenter:[0,'15%']},
+                title:{show:true,offsetCenter:[0,'40%'],color:'#6b7280',fontSize:10},
+                data:[{value:8.2,name:'年化目标15%'}]
+            }]
+        });
+        window.addEventListener('resize', ()=>g.resize());
+    }
+
+    // Monthly
+    var m = ec('dash-monthly');
+    if (m) {
+        var months=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+        var years=['2025','2026'];
+        var data=[];
+        for(var y=0;y<2;y++) for(var mo=0;mo<12;mo++){if(y===1&&mo>2)continue; data.push([mo,y,Math.round((Math.random()-0.38)*600)]);}
+        m.setOption({
+            tooltip:{formatter:p=>years[p.data[1]]+' '+months[p.data[0]]+': $'+p.data[2]},
+            grid:{top:5,right:5,bottom:25,left:40},
+            xAxis:{type:'category',data:months,axisLabel:{color:'#6b7280',fontSize:9},axisLine:{lineStyle:{color:'#232b3e'}}},
+            yAxis:{type:'category',data:years,axisLabel:{color:'#6b7280',fontSize:10},axisLine:{lineStyle:{color:'#232b3e'}}},
+            visualMap:{min:-400,max:400,show:false,inRange:{color:['#991b1b','#dc2626','#1a2035','#16a34a','#15803d']}},
+            series:[{type:'heatmap',data:data,label:{show:true,formatter:p=>'$'+p.data[2],color:'#d1d5db',fontSize:9},itemStyle:{borderWidth:2,borderColor:'#0a0e1a'}}]
+        });
+        window.addEventListener('resize',()=>m.resize());
+    }
+}
+
+// ===== BACKTEST =====
+function initBT() {
+    // 5-year equity + SPY
+    var c = ec('bt-equity');
+    if (c) {
+        c.setOption({
+            tooltip:{ trigger:'axis', backgroundColor:'#1a2035', borderColor:'#232b3e', textStyle:{color:'#d1d5db',fontSize:11},
+                formatter: function(ps) {
+                    var date = ps[0].name;
+                    var eq = ps[0].data, sp = ps[1] ? ps[1].data : 0;
+                    var eqRet = ((eq/100000-1)*100).toFixed(2);
+                    var spRet = ((sp/100000-1)*100).toFixed(2);
+                    var dd = ((eq / Math.max(..._5y.equity.slice(0,_5y.dates.indexOf(date)+1)) - 1)*100).toFixed(2);
+                    return '<b>'+date+'</b><br/>净值: $'+Math.round(eq).toLocaleString()+'<br/>累计收益: <span style="color:'+(eqRet>=0?'#22c55e':'#ef4444')+'">'+eqRet+'%</span><br/>当前回撤: <span style="color:#ef4444">'+dd+'%</span><br/>SPY: '+spRet+'%<br/>超额: <span style="color:'+(eqRet-spRet>=0?'#22c55e':'#ef4444')+'">'+(eqRet-spRet).toFixed(2)+'%</span>';
+                }
+            },
+            legend:{data:['策略','SPY'],textStyle:{color:'#6b7280',fontSize:10},top:0},
+            grid:{top:30,right:15,bottom:50,left:55},
+            dataZoom:[{type:'inside',start:0,end:100},{type:'slider',start:0,end:100,height:20,bottom:5,textStyle:{color:'#6b7280',fontSize:9}}],
+            xAxis:{type:'category',data:_5y.dates,axisLabel:{color:'#4b5563',fontSize:9},axisLine:{lineStyle:{color:'#232b3e'}}},
+            yAxis:{type:'value',axisLabel:{color:'#4b5563',fontSize:9,formatter:v=>'$'+(v/1000).toFixed(0)+'k'},splitLine:{lineStyle:{color:'#1a2035'}}},
+            series:[
+                {name:'策略',type:'line',data:_5y.equity,lineStyle:{color:'#22c55e',width:2},areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'rgba(34,197,94,0.12)'},{offset:1,color:'rgba(34,197,94,0)'}]}},symbol:'none',smooth:true},
+                {name:'SPY',type:'line',data:_5y.spy,lineStyle:{color:'#6b7280',width:1.5,type:'dashed'},symbol:'none',smooth:true}
+            ]
+        });
+        window.addEventListener('resize',()=>c.resize());
+    }
+
+    // Drawdown
+    var dd = ec('bt-drawdown');
+    if (dd) {
+        var ddData = []; var peak = 0;
+        for (var i=0;i<_5y.equity.length;i++) { peak = Math.max(peak, _5y.equity[i]); ddData.push((((_5y.equity[i]/peak)-1)*100)); }
+        dd.setOption({
+            tooltip:{trigger:'axis',backgroundColor:'#1a2035',borderColor:'#232b3e',textStyle:{color:'#d1d5db',fontSize:11},formatter:p=>p[0].name+'<br/>回撤: <span style="color:#ef4444">'+p[0].data.toFixed(2)+'%</span>'},
+            grid:{top:10,right:15,bottom:50,left:50},
+            dataZoom:[{type:'inside'},{type:'slider',height:18,bottom:5,textStyle:{color:'#6b7280',fontSize:9}}],
+            xAxis:{type:'category',data:_5y.dates,axisLabel:{color:'#4b5563',fontSize:9},axisLine:{lineStyle:{color:'#232b3e'}}},
+            yAxis:{type:'value',max:0,axisLabel:{color:'#4b5563',fontSize:9,formatter:v=>v.toFixed(0)+'%'},splitLine:{lineStyle:{color:'#1a2035'}}},
+            series:[
+                {type:'line',data:ddData,areaStyle:{color:'rgba(239,68,68,0.2)'},lineStyle:{color:'#ef4444',width:1.5},symbol:'none',smooth:true},
+                {type:'line',data:Array(_5y.dates.length).fill(-15),lineStyle:{color:'#ef4444',type:'dashed',width:1},symbol:'none',silent:true}
+            ],
+            graphic:[{type:'text',left:'center',bottom:30,style:{text:'--- 最大回撤目标线 -15% ---',fill:'#ef4444',fontSize:9}}]
+        });
+        window.addEventListener('resize',()=>dd.resize());
+    }
+
+    // Monthly 5-year heatmap
+    var hm = ec('bt-heatmap');
+    if (hm) {
+        var months=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+        var years=['2021','2022','2023','2024','2025'];
+        var data=[];
+        for(var y=0;y<5;y++) for(var m=0;m<12;m++){
+            var v = (y===1&&m>=5&&m<=9) ? Math.round((Math.random()-0.65)*800) : Math.round((Math.random()-0.38)*600);
+            data.push([m,y,v]);
+        }
+        hm.setOption({
+            tooltip:{formatter:p=>years[p.data[1]]+' '+months[p.data[0]]+'<br/>收益: $'+p.data[2]},
+            grid:{top:5,right:5,bottom:30,left:40},
+            xAxis:{type:'category',data:months,axisLabel:{color:'#6b7280',fontSize:9},axisLine:{lineStyle:{color:'#232b3e'}}},
+            yAxis:{type:'category',data:years,axisLabel:{color:'#6b7280',fontSize:10},axisLine:{lineStyle:{color:'#232b3e'}}},
+            visualMap:{min:-500,max:500,show:true,orient:'horizontal',left:'center',bottom:0,text:['赚','亏'],textStyle:{color:'#6b7280',fontSize:9},itemWidth:80,itemHeight:8,inRange:{color:['#991b1b','#dc2626','#1a2035','#16a34a','#15803d']}},
+            series:[{type:'heatmap',data:data,label:{show:true,formatter:p=>'$'+p.data[2],color:'#d1d5db',fontSize:9},itemStyle:{borderWidth:2,borderColor:'#0a0e1a'}}]
+        });
+        window.addEventListener('resize',()=>hm.resize());
+    }
+
+    // Scatter: holding days vs return
+    var sc = ec('bt-scatter');
+    if (sc) {
+        var sdata=[];
+        for(var i=0;i<200;i++){var days=Math.round(Math.random()*30+1);var ret=(Math.random()-0.42)*12;sdata.push([days,Math.round(ret*100)/100]);}
+        sc.setOption({
+            tooltip:{formatter:p=>'持仓 '+p.data[0]+' 天<br/>收益: '+(p.data[1]>=0?'+':'')+p.data[1]+'%'},
+            grid:{top:10,right:15,bottom:30,left:40},
+            xAxis:{type:'value',name:'持仓天数',nameLocation:'center',nameGap:20,nameTextStyle:{color:'#6b7280',fontSize:10},axisLabel:{color:'#4b5563',fontSize:9},splitLine:{lineStyle:{color:'#1a2035'}}},
+            yAxis:{type:'value',name:'收益%',nameLocation:'center',nameGap:30,nameTextStyle:{color:'#6b7280',fontSize:10},axisLabel:{color:'#4b5563',fontSize:9},splitLine:{lineStyle:{color:'#1a2035'}}},
+            series:[{type:'scatter',data:sdata,symbolSize:6,itemStyle:{color:p=>p.data[1]>=0?'rgba(34,197,94,0.7)':'rgba(239,68,68,0.7)'}}],
+            graphic:[{type:'line',shape:{x1:0,y1:0,x2:1000,y2:0},style:{stroke:'#374151',lineWidth:1},z:0}]
+        });
+        window.addEventListener('resize',()=>sc.resize());
+    }
+
+    // Regime bars
+    var rg = ec('bt-regime');
+    if (rg) {
+        var regimes = ['低波牛市\nVIX<15','正常\n15-20','高波\n20-30','危机\n>30'];
+        rg.setOption({
+            tooltip:{trigger:'axis'},
+            legend:{data:['年化收益','最大回撤','Sharpe x10'],textStyle:{color:'#6b7280',fontSize:10},top:0},
+            grid:{top:35,right:15,bottom:30,left:40},
+            xAxis:{type:'category',data:regimes,axisLabel:{color:'#9ca3af',fontSize:10},axisLine:{lineStyle:{color:'#232b3e'}}},
+            yAxis:{type:'value',axisLabel:{color:'#4b5563',fontSize:9},splitLine:{lineStyle:{color:'#1a2035'}}},
+            series:[
+                {name:'年化收益',type:'bar',data:[12.5,7.8,4.2,-2.1],itemStyle:{color:'#22c55e'},barWidth:'20%'},
+                {name:'最大回撤',type:'bar',data:[-5.2,-8.3,-12.4,-18.6],itemStyle:{color:'#ef4444'},barWidth:'20%'},
+                {name:'Sharpe x10',type:'bar',data:[18,13.5,8,-3],itemStyle:{color:'#3b82f6'},barWidth:'20%'}
+            ]
+        });
+        window.addEventListener('resize',()=>rg.resize());
+    }
+
+    // PnL distribution
+    var dt = ec('bt-dist');
+    if (dt) {
+        var bins=['-10~-8','-8~-6','-6~-4','-4~-2','-2~0','0~2','2~4','4~6','6~8','8~10'];
+        var counts=[5,12,28,45,35,52,38,22,10,4];
+        dt.setOption({
+            tooltip:{trigger:'axis',formatter:p=>p[0].name+'%: '+p[0].data+' 笔交易'},
+            grid:{top:10,right:15,bottom:30,left:40},
+            xAxis:{type:'category',data:bins,axisLabel:{color:'#6b7280',fontSize:9},name:'盈亏%',nameLocation:'center',nameGap:20,nameTextStyle:{color:'#6b7280',fontSize:10},axisLine:{lineStyle:{color:'#232b3e'}}},
+            yAxis:{type:'value',axisLabel:{color:'#4b5563',fontSize:9},name:'次数',nameLocation:'center',nameGap:25,nameTextStyle:{color:'#6b7280',fontSize:10},splitLine:{lineStyle:{color:'#1a2035'}}},
+            series:[{type:'bar',data:counts,itemStyle:{color:function(p){return p.dataIndex<5?'rgba(239,68,68,0.6)':'rgba(34,197,94,0.6)'}}}]
+        });
+        window.addEventListener('resize',()=>dt.resize());
+    }
+
+    // Crisis test
+    var cr = ec('bt-crisis');
+    if (cr) {
+        cr.setOption({
+            tooltip:{trigger:'axis'},
+            legend:{data:['策略','SPY'],textStyle:{color:'#6b7280',fontSize:10},top:0},
+            grid:{top:30,right:15,bottom:25,left:40},
+            xAxis:{type:'category',data:['2020新冠','2022加息熊市','2023银行危机','2024日元崩盘'],axisLabel:{color:'#9ca3af',fontSize:10},axisLine:{lineStyle:{color:'#232b3e'}}},
+            yAxis:{type:'value',axisLabel:{color:'#4b5563',fontSize:9,formatter:v=>v+'%'},splitLine:{lineStyle:{color:'#1a2035'}}},
+            series:[
+                {name:'策略',type:'bar',data:[-8,-12,-4,-3],itemStyle:{color:'#3b82f6'},barWidth:'25%'},
+                {name:'SPY',type:'bar',data:[-34,-25,-8,-9],itemStyle:{color:'#ef4444'},barWidth:'25%'}
+            ]
+        });
+        window.addEventListener('resize',()=>cr.resize());
+    }
+
+    // Rolling Sharpe
+    var rs = ec('bt-rolling');
+    if (rs) {
+        var rsData=[];var d=_5y.dates;
+        for(var i=0;i<d.length;i++){rsData.push(1.2+Math.sin(i/60)*0.6+(Math.random()-0.5)*0.4);}
+        rs.setOption({
+            tooltip:{trigger:'axis',formatter:p=>p[0].name+'<br/>Sharpe: '+p[0].data.toFixed(2)},
+            grid:{top:10,right:15,bottom:50,left:40},
+            dataZoom:[{type:'slider',height:18,bottom:5,textStyle:{color:'#6b7280',fontSize:9}}],
+            xAxis:{type:'category',data:d,axisLabel:{color:'#4b5563',fontSize:9},axisLine:{lineStyle:{color:'#232b3e'}}},
+            yAxis:{type:'value',axisLabel:{color:'#4b5563',fontSize:9},splitLine:{lineStyle:{color:'#1a2035'}}},
+            series:[
+                {type:'line',data:rsData,lineStyle:{color:'#3b82f6',width:1.5},areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'rgba(59,130,246,0.1)'},{offset:1,color:'rgba(59,130,246,0)'}]}},symbol:'none',smooth:true},
+                {type:'line',data:Array(d.length).fill(1.0),lineStyle:{color:'#eab308',type:'dashed',width:1},symbol:'none',silent:true}
+            ],
+            graphic:[{type:'text',right:20,top:10,style:{text:'--- 基准线 Sharpe=1.0',fill:'#eab308',fontSize:9}}]
+        });
+        window.addEventListener('resize',()=>rs.resize());
+    }
+}
+
+// ===== RISK =====
+function initRisk() {
+    var g=ec('risk-gauge');
+    if(g){g.setOption({series:[{type:'gauge',startAngle:200,endAngle:-20,min:0,max:100,center:['50%','60%'],radius:'85%',axisLine:{lineStyle:{width:16,color:[[0.6,'#22c55e'],[0.8,'#eab308'],[1,'#ef4444']]}},pointer:{length:'55%',width:4,itemStyle:{color:'#d1d5db'}},axisTick:{show:false},splitLine:{show:false},axisLabel:{color:'#4b5563',fontSize:9,distance:-28},detail:{formatter:'{value}%',color:'#fff',fontSize:22,offsetCenter:[0,'18%']},title:{show:true,offsetCenter:[0,'42%'],color:'#6b7280',fontSize:10},data:[{value:32,name:'风险预算已用'}]}]});window.addEventListener('resize',()=>g.resize());}
+
+    var p=ec('risk-pie');
+    if(p){p.setOption({tooltip:{trigger:'item',formatter:'{b}: {d}%'},series:[{type:'pie',radius:['45%','75%'],center:['50%','50%'],label:{color:'#9ca3af',fontSize:10},data:[{value:45,name:'科技',itemStyle:{color:'#3b82f6'}},{value:20,name:'医疗',itemStyle:{color:'#22c55e'}},{value:15,name:'金融',itemStyle:{color:'#a855f7'}},{value:8,name:'能源',itemStyle:{color:'#f97316'}},{value:5,name:'消费',itemStyle:{color:'#eab308'}},{value:7,name:'现金',itemStyle:{color:'#374151'}}]}]});window.addEventListener('resize',()=>p.resize());}
+
+    var d=ec('risk-dd');
+    if(d){var dd=[];var peak=0;for(var i=0;i<180;i++){var v=100000+(Math.random()-0.48)*2000*i/10;peak=Math.max(peak,v);dd.push(((v/peak-1)*100));}
+    var dates=Array.from({length:180},(_,i)=>{var dt=new Date(2025,9,1);dt.setDate(dt.getDate()+i);return dt.toISOString().slice(0,10);});
+    d.setOption({tooltip:{trigger:'axis',formatter:p=>p[0].name+'<br/>回撤: '+p[0].data.toFixed(2)+'%'},grid:{top:10,right:15,bottom:25,left:45},xAxis:{type:'category',data:dates,axisLabel:{color:'#4b5563',fontSize:9},axisLine:{lineStyle:{color:'#232b3e'}}},yAxis:{type:'value',max:0,axisLabel:{color:'#4b5563',fontSize:9,formatter:v=>v.toFixed(0)+'%'},splitLine:{lineStyle:{color:'#1a2035'}}},series:[{type:'line',data:dd,areaStyle:{color:'rgba(239,68,68,0.15)'},lineStyle:{color:'#ef4444',width:1.5},symbol:'none',smooth:true},{type:'line',data:Array(180).fill(-10),lineStyle:{color:'#ef4444',type:'dashed',width:1},symbol:'none'}]});
+    window.addEventListener('resize',()=>d.resize());}
+}
+
+// ===== OPTIMIZER =====
+function initOpt() {
+    var h=ec('opt-heatmap');
+    if(h){var xD=[60,62,64,66,68,70,72,74,76,78,80];var yD=[15,18,20,22,25,28,30,32,35,38,40];var data=[];
+    for(var y=0;y<yD.length;y++)for(var x=0;x<xD.length;x++){var v=1.8-Math.abs(x-6)*0.12-Math.abs(y-4)*0.1+(Math.random()-0.5)*0.25;data.push([x,y,Math.round(v*100)/100]);}
+    h.setOption({tooltip:{formatter:p=>'sell_rsi='+xD[p.data[0]]+' buy_rsi='+yD[p.data[1]]+'<br/>Sharpe: '+p.data[2]},grid:{top:10,right:80,bottom:30,left:50},xAxis:{type:'category',data:xD,name:'sell_rsi',nameLocation:'center',nameGap:22,nameTextStyle:{color:'#9ca3af',fontSize:10},axisLabel:{color:'#6b7280',fontSize:9},axisLine:{lineStyle:{color:'#232b3e'}}},yAxis:{type:'category',data:yD,name:'buy_rsi',nameLocation:'center',nameGap:35,nameTextStyle:{color:'#9ca3af',fontSize:10},axisLabel:{color:'#6b7280',fontSize:9},axisLine:{lineStyle:{color:'#232b3e'}}},visualMap:{min:0.5,max:2.0,right:5,top:'center',text:['高','低'],textStyle:{color:'#6b7280',fontSize:9},inRange:{color:['#7f1d1d','#dc2626','#eab308','#22c55e','#166534']}},series:[{type:'heatmap',data:data,itemStyle:{borderWidth:1,borderColor:'#0a0e1a'}}]});
+    window.addEventListener('resize',()=>h.resize());}
+}
+
+// ===== PERFORMANCE =====
+function initPerf() {
+    var cal=ec('perf-cal');
+    if(cal){var data=[];var d=new Date(2026,0,1);while(d<new Date(2026,3,2)){if(d.getDay()!==0&&d.getDay()!==6){data.push([d.toISOString().slice(0,10),Math.round((Math.random()-0.4)*500)]);}d.setDate(d.getDate()+1);}
+    cal.setOption({tooltip:{formatter:p=>p.data[0]+': $'+p.data[1]},visualMap:{min:-300,max:300,show:false,inRange:{color:['#991b1b','#dc2626','#1a2035','#16a34a','#15803d']}},calendar:{range:['2026-01-01','2026-04-01'],cellSize:[18,18],top:30,left:40,right:10,itemStyle:{borderWidth:2,borderColor:'#0a0e1a'},dayLabel:{color:'#6b7280',fontSize:9,nameMap:['日','一','二','三','四','五','六']},monthLabel:{color:'#9ca3af',fontSize:10},yearLabel:{show:false},splitLine:{show:false}},series:[{type:'heatmap',coordinateSystem:'calendar',data:data}]});
+    window.addEventListener('resize',()=>cal.resize());}
+
+    var at=ec('perf-attr');
+    if(at){at.setOption({tooltip:{trigger:'axis'},legend:{data:['SMA交叉','RSI动量','布林带'],textStyle:{color:'#6b7280',fontSize:10},top:0},grid:{top:30,right:15,bottom:25,left:40},xAxis:{type:'category',data:['1月','2月','3月'],axisLabel:{color:'#6b7280',fontSize:10},axisLine:{lineStyle:{color:'#232b3e'}}},yAxis:{type:'value',axisLabel:{color:'#4b5563',fontSize:9,formatter:v=>'$'+v},splitLine:{lineStyle:{color:'#1a2035'}}},series:[{name:'SMA交叉',type:'bar',stack:'t',data:[400,350,450],itemStyle:{color:'#3b82f6'}},{name:'RSI动量',type:'bar',stack:'t',data:[200,250,230],itemStyle:{color:'#22c55e'}},{name:'布林带',type:'bar',stack:'t',data:[150,120,190],itemStyle:{color:'#a855f7'}}]});
+    window.addEventListener('resize',()=>at.resize());}
+
+    var em=ec('perf-emotion');
+    if(em){var emotions=['自信','中性','焦虑','冲动'];var conds=['低波牛市','正常','高波','危机'];var raw=[[72,58,45,30],[65,55,50,35],[40,42,48,25],[35,38,30,15]];var data=[];
+    for(var e=0;e<4;e++)for(var c=0;c<4;c++)data.push([c,e,raw[e][c]]);
+    em.setOption({tooltip:{formatter:p=>emotions[p.data[1]]+' + '+conds[p.data[0]]+': '+p.data[2]+'% 胜率'},grid:{top:5,right:75,bottom:25,left:55},xAxis:{type:'category',data:conds,axisLabel:{color:'#9ca3af',fontSize:10},axisLine:{lineStyle:{color:'#232b3e'}}},yAxis:{type:'category',data:emotions,axisLabel:{color:'#9ca3af',fontSize:10},axisLine:{lineStyle:{color:'#232b3e'}}},visualMap:{min:15,max:75,right:5,top:'center',text:['高','低'],textStyle:{color:'#6b7280',fontSize:9},inRange:{color:['#7f1d1d','#dc2626','#eab308','#22c55e','#15803d']}},series:[{type:'heatmap',data:data,label:{show:true,formatter:p=>p.data[2]+'%',color:'#fff',fontSize:11},itemStyle:{borderWidth:3,borderColor:'#0a0e1a'}}]});
+    window.addEventListener('resize',()=>em.resize());}
+}
+
+// ===== MARKET =====
+function initMkt() {
+    var t=ec('mkt-tree');
+    if(t){t.setOption({tooltip:{formatter:p=>{var v=p.data.realValue;return p.name+': '+(v>0?'+':'')+v+'%'}},series:[{type:'treemap',roam:false,width:'100%',height:'100%',breadcrumb:{show:false},label:{show:true,formatter:function(p){return p.name+'\n'+(p.data.realValue>0?'+':'')+p.data.realValue+'%'},color:'#fff',fontSize:11},levels:[{itemStyle:{borderColor:'#0a0e1a',borderWidth:3,gapWidth:3},upperLabel:{show:true,height:22,color:'#fff',fontSize:12,backgroundColor:'transparent'}},{itemStyle:{borderColor:'#0a0e1a',borderWidth:1,gapWidth:1}}],
+    data:[
+        {name:'科技',realValue:1.2,children:[{name:'AAPL',value:3000,realValue:1.5,itemStyle:{color:'#166534'}},{name:'MSFT',value:2800,realValue:0.8,itemStyle:{color:'#16a34a'}},{name:'NVDA',value:2500,realValue:2.3,itemStyle:{color:'#15803d'}},{name:'GOOGL',value:2000,realValue:0.3,itemStyle:{color:'#1a2035'}},{name:'META',value:1500,realValue:1.1,itemStyle:{color:'#166534'}}]},
+        {name:'医疗',realValue:-0.5,children:[{name:'JNJ',value:800,realValue:-0.8,itemStyle:{color:'#dc2626'}},{name:'UNH',value:700,realValue:-0.2,itemStyle:{color:'#7f1d1d'}},{name:'PFE',value:400,realValue:-1.2,itemStyle:{color:'#991b1b'}}]},
+        {name:'金融',realValue:0.8,children:[{name:'JPM',value:900,realValue:1.2,itemStyle:{color:'#166534'}},{name:'BAC',value:600,realValue:0.5,itemStyle:{color:'#16a34a'}},{name:'GS',value:500,realValue:0.9,itemStyle:{color:'#166534'}}]},
+        {name:'能源',realValue:2.1,children:[{name:'XOM',value:700,realValue:2.5,itemStyle:{color:'#15803d'}},{name:'CVX',value:600,realValue:1.8,itemStyle:{color:'#166534'}}]},
+        {name:'消费',realValue:0.3,children:[{name:'AMZN',value:1800,realValue:0.5,itemStyle:{color:'#16a34a'}},{name:'TSLA',value:1200,realValue:-0.8,itemStyle:{color:'#dc2626'}},{name:'HD',value:500,realValue:1.2,itemStyle:{color:'#166534'}}]},
+        {name:'工业',realValue:-0.2,children:[{name:'CAT',value:400,realValue:0.3,itemStyle:{color:'#1a2035'}},{name:'BA',value:350,realValue:-1.2,itemStyle:{color:'#991b1b'}}]}
+    ]}]});window.addEventListener('resize',()=>t.resize());}
+}
+
+// Init dashboard on load
+initCharts('dash');
+</script>
+</body>
+</html>

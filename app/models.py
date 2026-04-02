@@ -24,6 +24,8 @@ class UserGoals(Base):
     # 系统推导的约束
     max_positions = Column(Integer)                         # 同时持仓上限
     max_position_pct = Column(Float)                        # 单笔最大仓位百分比
+    asset_classes = Column(Text, nullable=True)              # JSON: ["us_stocks","etf","options","crypto"]
+    holding_period = Column(String(20), nullable=True)       # intraday / days_weeks / weeks_months / months_year
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -231,6 +233,17 @@ class AlertHistory(Base):
     channel = Column(String(20))  # feishu / sms / both
     was_rate_limited = Column(Boolean, default=False)
     delivered = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class WatchlistItem(Base):
+    """观察列表"""
+    __tablename__ = "watchlist_items"
+
+    id = Column(Integer, primary_key=True)
+    symbol = Column(String(20), nullable=False, index=True)
+    added_from = Column(String(20), default="manual")  # manual / scanner
+    notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 

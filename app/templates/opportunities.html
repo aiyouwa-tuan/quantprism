@@ -12,6 +12,15 @@
             <span class="text-xs text-gray-300">VIX {{ regime.vix }}</span>
         </div>
         {% endif %}
+        {% if cached_html %}
+        <button id="refresh-btn"
+                hx-post="/screener/scan" hx-target="#results" hx-swap="innerHTML"
+                hx-vals='{"sector": "{{ current_sector }}"}'
+                class="flex items-center gap-2 text-sm text-gray-400 hover:text-white px-4 py-2 rounded-lg bg-dark-700 border border-dark-600 hover:border-gray-500 transition">
+            <span class="refresh-icon">&#x21bb;</span>
+            <span>刷新数据</span>
+        </button>
+        {% endif %}
     </div>
 </div>
 
@@ -29,11 +38,11 @@
         </span>
     </a>
     {% endfor %}
-    <!-- 未扫描板块提示 -->
     <span class="text-xs text-gray-600 self-center ml-1">其他板块扫描后出现</span>
 </div>
 
-<!-- 筛选工具栏 -->
+{% if cached_html %}
+<!-- 有缓存：显示筛选工具栏 -->
 <div class="bg-dark-700 rounded-lg border border-dark-600 p-3 mb-4 flex gap-3 items-center flex-wrap" id="filters">
     <span class="text-xs text-gray-500">筛选:</span>
     <button onclick="filterStrategy('all')" class="filter-btn text-xs px-2.5 py-1 rounded bg-dark-500 text-white" data-filter="all">全部</button>
@@ -57,29 +66,74 @@
         <option value="high">高风险</option>
     </select>
 </div>
+{% endif %}
 
-<!-- 刷新按钮 -->
-<div class="flex justify-end mb-3">
-    <button id="refresh-btn"
-            hx-post="/screener/scan" hx-target="#results" hx-swap="innerHTML"
-            hx-vals='{"sector": "{{ current_sector }}"}'
-            class="flex items-center gap-2 text-sm text-gray-400 hover:text-white px-4 py-2 rounded-lg bg-dark-700 border border-dark-600 hover:border-accent-green transition">
-        <span class="refresh-icon">&#x21bb;</span>
-        <span>刷新数据</span>
-    </button>
-</div>
-
-<!-- 结果：服务端直接渲染缓存，不发 HTMX 请求 -->
+<!-- 结果区 -->
 <div id="results">
     {% if cached_html %}
-    {{ cached_html|safe }}
+        {{ cached_html|safe }}
     {% else %}
-    <div class="text-center py-16">
-        <div class="text-gray-400 mb-2">尚无缓存数据</div>
-        <div class="text-sm text-gray-500">点击上方「刷新数据」按钮开始扫描</div>
+    <!-- 空状态：居中扫描 CTA -->
+    <div class="flex flex-col items-center justify-center py-20 text-center">
+        <div class="w-16 h-16 rounded-2xl bg-dark-700 border border-dark-600 flex items-center justify-center mb-5">
+            <svg class="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+        </div>
+        <h2 class="text-white font-semibold text-lg mb-2">扫描{{ sectors.get(current_sector, {}).get('name', current_sector) }}板块</h2>
+        <p class="text-gray-500 text-sm mb-1 max-w-sm">评估板块内所有标的，筛选出当前最佳入场机会</p>
+        {% if has_strategies %}
+        <p class="text-xs text-accent-green mb-6">将按你的 {{ active_strategy_count }} 个策略精准筛选结果</p>
+        {% else %}
+        <p class="text-xs text-gray-600 mb-6">
+            提示：先
+            <a href="/strategies/manage" class="text-accent-blue hover:underline">配置策略</a>
+            再扫描，结果会精准匹配你的偏好
+        </p>
+        {% endif %}
+        <button id="refresh-btn"
+                hx-post="/screener/scan" hx-target="#results" hx-swap="innerHTML"
+                hx-vals='{"sector": "{{ current_sector }}"}'
+                onclick="showScanSkeleton()"
+                class="flex items-center gap-2 bg-accent-green text-dark-900 font-bold px-8 py-3 rounded-xl hover:brightness-110 transition">
+            <svg class="w-5 h-5 refresh-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            <span>开始扫描</span>
+        </button>
     </div>
     {% endif %}
 </div>
+
+<!-- 扫描骨架屏模板（隐藏，由 JS 注入） -->
+<template id="scan-skeleton-template">
+    <div class="space-y-3 animate-pulse">
+        <div class="bg-dark-800 rounded-lg p-4 flex justify-between items-center">
+            <div class="h-4 bg-dark-600 rounded w-32"></div>
+            <div class="h-4 bg-dark-600 rounded w-24"></div>
+        </div>
+        {% for _ in range(5) %}
+        <div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
+            <div class="flex justify-between items-start mb-3">
+                <div class="flex items-center gap-3">
+                    <div class="h-5 bg-dark-600 rounded w-16"></div>
+                    <div class="h-5 bg-dark-600 rounded w-20"></div>
+                    <div class="h-5 bg-dark-600 rounded w-12"></div>
+                </div>
+                <div class="h-6 bg-dark-600 rounded w-12"></div>
+            </div>
+            <div class="grid grid-cols-5 gap-3">
+                {% for _ in range(5) %}
+                <div class="space-y-1.5">
+                    <div class="h-3 bg-dark-600 rounded w-full"></div>
+                    <div class="h-4 bg-dark-600 rounded w-3/4 mx-auto"></div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</template>
 
 <style>
     .htmx-request .refresh-icon { animation: spin 1s linear infinite; }
@@ -87,6 +141,18 @@
 </style>
 
 <script>
+function showScanSkeleton() {
+    var tpl = document.getElementById('scan-skeleton-template');
+    if (tpl) {
+        document.getElementById('results').innerHTML = tpl.innerHTML;
+        // 扫描时显示筛选栏占位
+        var filters = document.getElementById('filters');
+        if (!filters) {
+            // 如果筛选栏不存在（空状态），扫描后 HTMX swap 会带入新内容，不需要额外处理
+        }
+    }
+}
+
 function filterStrategy(type) {
     document.querySelectorAll('.filter-btn').forEach(b => {
         b.className = b.dataset.filter === type

@@ -56,6 +56,20 @@
     </div>
 </div>
 
+<!-- K 线图 -->
+<div class="bg-dark-700 rounded-xl border border-dark-600 p-5 mb-6">
+    <div class="flex justify-between items-center mb-3">
+        <h2 class="text-sm font-semibold text-white">K 线图</h2>
+        <div class="flex gap-1">
+            <button onclick="loadChart('3mo',this)" class="chart-period text-xs px-2 py-1 rounded bg-dark-600 text-gray-400 hover:text-white">3M</button>
+            <button onclick="loadChart('6mo',this)" class="chart-period text-xs px-2 py-1 rounded bg-dark-600 text-gray-400 hover:text-white">6M</button>
+            <button onclick="loadChart('1y',this)" class="chart-period text-xs px-2 py-1 rounded bg-dark-500 text-white">1Y</button>
+            <button onclick="loadChart('2y',this)" class="chart-period text-xs px-2 py-1 rounded bg-dark-600 text-gray-400 hover:text-white">2Y</button>
+        </div>
+    </div>
+    <div id="kline-chart" style="height: 360px; width: 100%;"></div>
+</div>
+
 <div class="grid grid-cols-2 gap-6">
     <!-- 左：AI 诊断详情 -->
     <div class="space-y-4">
@@ -182,4 +196,82 @@
         {% endif %}
     </div>
 </div>
+<!-- TradingView Lightweight Charts -->
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<script>
+var chart, candleSeries, volumeSeries, sma20Line, sma50Line, sma200Line;
+
+function initChart() {
+    var container = document.getElementById('kline-chart');
+    chart = LightweightCharts.createChart(container, {
+        layout: { background: { color: '#1a2035' }, textColor: '#9ca3af' },
+        grid: { vertLines: { color: '#232b3e' }, horzLines: { color: '#232b3e' } },
+        crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+        rightPriceScale: { borderColor: '#232b3e' },
+        timeScale: { borderColor: '#232b3e', timeVisible: false },
+        width: container.clientWidth,
+        height: 360,
+    });
+
+    candleSeries = chart.addCandlestickSeries({
+        upColor: '#22c55e', downColor: '#ef4444',
+        borderUpColor: '#22c55e', borderDownColor: '#ef4444',
+        wickUpColor: '#22c55e', wickDownColor: '#ef4444',
+    });
+
+    volumeSeries = chart.addHistogramSeries({
+        priceFormat: { type: 'volume' },
+        priceScaleId: 'volume',
+    });
+    chart.priceScale('volume').applyOptions({
+        scaleMargins: { top: 0.8, bottom: 0 },
+    });
+
+    sma20Line = chart.addLineSeries({ color: '#eab308', lineWidth: 1, title: 'SMA20' });
+    sma50Line = chart.addLineSeries({ color: '#3b82f6', lineWidth: 1, title: 'SMA50' });
+    sma200Line = chart.addLineSeries({ color: '#a855f7', lineWidth: 1.5, title: 'SMA200' });
+
+    // 支撑位水平线
+    candleSeries.createPriceLine({
+        price: {{ diag.support_level }},
+        color: '#3b82f6',
+        lineWidth: 1,
+        lineStyle: LightweightCharts.LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: '支撑 ${{ "%.0f"|format(diag.support_level) }}',
+    });
+
+    loadChart('1y');
+}
+
+function loadChart(period, el) {
+    // 按钮高亮
+    document.querySelectorAll('.chart-period').forEach(function(btn) {
+        btn.className = 'chart-period text-xs px-2 py-1 rounded bg-dark-600 text-gray-400 hover:text-white';
+    });
+    if (el) el.className = 'chart-period text-xs px-2 py-1 rounded bg-dark-500 text-white';
+
+    fetch('/api/chart/{{ diag.symbol }}?period=' + period)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.error) return;
+            candleSeries.setData(data.candles);
+            volumeSeries.setData(data.volumes);
+            if (data.sma20.length) sma20Line.setData(data.sma20);
+            if (data.sma50.length) sma50Line.setData(data.sma50);
+            if (data.sma200.length) sma200Line.setData(data.sma200);
+            chart.timeScale().fitContent();
+        });
+}
+
+// Responsive resize
+window.addEventListener('resize', function() {
+    if (chart) {
+        var c = document.getElementById('kline-chart');
+        chart.applyOptions({ width: c.clientWidth });
+    }
+});
+
+initChart();
+</script>
 {% endblock %}
