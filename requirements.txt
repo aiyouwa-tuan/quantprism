@@ -1,24 +1,13 @@
-# === 数据分析基础 ===
-numpy>=1.24
-pandas>=2.0
-
-# === 行情数据获取 ===
-yfinance>=0.2.30          # 美股数据（免费）
-ccxt>=4.0                 # 加密货币交易所统一 API（支持 100+ 交易所）
-
-# === 数据可视化 ===
-matplotlib>=3.7
-mplfinance>=0.12.10       # 专业 K 线图
-
-# === 技术指标 ===
-ta>=0.11                  # 技术分析指标库（RSI, MACD, BB 等）
-
-# === 回测框架 ===
-vectorbt>=0.26            # 高性能向量化回测
-
-# === 实盘交易（后期使用）===
-# alpaca-trade-api>=3.0   # 美股实盘/模拟盘 API（需要时取消注释）
-
-# === 工具 ===
-jupyter>=1.0              # Jupyter Notebook（可选，交互式学习）
-tqdm>=4.65                # 进度条
+fastapi<0.115
+uvicorn
+jinja2
+python-multipart
+sqlalchemy<2.1
+pandas
+yfinance
+ta
+pyyaml
+httpx
+aiofiles
+apscheduler
+starlette<1.0
