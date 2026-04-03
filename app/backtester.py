@@ -313,6 +313,8 @@ def run_full_backtest(config: StrategyConfig, goals: UserGoals = None, db=None,
         sig.symbol = symbol
 
     risk_per_trade = goals.risk_per_trade if goals else 0.02
+    if risk_per_trade < 0.005:  # sanity check: at least 0.5%
+        risk_per_trade = 0.02
     metrics = _simulate_portfolio(signals, df, risk_per_trade=risk_per_trade, cost_model=cost_model, collect_daily=collect_daily)
 
     # Walk-forward: 70/30

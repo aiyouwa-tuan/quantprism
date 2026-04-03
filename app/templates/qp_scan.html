@@ -67,7 +67,26 @@ function runScan() {
         .then(function(r) { return r.text(); })
         .then(function(html) {
             document.getElementById('scan-loading').classList.add('hidden');
-            document.getElementById('scan-results').innerHTML = html;
+            var container = document.getElementById('scan-results');
+            container.innerHTML = html;
+            // Re-process HTMX attributes on new content
+            if (typeof htmx !== 'undefined') htmx.process(container);
+            var scripts = Array.from(container.querySelectorAll('script'));
+            function runNext(i) {
+                if (i >= scripts.length) return;
+                var old = scripts[i];
+                var s = document.createElement('script');
+                if (old.src) {
+                    s.src = old.src;
+                    s.onload = function() { runNext(i + 1); };
+                    s.onerror = function() { runNext(i + 1); };
+                } else {
+                    s.textContent = old.textContent;
+                }
+                old.parentNode.replaceChild(s, old);
+                if (!old.src) runNext(i + 1);
+            }
+            runNext(0);
         })
         .catch(function(e) {
             document.getElementById('scan-loading').classList.add('hidden');
