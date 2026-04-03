@@ -138,7 +138,7 @@ def fetch_fundamentals(symbol: str) -> dict:
             "market_cap": info.get("marketCap"),
             "revenue": revenue or info.get("totalRevenue"),
             "net_income": net_income,
-            "dividend_yield": info.get("dividendYield"),
+            "dividend_yield": info.get("trailingAnnualDividendYield") or info.get("dividendYield"),
             "analyst_target": info.get("targetMeanPrice"),
             "analyst_rating": info.get("recommendationKey", "").replace("_", " ").title() or None,
             "sector": info.get("sector"),

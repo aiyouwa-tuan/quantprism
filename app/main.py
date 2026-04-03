@@ -1918,10 +1918,9 @@ def backtest_run(
         monthly = {}
         for d in metrics.daily_details:
             dt = d.get("date", "")
-            close = d.get("close", 0)
             equity = d.get("equity", 0)
-            # Use equity if strategy traded, otherwise use close price
-            val = equity if equity and equity != 10000 else close
+            # Always use equity curve for monthly returns (avoids price/equity discontinuity)
+            val = equity
             if len(dt) >= 7 and val:
                 ym = dt[:7]  # YYYY-MM
                 if ym not in monthly:
