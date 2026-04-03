@@ -1832,12 +1832,15 @@ def backtest_run(
                     "volume": d.get("volume", 0),
                 })
 
-    # Compute monthly returns from daily_details (equity column)
+    # Compute monthly returns from daily_details (use close price for heatmap)
     if hasattr(metrics, "daily_details") and metrics.daily_details:
         monthly = {}
         for d in metrics.daily_details:
             dt = d.get("date", "")
-            val = d.get("equity", 0)
+            close = d.get("close", 0)
+            equity = d.get("equity", 0)
+            # Use equity if strategy traded, otherwise use close price
+            val = equity if equity and equity != 10000 else close
             if len(dt) >= 7 and val:
                 ym = dt[:7]  # YYYY-MM
                 if ym not in monthly:

@@ -50,23 +50,40 @@
 
         <!-- 开始回测 -->
         <div>
-            <button type="button" id="btn-backtest"
-                    hx-post="/backtest/run"
-                    hx-target="#backtest-results"
-                    hx-swap="innerHTML"
-                    hx-include="#bt-form"
-                    hx-indicator="#bt-spinner"
+            <button type="button" onclick="runBacktest()"
                     class="bg-accent-blue text-white px-6 py-2 rounded-lg text-sm font-bold hover:brightness-110 transition whitespace-nowrap">
                 &#x25B6; 开始回测
             </button>
         </div>
     </div>
 
-    <div id="bt-spinner" class="htmx-indicator text-center py-3 mt-2">
+    <div id="bt-spinner" class="hidden text-center py-3 mt-2">
         <div class="inline-block w-6 h-6 border-2 border-accent-blue border-t-transparent rounded-full animate-spin"></div>
         <span class="text-sm text-gray-400 ml-2">正在回测... 计算每一笔交易</span>
     </div>
 </div>
+
+<script>
+function runBacktest() {
+    var fd = new FormData();
+    fd.append('strategy_id', document.getElementById('sel-strategy').value);
+    fd.append('symbol', document.querySelector('#bt-form [name="symbol"]').value);
+    fd.append('start_date', document.querySelector('#bt-form [name="start_date"]').value);
+    fd.append('end_date', document.querySelector('#bt-form [name="end_date"]').value);
+    document.getElementById('bt-spinner').classList.remove('hidden');
+    document.getElementById('backtest-results').innerHTML = '';
+    fetch('/backtest/run', { method: 'POST', body: fd })
+        .then(function(r) { return r.text(); })
+        .then(function(html) {
+            document.getElementById('bt-spinner').classList.add('hidden');
+            document.getElementById('backtest-results').innerHTML = html;
+        })
+        .catch(function(e) {
+            document.getElementById('bt-spinner').classList.add('hidden');
+            document.getElementById('backtest-results').innerHTML = '<div class="text-center text-red-400 py-8">回测失败: ' + e.message + '</div>';
+        });
+}
+</script>
 
 <!-- 回测结果区域 -->
 <div id="backtest-results">
