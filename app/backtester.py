@@ -104,6 +104,7 @@ def _simulate_portfolio(signals, df, initial_capital=10000, risk_per_trade=0.02,
             position = {
                 "entry": fill_price, "shares": shares, "stop": sig.stop_loss,
                 "time": sig.timestamp, "comm_in": commission,
+                "capital_before": capital,
             }
 
         elif sig.direction == "close" and position is not None:
@@ -119,6 +120,8 @@ def _simulate_portfolio(signals, df, initial_capital=10000, risk_per_trade=0.02,
             net_pnl = gross_pnl - position.get("comm_in", 0) - commission
             capital += gross_pnl
 
+            entry_date_str = str(position["time"])[:10]
+            exit_date_str = str(sig.timestamp)[:10]
             trades.append({
                 "entry": round(position["entry"], 2),
                 "exit": round(fill_price, 2),
@@ -129,6 +132,9 @@ def _simulate_portfolio(signals, df, initial_capital=10000, risk_per_trade=0.02,
                 "return_pct": round(gross_pnl / (position["entry"] * position["shares"]), 4) if position["entry"] else 0,
                 "entry_time": str(position["time"]),
                 "exit_time": str(sig.timestamp),
+                "entry_date": entry_date_str,
+                "exit_date": exit_date_str,
+                "capital_before": position.get("capital_before", 0),
             })
             position = None
 

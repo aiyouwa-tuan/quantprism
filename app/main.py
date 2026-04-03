@@ -1913,19 +1913,40 @@ def backtest_run(
                     "volume": d.get("volume", 0),
                 })
 
-    # Compute monthly returns from daily_details (use close price for heatmap)
+    # Compute monthly returns using mark-to-market equity (shows unrealized P&L during open positions)
+    trade_intervals = []
+    if hasattr(metrics, "trades") and metrics.trades:
+        for t in metrics.trades:
+            ed = t.get("entry_date", str(t.get("entry_time", ""))[:10])
+            xd = t.get("exit_date", str(t.get("exit_time", ""))[:10])
+            if ed and xd and len(ed) == 10 and len(xd) == 10:
+                trade_intervals.append((ed, xd, t["entry"], t["shares"], t.get("capital_before", 10000)))
+    trade_intervals.sort(key=lambda x: x[0])
+    entry_dates = [t[0] for t in trade_intervals]
+
     if hasattr(metrics, "daily_details") and metrics.daily_details:
+        import bisect
         monthly = {}
         for d in metrics.daily_details:
             dt = d.get("date", "")
-            equity = d.get("equity", 0)
-            # Always use equity curve for monthly returns (avoids price/equity discontinuity)
-            val = equity
-            if len(dt) >= 7 and val:
-                ym = dt[:7]  # YYYY-MM
-                if ym not in monthly:
-                    monthly[ym] = {"start": val, "end": val}
-                monthly[ym]["end"] = val
+            if len(dt) < 7:
+                continue
+            close = d.get("close", 0)
+            mtm_equity = None
+            if entry_dates:
+                idx = bisect.bisect_right(entry_dates, dt) - 1
+                if idx >= 0:
+                    ed, xd, ep, shares, cap_before = trade_intervals[idx]
+                    if ed <= dt <= xd and close and ep:
+                        mtm_equity = cap_before + (close - ep) * shares
+            if mtm_equity is None:
+                mtm_equity = d.get("equity", 0) or 0
+            if not mtm_equity:
+                continue
+            ym = dt[:7]
+            if ym not in monthly:
+                monthly[ym] = {"start": mtm_equity, "end": mtm_equity}
+            monthly[ym]["end"] = mtm_equity
 
         for ym, vals in sorted(monthly.items()):
             parts = ym.split("-")
