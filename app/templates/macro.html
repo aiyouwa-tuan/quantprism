@@ -31,7 +31,7 @@
     <div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
         <div class="text-xs text-gray-500 mb-1">GDP (最新季度)</div>
         {% if macro.gdp %}
-        <div class="text-xl font-bold text-white">${{ "%.2f"|format(macro.gdp[-1].value) }}T</div>
+        <div class="text-xl font-bold text-white">${{ "%.1f"|format(macro.gdp[-1].value / 1000) }}T</div>
         <div class="text-xs text-gray-500 mt-0.5">{{ macro.gdp[-1].date }}</div>
         {% else %}
         <div class="text-gray-600 text-sm">N/A</div>
