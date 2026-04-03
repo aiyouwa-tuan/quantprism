@@ -66,6 +66,15 @@ class StockDiagnosis:
     # Sell Put 专用
     suggested_strike: float  # 建议行权价 (支撑位附近)
     suggested_dte: int  # 建议到期天数
+    # 基本面字段 (来自 data_providers.fetch_fundamentals, 可选)
+    pe_ratio: float = None
+    eps: float = None
+    market_cap: float = None
+    analyst_rating: str = None
+    analyst_target: float = None
+    earnings_date: str = None
+    sector: str = None
+    beta: float = None
 
 
 _diag_cache: dict = {}

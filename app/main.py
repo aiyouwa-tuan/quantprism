@@ -8,6 +8,15 @@ import json
 import time
 import pandas as pd
 
+# Load .env file (if present) before any os.getenv calls
+try:
+    from dotenv import load_dotenv
+    _env_file = Path(__file__).resolve().parent.parent / ".env"
+    if _env_file.exists():
+        load_dotenv(_env_file)
+except ImportError:
+    pass
+
 from fastapi import FastAPI, Depends, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -1330,6 +1339,8 @@ API_SERVICES = [
     {"name": "gemini", "display": "Google Gemini (AI 分析)", "desc": "Google Gemini 模型，免费额度大。", "fields": ["API Key"], "env_keys": ["GEMINI_API_KEY"]},
     {"name": "feishu", "display": "飞书 (告警通知)", "desc": "通过飞书机器人 Webhook 接收风险告警推送。", "fields": ["Webhook URL"], "env_keys": ["FEISHU_WEBHOOK_URL"]},
     {"name": "twilio", "display": "Twilio (短信告警)", "desc": "通过短信接收风险告警。需要 Twilio 账号。", "fields": ["Account SID", "Auth Token", "发送号码", "接收号码"], "env_keys": ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_FROM_NUMBER", "TWILIO_TO_NUMBER"]},
+    {"name": "fred", "display": "FRED (美联储宏观数据)", "desc": "获取 GDP、CPI、利率、收益率曲线等宏观指标。免费，注册 fred.stlouisfed.org 获取。", "fields": ["API Key"], "env_keys": ["FRED_API_KEY"]},
+    {"name": "finnhub", "display": "Finnhub (公司新闻)", "desc": "获取个股新闻资讯。免费 60次/分钟，注册 finnhub.io 获取。", "fields": ["API Key"], "env_keys": ["FINNHUB_API_KEY"]},
 ]
 
 
@@ -2355,3 +2366,212 @@ def redirect_alerts_config():
 @app.get("/alerts/history", response_class=RedirectResponse)
 def redirect_alerts_history():
     return RedirectResponse("/risk", status_code=301)
+# ===========================================================================
+# 宏观经济 + 数据层 + 多智能体 路由
+# ===========================================================================
+
+@app.get("/macro", response_class=HTMLResponse)
+async def macro_page(request: Request):
+    """宏观经济仪表板"""
+    from data_providers import fetch_macro_data
+    macro = fetch_macro_data()
+    macro_error = macro.get("error")
+    return templates.TemplateResponse("macro.html", {
+        "request": request,
+        "macro": macro,
+        "macro_error": macro_error,
+    })
+
+
+@app.get("/api/fundamentals/{symbol}", response_class=HTMLResponse)
+async def api_fundamentals(request: Request, symbol: str):
+    """基本面数据卡片 (HTMX partial)"""
+    from data_providers import fetch_fundamentals
+
+    symbol = symbol.upper()
+    data = fetch_fundamentals(symbol)
+
+    def _fmt_large(v):
+        if v is None:
+            return "N/A"
+        try:
+            v = float(v)
+            if v >= 1e12:
+                return f"${v/1e12:.1f}T"
+            elif v >= 1e9:
+                return f"${v/1e9:.1f}B"
+            elif v >= 1e6:
+                return f"${v/1e6:.1f}M"
+            return f"${v:,.0f}"
+        except Exception:
+            return "N/A"
+
+    return templates.TemplateResponse("partials/fundamentals_card.html", {
+        "request": request,
+        "symbol": symbol,
+        "error": data.get("error"),
+        "pe_ratio": data.get("pe_ratio"),
+        "eps": data.get("eps"),
+        "market_cap": data.get("market_cap"),
+        "market_cap_fmt": _fmt_large(data.get("market_cap")),
+        "dividend_yield": data.get("dividend_yield"),
+        "analyst_target": data.get("analyst_target"),
+        "analyst_rating": data.get("analyst_rating"),
+        "week_52_high": data.get("week_52_high"),
+        "week_52_low": data.get("week_52_low"),
+        "earnings_date": data.get("earnings_date"),
+        "sector": data.get("sector"),
+        "industry": data.get("industry"),
+        "beta": data.get("beta"),
+    })
+
+
+@app.get("/api/news/{symbol}", response_class=HTMLResponse)
+async def api_news(request: Request, symbol: str):
+    """新闻面板 (HTMX partial)"""
+    from data_providers import fetch_news
+    articles = fetch_news(symbol.upper(), limit=10)
+    return templates.TemplateResponse("partials/news_panel.html", {
+        "request": request,
+        "articles": articles,
+        "symbol": symbol.upper(),
+    })
+
+
+@app.get("/api/macro-data")
+async def api_macro_data():
+    """宏观数据 JSON (for Chart.js)"""
+    from data_providers import fetch_macro_data
+    from fastapi.responses import JSONResponse
+    return JSONResponse(fetch_macro_data())
+
+
+@app.get("/api/rotation", response_class=HTMLResponse)
+async def api_rotation(request: Request):
+    """板块轮动图 (HTMX partial with Chart.js)"""
+    from quant_analysis import compute_relative_rotation
+    rotation_data = compute_relative_rotation()
+    return templates.TemplateResponse("partials/rotation_chart.html", {
+        "request": request,
+        "rotation_data": rotation_data,
+    })
+
+
+@app.post("/api/agent-analyze/{symbol}", response_class=HTMLResponse)
+async def api_agent_analyze(request: Request, symbol: str):
+    """多智能体分析 (4 analysts + debate + verdict)"""
+    import dataclasses
+    from data_providers import fetch_fundamentals, fetch_news
+    from stock_screener import diagnose_stock
+    from multi_agent import run_analysis
+    from trading_memory import retrieve_similar, store_analysis
+
+    symbol = symbol.upper()
+
+    # Gather context
+    diag = diagnose_stock(symbol)
+    diag_dict = dataclasses.asdict(diag)
+    fundamentals = fetch_fundamentals(symbol)
+    news = fetch_news(symbol, limit=10)
+    similar = retrieve_similar(symbol, diag_dict)
+
+    # Run multi-agent analysis
+    result = run_analysis(symbol, diag_dict, fundamentals, news, similar)
+
+    # Save to memory
+    memory_id = store_analysis(symbol, result, diag_dict)
+    result["memory_id"] = memory_id if memory_id > 0 else None
+
+    return templates.TemplateResponse("partials/agent_analysis.html", {
+        "request": request,
+        "error": None,
+        "analysts": type("Analysts", (), result.get("analysts", {}))(),
+        "bull": result.get("bull", ""),
+        "bear": result.get("bear", ""),
+        "verdict": result.get("verdict", ""),
+        "timestamp": result.get("timestamp", ""),
+        "memory_id": result.get("memory_id"),
+    })
+
+
+@app.post("/api/risk-review/{signal_id}", response_class=HTMLResponse)
+async def api_risk_review(request: Request, signal_id: int, db: Session = Depends(get_db)):
+    """风险审核 (3-way debate)"""
+    import dataclasses
+    from multi_agent import run_risk_review
+    from stock_screener import diagnose_stock
+
+    signal = db.query(TradeSignal).filter(TradeSignal.id == signal_id).first()
+    if not signal:
+        return HTMLResponse('<div class="text-accent-red text-sm">信号不存在</div>')
+
+    diag = diagnose_stock(signal.symbol)
+    diag_dict = dataclasses.asdict(diag)
+    signal_dict = {
+        "direction": signal.direction,
+        "price": signal.signal_price or 0,
+        "stop_loss": signal.signal_stop_loss or 0,
+    }
+
+    result = run_risk_review(signal.symbol, signal_dict, diag_dict)
+
+    # Return inline HTML for the risk review modal
+    html = f"""
+    <div class="space-y-4">
+        <div class="grid grid-cols-3 gap-3 text-xs">
+            <div class="bg-accent-green/10 border border-accent-green/20 rounded-lg p-3">
+                <div class="font-semibold text-accent-green mb-2">激进型</div>
+                <div class="text-gray-300 whitespace-pre-wrap">{result.get('aggressive','')}</div>
+            </div>
+            <div class="bg-dark-600 border border-dark-500 rounded-lg p-3">
+                <div class="font-semibold text-gray-300 mb-2">中性型</div>
+                <div class="text-gray-300 whitespace-pre-wrap">{result.get('neutral','')}</div>
+            </div>
+            <div class="bg-accent-red/10 border border-accent-red/20 rounded-lg p-3">
+                <div class="font-semibold text-accent-red mb-2">保守型</div>
+                <div class="text-gray-300 whitespace-pre-wrap">{result.get('conservative','')}</div>
+            </div>
+        </div>
+        <div class="bg-accent-yellow/10 border border-accent-yellow/30 rounded-lg p-4">
+            <div class="text-xs font-semibold text-accent-yellow mb-2">⚖️ 风险裁决</div>
+            <div class="text-sm text-gray-200 whitespace-pre-wrap">{result.get('verdict','')}</div>
+        </div>
+    </div>
+    """
+    return HTMLResponse(html)
+
+
+@app.post("/api/memory/reflect/{position_id}")
+async def api_memory_reflect(position_id: int, db: Session = Depends(get_db)):
+    """触发反思（仓位关闭后调用）"""
+    from trading_memory import reflect_on_trade
+    from fastapi.responses import JSONResponse
+    result = reflect_on_trade(position_id)
+    return JSONResponse(result)
+
+
+@app.get("/api/memory/similar/{symbol}")
+async def api_memory_similar(symbol: str):
+    """获取相似历史分析（BM25 检索）"""
+    import dataclasses
+    from fastapi.responses import JSONResponse
+    from stock_screener import diagnose_stock
+    from trading_memory import retrieve_similar
+
+    diag = diagnose_stock(symbol.upper())
+    similar = retrieve_similar(symbol.upper(), dataclasses.asdict(diag))
+    return JSONResponse(similar)
+
+
+@app.get("/api/calendar/earnings")
+async def api_calendar_earnings(db: Session = Depends(get_db)):
+    """获取观察列表中标的的财报日期"""
+    from fastapi.responses import JSONResponse
+    from data_providers import fetch_earnings_calendar
+    from models import WatchlistItem
+
+    symbols = [w.symbol for w in db.query(WatchlistItem).all()]
+    if not symbols:
+        symbols = ["AAPL", "MSFT", "NVDA", "GOOGL", "META"]  # defaults
+
+    return JSONResponse(fetch_earnings_calendar(symbols))

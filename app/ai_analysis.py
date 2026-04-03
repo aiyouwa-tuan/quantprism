@@ -53,6 +53,81 @@ def get_active_provider() -> str:
     return None
 
 
+# ---------------------------------------------------------------------------
+# Multi-LLM routing: select best available model for given complexity
+# ---------------------------------------------------------------------------
+# Complexity tiers and preferred provider order
+_ROUTING = {
+    "cheap": ["gemini", "deepseek", "openai", "claude"],      # sentiment, news summary
+    "standard": ["deepseek", "openai", "gemini", "claude"],   # technical, fundamental analysis
+    "strong": ["claude", "openai", "deepseek", "gemini"],     # debate, verdict, risk review
+}
+
+
+def select_model(complexity: str) -> tuple[str, str]:
+    """
+    Route to best available model for the given complexity tier.
+
+    Args:
+        complexity: "cheap" | "standard" | "strong"
+
+    Returns:
+        (provider_name, model_id) tuple, or raises RuntimeError if no key found.
+    """
+    order = _ROUTING.get(complexity, _ROUTING["standard"])
+    for provider_name in order:
+        config = AI_PROVIDERS.get(provider_name, {})
+        if os.getenv(config.get("env_key", "")):
+            return provider_name, config["model"]
+
+    # Last resort: any available provider
+    fallback = get_active_provider()
+    if fallback:
+        return fallback, AI_PROVIDERS[fallback]["model"]
+
+    raise RuntimeError("未配置任何 AI API Key，无法运行多智能体分析")
+
+
+def call_ai(prompt: str, complexity: str = "standard", system: str = None, max_tokens: int = 800) -> str:
+    """
+    Unified AI call with model routing.
+
+    Args:
+        prompt: User prompt text
+        complexity: "cheap" | "standard" | "strong"
+        system: Optional system prompt
+        max_tokens: Maximum response tokens
+
+    Returns:
+        Response text string
+
+    Raises:
+        RuntimeError: If no API key is available or API call fails
+    """
+    provider, model = select_model(complexity)
+    config = AI_PROVIDERS[provider]
+    api_key = os.getenv(config["env_key"])
+
+    messages = []
+    if system and provider != "gemini":
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+
+    if provider in ("deepseek", "openai"):
+        result = _call_openai_compatible(config["base_url"], api_key, model, prompt, provider,
+                                         system=system, max_tokens=max_tokens)
+    elif provider == "claude":
+        result = _call_claude(api_key, model, prompt, system=system, max_tokens=max_tokens)
+    elif provider == "gemini":
+        result = _call_gemini(api_key, model, prompt, max_tokens=max_tokens)
+    else:
+        raise RuntimeError(f"Unknown provider: {provider}")
+
+    if result.get("error"):
+        raise RuntimeError(result["error"])
+    return result.get("analysis", "")
+
+
 def analyze_stock(symbol: str, diagnosis: dict, context: str = "") -> dict:
     """
     用 AI 分析一只标的
@@ -97,13 +172,18 @@ RSI: {diagnosis.get('rsi', 0):.0f}
         return {"analysis": None, "error": str(e), "provider": provider}
 
 
-def _call_openai_compatible(base_url: str, api_key: str, model: str, prompt: str, provider: str) -> dict:
+def _call_openai_compatible(base_url: str, api_key: str, model: str, prompt: str, provider: str,
+                            system: str = None, max_tokens: int = 500) -> dict:
     """调用 OpenAI 兼容 API (DeepSeek, ChatGPT)"""
     import httpx
+    messages = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
     resp = httpx.post(
         f"{base_url}/chat/completions",
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-        json={"model": model, "messages": [{"role": "user", "content": prompt}], "max_tokens": 500, "temperature": 0.3},
+        json={"model": model, "messages": messages, "max_tokens": max_tokens, "temperature": 0.3},
         timeout=30,
     )
     data = resp.json()
@@ -112,13 +192,16 @@ def _call_openai_compatible(base_url: str, api_key: str, model: str, prompt: str
     return {"analysis": None, "error": data.get("error", {}).get("message", "Unknown error"), "provider": provider}
 
 
-def _call_claude(api_key: str, model: str, prompt: str) -> dict:
+def _call_claude(api_key: str, model: str, prompt: str, system: str = None, max_tokens: int = 500) -> dict:
     """调用 Claude API"""
     import httpx
+    payload = {"model": model, "max_tokens": max_tokens, "messages": [{"role": "user", "content": prompt}]}
+    if system:
+        payload["system"] = system
     resp = httpx.post(
         "https://api.anthropic.com/v1/messages",
         headers={"x-api-key": api_key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"},
-        json={"model": model, "max_tokens": 500, "messages": [{"role": "user", "content": prompt}]},
+        json=payload,
         timeout=30,
     )
     data = resp.json()
@@ -127,12 +210,15 @@ def _call_claude(api_key: str, model: str, prompt: str) -> dict:
     return {"analysis": None, "error": data.get("error", {}).get("message", "Unknown error"), "provider": "claude"}
 
 
-def _call_gemini(api_key: str, model: str, prompt: str) -> dict:
+def _call_gemini(api_key: str, model: str, prompt: str, max_tokens: int = 500) -> dict:
     """调用 Gemini API"""
     import httpx
     resp = httpx.post(
         f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}",
-        json={"contents": [{"parts": [{"text": prompt}]}]},
+        json={
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"maxOutputTokens": max_tokens},
+        },
         timeout=30,
     )
     data = resp.json()

@@ -1,0 +1,68 @@
+<!-- 基本面数据卡片 (HTMX partial for /api/fundamentals/{symbol}) -->
+{% if error %}
+<div class="text-xs text-gray-500 text-center py-4">
+    <div class="text-accent-yellow mb-1">基本面数据暂时不可用</div>
+    <button hx-get="/api/fundamentals/{{ symbol }}" hx-target="#fundamentals-card" hx-swap="innerHTML"
+            class="text-xs text-accent-blue hover:underline">重试</button>
+</div>
+{% else %}
+<div class="grid grid-cols-2 gap-3 text-sm">
+    <!-- 左列 -->
+    <div class="space-y-2">
+        <div class="flex justify-between">
+            <span class="text-gray-400">市盈率 (TTM)</span>
+            <span class="text-white font-medium">{{ "%.1f"|format(pe_ratio) if pe_ratio else "N/A" }}</span>
+        </div>
+        <div class="flex justify-between">
+            <span class="text-gray-400">每股收益</span>
+            <span class="text-white">${{ "%.2f"|format(eps) if eps else "N/A" }}</span>
+        </div>
+        <div class="flex justify-between">
+            <span class="text-gray-400">市值</span>
+            <span class="text-white">{{ market_cap_fmt }}</span>
+        </div>
+        <div class="flex justify-between">
+            <span class="text-gray-400">股息率</span>
+            <span class="text-white">{{ "%.2f"|format(dividend_yield * 100) + "%" if dividend_yield else "—" }}</span>
+        </div>
+        <div class="flex justify-between">
+            <span class="text-gray-400">Beta</span>
+            <span class="{{ 'text-accent-yellow' if beta and beta > 1.5 else 'text-white' }}">{{ "%.2f"|format(beta) if beta else "N/A" }}</span>
+        </div>
+    </div>
+    <!-- 右列 -->
+    <div class="space-y-2">
+        <div class="flex justify-between">
+            <span class="text-gray-400">分析师评级</span>
+            <span class="{{ 'text-accent-green' if analyst_rating and 'buy' in analyst_rating.lower() else 'text-accent-yellow' if analyst_rating and 'hold' in analyst_rating.lower() else 'text-accent-red' if analyst_rating else 'text-gray-400' }}">
+                {{ analyst_rating or "N/A" }}
+            </span>
+        </div>
+        <div class="flex justify-between">
+            <span class="text-gray-400">目标价</span>
+            <span class="text-accent-green">${{ "%.2f"|format(analyst_target) if analyst_target else "N/A" }}</span>
+        </div>
+        <div class="flex justify-between">
+            <span class="text-gray-400">52周高</span>
+            <span class="text-white">${{ "%.2f"|format(week_52_high) if week_52_high else "N/A" }}</span>
+        </div>
+        <div class="flex justify-between">
+            <span class="text-gray-400">52周低</span>
+            <span class="text-white">${{ "%.2f"|format(week_52_low) if week_52_low else "N/A" }}</span>
+        </div>
+        <div class="flex justify-between">
+            <span class="text-gray-400">下次财报</span>
+            <span class="{{ 'text-accent-yellow' if earnings_date else 'text-gray-500' }}">{{ earnings_date or "N/A" }}</span>
+        </div>
+    </div>
+</div>
+{% if sector %}
+<div class="mt-3 pt-3 border-t border-dark-600 flex items-center gap-2">
+    <span class="text-xs text-gray-500">板块:</span>
+    <span class="text-xs px-2 py-0.5 rounded bg-dark-600 text-gray-300">{{ sector }}</span>
+    {% if industry %}
+    <span class="text-xs px-2 py-0.5 rounded bg-dark-600 text-gray-400">{{ industry }}</span>
+    {% endif %}
+</div>
+{% endif %}
+{% endif %}

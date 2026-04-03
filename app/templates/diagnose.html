@@ -21,9 +21,31 @@
                 class="text-xs bg-accent-blue/20 text-accent-blue px-3 py-1.5 rounded-lg hover:bg-accent-blue/30">
             AI 诊断
         </button>
+        <button hx-post="/api/agent-analyze/{{ diag.symbol }}"
+                hx-target="#agent-analysis-container"
+                hx-swap="innerHTML"
+                hx-indicator="#agent-loading"
+                class="text-xs bg-accent-yellow/20 text-accent-yellow px-3 py-1.5 rounded-lg hover:bg-accent-yellow/30">
+            🤖 多智能体
+        </button>
     </div>
 </div>
 <div id="ai-analysis" class="mb-4"></div>
+
+<!-- 多智能体分析区域 -->
+<div id="agent-loading" class="htmx-indicator mb-4">
+    <div class="bg-dark-700 border border-dark-600 rounded-xl p-5">
+        <div class="flex items-center gap-3 mb-3">
+            <div class="w-2 h-2 rounded-full bg-accent-yellow animate-pulse"></div>
+            <span class="text-sm text-gray-400">多智能体分析中... (~12秒)</span>
+        </div>
+        <div class="space-y-1.5 text-xs text-gray-600">
+            <div>基本面分析师 · 技术面分析师 · 新闻分析师 · 情绪分析师 — 并行运行</div>
+            <div>→ 多空辩论 → 研究总监裁决</div>
+        </div>
+    </div>
+</div>
+<div id="agent-analysis-container" class="mb-6"></div>
 
 <!-- 顶部状态卡片 -->
 <div class="grid grid-cols-6 gap-3 mb-6">
@@ -122,6 +144,34 @@
                 <div class="flex justify-between"><span class="text-gray-400">SMA50</span><span class="text-white">${{ "%.2f"|format(diag.sma_50) }}</span></div>
                 <div class="flex justify-between"><span class="text-gray-400">SMA200</span><span class="text-white">${{ "%.2f"|format(diag.sma_200) }}</span></div>
                 <div class="flex justify-between"><span class="text-gray-400">BB位置</span><span class="text-white">{{ diag.bb_position }}</span></div>
+            </div>
+        </div>
+
+        <!-- 基本面数据卡片 (HTMX lazy load) -->
+        <div class="bg-dark-700 rounded-xl border border-dark-600 p-5">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-sm font-semibold text-white">基本面</h2>
+                <span class="text-xs text-gray-600">24小时缓存</span>
+            </div>
+            <div id="fundamentals-card"
+                 hx-get="/api/fundamentals/{{ diag.symbol }}"
+                 hx-trigger="load"
+                 hx-swap="innerHTML">
+                <div class="text-xs text-gray-600 text-center py-3">加载中...</div>
+            </div>
+        </div>
+
+        <!-- 新闻面板 (HTMX lazy load) -->
+        <div class="bg-dark-700 rounded-xl border border-dark-600 p-5">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-sm font-semibold text-white">最新资讯</h2>
+                <span class="text-xs text-gray-600">15分钟缓存</span>
+            </div>
+            <div id="news-panel"
+                 hx-get="/api/news/{{ diag.symbol }}"
+                 hx-trigger="load"
+                 hx-swap="innerHTML">
+                <div class="text-xs text-gray-600 text-center py-3">加载中...</div>
             </div>
         </div>
     </div>

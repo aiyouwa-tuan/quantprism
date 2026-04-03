@@ -270,6 +270,30 @@ class ApiConfig(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class FundamentalsCache(Base):
+    """基本面数据缓存 (24h TTL, lazy eviction on read)"""
+    __tablename__ = "fundamentals_cache"
+
+    id = Column(Integer, primary_key=True)
+    symbol = Column(String(20), nullable=False, unique=True)
+    data_json = Column(Text, nullable=False)   # JSON blob of yfinance .info fields
+    fetched_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
+class AnalysisMemory(Base):
+    """AI 分析记忆 — BM25 检索 + 反思学习"""
+    __tablename__ = "analysis_memory"
+
+    id = Column(Integer, primary_key=True)
+    symbol = Column(String(20), nullable=False, index=True)
+    analysis_date = Column(String(10), nullable=False)     # YYYY-MM-DD
+    scenario_text = Column(Text, nullable=False)           # human-readable scenario for BM25 matching
+    analysis_json = Column(Text, nullable=False)           # full multi-agent analysis result
+    outcome_json = Column(Text, nullable=True)             # filled after position close (P&L, duration, etc.)
+    lessons_text = Column(Text, nullable=True)             # AI-generated lessons from reflection
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
 def init_db():
     """创建所有表"""
     Base.metadata.create_all(engine)

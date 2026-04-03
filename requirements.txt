@@ -11,3 +11,8 @@ httpx
 aiofiles
 apscheduler
 starlette<1.0
+
+# === AI 数据层 (OpenBB-equivalent) ===
+statsmodels>=0.14         # ADF 单位根检验、OLS 回归 (CAPM/Fama-French)
+rank_bm25>=0.2.2          # 交易记忆 BM25 文本检索
+python-dotenv>=1.0        # 从 .env 文件加载环境变量
