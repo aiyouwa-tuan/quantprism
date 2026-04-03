@@ -59,19 +59,22 @@ def fetch_stock_history(
 
 def fetch_current_price(symbol: str) -> dict:
     """获取当前价格"""
-    ticker = yf.Ticker(symbol)
-    info = ticker.fast_info
     try:
-        price = info.last_price
-        prev = info.previous_close
-        change_pct = (price - prev) / prev if prev else 0
+        ticker = yf.Ticker(symbol)
+        info = ticker.fast_info
+        try:
+            price = info.last_price
+            prev = info.previous_close
+            change_pct = (price - prev) / prev if prev else 0
+        except Exception:
+            hist = ticker.history(period="2d")
+            if hist.empty:
+                return {"symbol": symbol.upper(), "price": 0, "change_pct": 0, "error": "no data"}
+            price = hist["Close"].iloc[-1]
+            prev = hist["Close"].iloc[-2] if len(hist) > 1 else price
+            change_pct = (price - prev) / prev if prev else 0
     except Exception:
-        hist = ticker.history(period="2d")
-        if hist.empty:
-            return {"symbol": symbol, "price": 0, "change_pct": 0, "error": "no data"}
-        price = hist["Close"].iloc[-1]
-        prev = hist["Close"].iloc[-2] if len(hist) > 1 else price
-        change_pct = (price - prev) / prev if prev else 0
+        return {"symbol": symbol.upper(), "price": 0, "change_pct": 0, "error": "unavailable"}
 
     return {
         "symbol": symbol.upper(),

@@ -33,6 +33,7 @@ class TestPortfolioRisk:
         assert risk["total_risk_pct"] == 0.02
         assert risk["position_count"] == 1
         assert risk["max_single_risk"] == 0.02
+        assert "vix" in risk
 
     def test_high_risk_positions_flagged(self, db_session):
         goals = UserGoals(annual_return_target=0.15, max_drawdown=0.10, risk_per_trade=0.02, max_positions=5)

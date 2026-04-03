@@ -22,8 +22,8 @@
                 {% endif %}
             </div>
             <div class="flex flex-wrap items-center gap-6 text-sm">
-                <div class="text-gray-400">总持仓风险 <span class="text-white font-semibold ml-1">{{ "%.1f"|format(risk_data.total_risk_pct) }}%</span></div>
-                <div class="text-gray-400">当前回撤 <span class="ml-1 font-semibold text-green-400">{{ "%.1f"|format(risk_data.current_drawdown) }}%</span></div>
+                <div class="text-gray-400">总持仓风险 <span class="text-white font-semibold ml-1">{{ "%.1f"|format(risk_data.total_risk_pct * 100) }}%</span></div>
+                <div class="text-gray-400">当前回撤 <span class="ml-1 font-semibold text-green-400">{{ "%.1f"|format(risk_data.current_drawdown * 100) }}%</span></div>
                 <div class="text-gray-400">余量 <span class="ml-1 font-semibold text-green-400">{{ "%.1f"|format(risk_data.headroom) }}%</span></div>
             </div>
         </div>

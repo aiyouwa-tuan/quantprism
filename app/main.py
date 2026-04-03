@@ -4,6 +4,7 @@ Phase 1: 目标设定 + 仓位计算器 + 手动持仓 + 交易日志
 """
 from datetime import datetime, timedelta
 from pathlib import Path
+import json
 import time
 import pandas as pd
 
@@ -11,6 +12,7 @@ from fastapi import FastAPI, Depends, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from models import (init_db, get_db, UserGoals, Position, TradeJournal, JournalCompliance,
@@ -31,6 +33,51 @@ app = FastAPI(title="Goal-Driven Trading OS", version="0.1.0")
 BASE_DIR = Path(__file__).resolve().parent
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+
+
+def _normalize_goal_assets(
+    asset_classes: str | None = None,
+    assets: list[str] | None = None,
+) -> str:
+    """Accept both the v4 field name and the legacy checkbox list."""
+    if asset_classes:
+        return asset_classes
+
+    assets = assets or []
+    if not assets:
+        return ""
+
+    seen: list[str] = []
+    for item in assets:
+        if item not in seen:
+            seen.append(item)
+    return json.dumps(seen, ensure_ascii=True)
+
+
+def _normalize_holding_period(
+    holding_period: str | None = None,
+    horizon: str | None = None,
+) -> str:
+    """Map old radio values to the canonical storage values."""
+    value = holding_period or horizon or "days_weeks"
+    mapping = {
+        "swing": "days_weeks",
+        "position": "weeks_months",
+        "longterm": "months_year",
+    }
+    return mapping.get(value, value)
+
+
+def _parse_asset_classes(asset_classes: str | None) -> list[str]:
+    if not asset_classes:
+        return []
+    try:
+        parsed = json.loads(asset_classes)
+        if isinstance(parsed, list):
+            return [str(item) for item in parsed]
+    except Exception:
+        pass
+    return [item.strip() for item in asset_classes.split(",") if item.strip()]
 
 
 @app.on_event("startup")
@@ -214,10 +261,16 @@ def set_goals(
     request: Request,
     annual_return_target: float = Form(...),
     max_drawdown: float = Form(...),
-    risk_per_trade: float = Form(0.02),
+    risk_per_trade: float = Form(2.0),
+    asset_classes: str = Form(""),
+    holding_period: str = Form(""),
+    assets: list[str] = Form([]),
+    horizon: str = Form(""),
     db: Session = Depends(get_db),
 ):
     # 表单输入是百分比 (如 15), 模型存小数 (如 0.15)
+    normalized_asset_classes = _normalize_goal_assets(asset_classes, assets)
+    normalized_holding_period = _normalize_holding_period(holding_period, horizon)
     goals_data = GoalsCreate(
         annual_return_target=annual_return_target / 100,
         max_drawdown=max_drawdown / 100,
@@ -232,6 +285,8 @@ def set_goals(
         goals.risk_per_trade = goals_data.risk_per_trade
         goals.max_positions = constraints.max_positions
         goals.max_position_pct = constraints.max_position_pct
+        goals.asset_classes = normalized_asset_classes
+        goals.holding_period = normalized_holding_period
         goals.updated_at = datetime.utcnow()
     else:
         goals = UserGoals(
@@ -240,6 +295,8 @@ def set_goals(
             risk_per_trade=goals_data.risk_per_trade,
             max_positions=constraints.max_positions,
             max_position_pct=constraints.max_position_pct,
+            asset_classes=normalized_asset_classes,
+            holding_period=normalized_holding_period,
         )
         db.add(goals)
 
@@ -357,10 +414,10 @@ def add_position(
 
     db.commit()
 
-    # HTMX 请求用 HX-Redirect 做客户端跳转，确保顶部统计卡片也更新
+    # 回到持仓页，避免被新版 /positions 重定向到风险页。
     if request.headers.get("HX-Request"):
-        return Response(status_code=200, headers={"HX-Redirect": "/positions"})
-    return RedirectResponse(url="/positions", status_code=303)
+        return Response(status_code=200, headers={"HX-Redirect": "/legacy/positions"})
+    return RedirectResponse(url="/legacy/positions", status_code=303)
 
 
 @app.post("/positions/{position_id}/close", response_class=HTMLResponse)
@@ -379,10 +436,10 @@ def close_position(
     position.close_date = datetime.utcnow()
     db.commit()
 
-    # HTMX 请求用 HX-Redirect 做客户端跳转，确保顶部统计卡片也更新
+    # 回到持仓页，避免被新版 /positions 重定向到风险页。
     if request.headers.get("HX-Request"):
-        return Response(status_code=200, headers={"HX-Redirect": "/positions"})
-    return RedirectResponse(url="/positions", status_code=303)
+        return Response(status_code=200, headers={"HX-Redirect": "/legacy/positions"})
+    return RedirectResponse(url="/legacy/positions", status_code=303)
 
 
 # ===== 交易日志 =====
@@ -452,6 +509,12 @@ def get_vix():
 @app.get("/api/regime")
 def get_regime():
     return detect_market_regime()
+
+
+@app.get("/healthz")
+def healthz(db: Session = Depends(get_db)):
+    db.execute(text("SELECT 1"))
+    return {"status": "ok"}
 
 
 # ===== Phase 2: Strategies (will be populated next) =====
@@ -1091,6 +1154,7 @@ def trade_page(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse("trade.html", {
         "request": request,
         "pending": pending,
+        "signals": pending,
         "confirmed": confirmed,
         "recent_executed": recent_executed,
         "goals": goals,
@@ -1588,12 +1652,14 @@ def api_backtest_daily(run_id: int, db: Session = Depends(get_db)):
 def goals_page(request: Request, db: Session = Depends(get_db)):
     goals = db.query(UserGoals).order_by(UserGoals.updated_at.desc()).first()
     constraints = None
+    asset_classes_list = _parse_asset_classes(goals.asset_classes if goals else "")
     if goals:
         constraints = derive_constraints(goals.max_drawdown, goals.risk_per_trade)
     return templates.TemplateResponse("qp_goals.html", {
         "request": request,
         "goals": goals,
         "constraints": constraints,
+        "asset_classes_list": asset_classes_list,
     })
 
 
@@ -1605,29 +1671,33 @@ def save_goals_v4(
     risk_per_trade: float = Form(2.0),
     asset_classes: str = Form(""),
     holding_period: str = Form("days_weeks"),
+    assets: list[str] = Form([]),
+    horizon: str = Form(""),
     redirect_to: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    normalized_asset_classes = _normalize_goal_assets(asset_classes, assets)
+    normalized_holding_period = _normalize_holding_period(holding_period, horizon)
     goals = db.query(UserGoals).first()
     if goals:
         goals.annual_return_target = annual_return_target / 100
         goals.max_drawdown = max_drawdown / 100
         goals.risk_per_trade = risk_per_trade / 100
-        goals.asset_classes = asset_classes
-        goals.holding_period = holding_period
+        goals.asset_classes = normalized_asset_classes
+        goals.holding_period = normalized_holding_period
     else:
         goals = UserGoals(
             annual_return_target=annual_return_target / 100,
             max_drawdown=max_drawdown / 100,
             risk_per_trade=risk_per_trade / 100,
-            asset_classes=asset_classes,
-            holding_period=holding_period,
+            asset_classes=normalized_asset_classes,
+            holding_period=normalized_holding_period,
         )
         db.add(goals)
 
     constraints = derive_constraints(goals.max_drawdown, goals.risk_per_trade)
-    goals.max_positions = constraints.get("max_positions")
-    goals.max_position_pct = constraints.get("max_position_pct")
+    goals.max_positions = constraints.max_positions
+    goals.max_position_pct = constraints.max_position_pct
     db.commit()
 
     if redirect_to == "hunt":
@@ -1993,19 +2063,30 @@ def scan_paper_order(
     request: Request,
     symbol: str = Form(...),
     price: float = Form(0),
-    quantity: int = Form(1),
+    quantity: float = Form(0),
+    entry_low: float = Form(0),
+    entry_high: float = Form(0),
+    stop_loss: float = Form(0),
+    target: float = Form(0),
+    position_pct: float = Form(0),
     db: Session = Depends(get_db),
 ):
+    signal_price = price or entry_high or entry_low or target or 0
+    signal_quantity = quantity or max(int(round(position_pct)) or 1, 1)
     signal = TradeSignal(
         symbol=symbol,
         direction="long",
-        signal_price=price,
-        signal_quantity=quantity,
+        signal_price=signal_price,
+        signal_stop_loss=stop_loss or None,
+        signal_take_profit=target or None,
+        signal_quantity=signal_quantity,
         status="pending",
     )
     db.add(signal)
     db.commit()
-    return HTMLResponse(f'<span class="text-accent-green text-sm">✅ 已模拟下单: 买入 {symbol} {quantity}股 @${price}</span>')
+    return HTMLResponse(
+        f'<span class="text-accent-green text-sm">✅ 已模拟下单: 买入 {symbol} {signal_quantity}股 @${signal_price}</span>'
+    )
 
 
 # ===== Page 5: 风控护盾 (v4 rewrite) =====
@@ -2058,8 +2139,8 @@ def risk_page_v4(request: Request, db: Session = Depends(get_db)):
             "value": goals.max_positions if goals and goals.max_positions else 5,
             "unit": "个",
             "description": f"当前 {len(positions)} 个",
-            "status": "safe" if len(positions) <= (goals.max_positions or 5) else "warning",
-        },
+                "status": "safe" if len(positions) <= ((goals.max_positions if goals and goals.max_positions else 5)) else "warning",
+            },
         {
             "id": "sector_limit",
             "label": "单行业上限",
@@ -2073,8 +2154,8 @@ def risk_page_v4(request: Request, db: Session = Depends(get_db)):
             "label": "危机暂停: VIX >",
             "value": round(alert_config.vix_spike_threshold if alert_config else 30, 0),
             "unit": "",
-            "description": f"当前 VIX {round(risk_data.get('vix', 18), 1)}",
-            "status": "safe" if risk_data.get("vix", 18) < (alert_config.vix_spike_threshold if alert_config else 30) else "warning",
+            "description": f"当前 VIX {round(risk_data.get('vix', 0), 1)}",
+            "status": "safe" if risk_data.get("vix", 0) < (alert_config.vix_spike_threshold if alert_config else 30) else "warning",
         },
     ]
 
@@ -2162,11 +2243,14 @@ def watchlist_page(request: Request, db: Session = Depends(get_db)):
 def watchlist_add(
     request: Request,
     symbol: str = Form(...),
+    from_source: str = Form(""),
+    from_: str = Form("", alias="from"),
     db: Session = Depends(get_db),
 ):
     existing = db.query(WatchlistItem).filter(WatchlistItem.symbol == symbol.upper()).first()
     if not existing:
-        db.add(WatchlistItem(symbol=symbol.upper(), added_from="scanner"))
+        added_from = from_source or from_ or "scanner"
+        db.add(WatchlistItem(symbol=symbol.upper(), added_from=added_from))
         db.commit()
     return HTMLResponse(f'<span class="text-accent-green text-sm">✅ {symbol.upper()} 已加入观察列表</span>')
 

@@ -6,7 +6,7 @@
     <p class="text-sm text-gray-400 mt-1">至少填 1 个目标。系统根据你的目标自动推导策略约束条件。</p>
 </div>
 
-<form hx-post="/goals" hx-target="#derived-results" hx-swap="innerHTML" hx-indicator="#goal-spinner">
+<form hx-post="/goals/save" hx-target="#derived-results" hx-swap="innerHTML" hx-indicator="#goal-spinner">
 
 <!-- 收益 + 回撤目标 -->
 <div class="grid grid-cols-2 gap-4 mb-4">
@@ -67,17 +67,20 @@
         </div>
         <div class="space-y-3">
             <label class="flex items-center gap-3 cursor-pointer group">
-                <input type="checkbox" name="assets" value="us_stock" checked
+                <input type="checkbox" name="assets" value="us_stock"
+                       {{ 'checked' if 'us_stock' in (asset_classes_list or ['us_stock', 'us_etf']) }}
                        class="w-4 h-4 rounded bg-dark-800 border-dark-500 text-accent-blue focus:ring-accent-blue">
                 <span class="text-sm text-gray-300 group-hover:text-white">美股股票</span>
             </label>
             <label class="flex items-center gap-3 cursor-pointer group">
-                <input type="checkbox" name="assets" value="us_etf" checked
+                <input type="checkbox" name="assets" value="us_etf"
+                       {{ 'checked' if 'us_etf' in (asset_classes_list or ['us_stock', 'us_etf']) }}
                        class="w-4 h-4 rounded bg-dark-800 border-dark-500 text-accent-blue focus:ring-accent-blue">
                 <span class="text-sm text-gray-300 group-hover:text-white">美股 ETF</span>
             </label>
             <label class="flex items-center gap-3 cursor-pointer group">
                 <input type="checkbox" name="assets" value="options"
+                       {{ 'checked' if 'options' in asset_classes_list }}
                        class="w-4 h-4 rounded bg-dark-800 border-dark-500 text-accent-blue focus:ring-accent-blue">
                 <span class="text-sm text-gray-300 group-hover:text-white">股票期权</span>
                 <span class="relative group/tip">
@@ -89,7 +92,7 @@
             </label>
             <label class="flex items-center gap-3 cursor-pointer group">
                 <input type="checkbox" name="assets" value="crypto"
-                       {{ 'checked' if goals and goals.asset_classes and 'crypto' in goals.asset_classes }}
+                       {{ 'checked' if 'crypto' in asset_classes_list }}
                        class="w-4 h-4 rounded bg-dark-800 border-dark-500 text-accent-blue focus:ring-accent-blue">
                 <span class="text-sm text-gray-300 group-hover:text-white">加密货币</span>
             </label>
@@ -103,10 +106,10 @@
             <h2 class="text-sm font-semibold text-white">持仓周期</h2>
         </div>
         <div class="flex flex-wrap gap-2">
-            {% set current_horizon = goals.horizon if goals else 'swing' %}
-            {% for val, label in [('intraday', '日内'), ('swing', '几天~几周'), ('position', '几周~几月'), ('longterm', '几月~一年')] %}
+            {% set current_horizon = goals.holding_period if goals and goals.holding_period else 'days_weeks' %}
+            {% for val, label in [('intraday', '日内'), ('days_weeks', '几天~几周'), ('weeks_months', '几周~几月'), ('months_year', '几月~一年')] %}
             <label class="cursor-pointer">
-                <input type="radio" name="horizon" value="{{ val }}" class="hidden peer"
+                <input type="radio" name="holding_period" value="{{ val }}" class="hidden peer"
                        {{ 'checked' if current_horizon == val }}>
                 <span class="peer-checked:bg-accent-blue peer-checked:text-white peer-checked:border-accent-blue
                              bg-dark-800 border border-dark-500 text-gray-400 hover:text-white hover:border-dark-400
@@ -193,7 +196,8 @@ function updateDrawdownHelper() {
 function saveAndHunt() {
     const form = document.querySelector('form');
     const data = new FormData(form);
-    fetch('/goals', { method: 'POST', body: data }).then(function() {
+    data.append('redirect_to', 'hunt');
+    fetch('/goals/save', { method: 'POST', body: data }).then(function() {
         window.location.href = '/hunt';
     });
 }

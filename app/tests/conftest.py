@@ -60,7 +60,9 @@ def client():
         init_session.commit()
     init_session.close()
 
-    with TestClient(app, raise_server_exceptions=True) as c:
+    c = TestClient(app, raise_server_exceptions=True)
+    try:
         yield c
-
-    app.dependency_overrides.clear()
+    finally:
+        c.close()
+        app.dependency_overrides.clear()

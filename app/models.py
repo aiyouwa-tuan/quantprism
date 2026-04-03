@@ -3,12 +3,20 @@ Goal-Driven Trading OS — Data Models
 SQLAlchemy ORM models for all phases
 """
 from datetime import datetime
+import os
+from pathlib import Path
 from sqlalchemy import create_engine, Column, Integer, Float, String, DateTime, Text, Boolean, UniqueConstraint, JSON
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-DATABASE_URL = "sqlite:///trading_os.db"
+BASE_DIR = Path(__file__).resolve().parent
+DEFAULT_DB_PATH = BASE_DIR / "trading_os.db"
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DEFAULT_DB_PATH}")
 
-engine = create_engine(DATABASE_URL, echo=False)
+engine_kwargs = {"echo": False}
+if DATABASE_URL.startswith("sqlite"):
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+
+engine = create_engine(DATABASE_URL, **engine_kwargs)
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
 

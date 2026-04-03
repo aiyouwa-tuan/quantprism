@@ -10,7 +10,7 @@ class TestDashboard:
     def test_empty_dashboard(self, client):
         response = client.get("/")
         assert response.status_code == 200
-        assert "Trading OS" in response.text
+        assert "QuantPrism" in response.text
 
     def test_dashboard_with_goals(self, client):
         client.post("/goals", data={
@@ -47,6 +47,22 @@ class TestGoals:
         assert response.status_code == 200
         assert "20.0%" in response.text
         assert "5 个" in response.text  # floor(15/3)=5
+
+    def test_save_goals_v4_accepts_frontend_fields(self, client):
+        response = client.post("/goals/save", data={
+            "annual_return_target": "15",
+            "max_drawdown": "10",
+            "assets": ["us_stock", "crypto"],
+            "holding_period": "weeks_months",
+        })
+        assert response.status_code == 200
+        assert "15.0%" in response.text
+        assert "5 个" in response.text
+
+        response = client.get("/goals")
+        assert 'value="15"' in response.text
+        assert 'value="crypto"' in response.text
+        assert "checked" in response.text
 
 
 class TestCalculator:
@@ -149,5 +165,33 @@ class TestJournal:
                 "quantity": "10", "account_balance": "100000",
             })
         # Positions page should show reminder
-        response = client.get("/positions")
+        response = client.get("/legacy/positions")
         assert "没写日志" in response.text or "没有写日志" in response.text or "日志" in response.text
+
+
+class TestScanActions:
+    def test_scan_paper_order_accepts_scan_payload(self, client):
+        response = client.post("/scan/paper-order", data={
+            "symbol": "INTU",
+            "entry_low": "425.87",
+            "entry_high": "422.48",
+            "stop_loss": "384.77",
+            "target": "483.17",
+            "position_pct": "2.4",
+        })
+        assert response.status_code == 200
+        assert "INTU" in response.text
+        assert "@$422.48" in response.text
+
+        trade_page = client.get("/legacy/execution")
+        assert trade_page.status_code == 200
+        assert "INTU" in trade_page.text
+
+    def test_watchlist_add_preserves_source(self, client):
+        response = client.post("/watchlist/add", data={"symbol": "INTU", "from": "scan"})
+        assert response.status_code == 200
+        assert "INTU" in response.text
+
+        watchlist = client.get("/watchlist")
+        assert watchlist.status_code == 200
+        assert "INTU" in watchlist.text
