@@ -234,6 +234,11 @@
     const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
     const years = [...new Set(heatmapData.map(d => d[1]))].sort();
 
+    // Convert actual year → array index so ECharts category axis maps correctly
+    const heatmapDataIndexed = heatmapData.map(function(d) {
+        return [d[0], years.indexOf(d[1]), d[2]];
+    });
+
     const hmOption = {
         tooltip: {
             formatter: function(p) {
@@ -261,7 +266,7 @@
         },
         series: [{
             type: 'heatmap',
-            data: heatmapData,
+            data: heatmapDataIndexed,
             label: {
                 show: true,
                 formatter: function(p) { return p.value[2].toFixed(1); },
