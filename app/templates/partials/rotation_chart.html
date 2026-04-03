@@ -1,0 +1,108 @@
+<!-- 板块轮动图 (RRG scatter, rendered via Chart.js) -->
+<div style="position: relative; height: 320px;">
+    <canvas id="rrg-chart"></canvas>
+</div>
+<!-- Quadrant legend -->
+<div class="grid grid-cols-4 gap-2 mt-3 text-xs text-center">
+    <div class="bg-accent-green/10 border border-accent-green/20 rounded px-2 py-1">
+        <div class="text-accent-green font-medium">领先</div>
+        <div class="text-gray-500">强势且加速</div>
+    </div>
+    <div class="bg-accent-yellow/10 border border-accent-yellow/20 rounded px-2 py-1">
+        <div class="text-accent-yellow font-medium">弱化</div>
+        <div class="text-gray-500">强势但减速</div>
+    </div>
+    <div class="bg-accent-red/10 border border-accent-red/20 rounded px-2 py-1">
+        <div class="text-accent-red font-medium">落后</div>
+        <div class="text-gray-500">弱势且减速</div>
+    </div>
+    <div class="bg-accent-blue/10 border border-accent-blue/20 rounded px-2 py-1">
+        <div class="text-accent-blue font-medium">改善</div>
+        <div class="text-gray-500">弱势但加速</div>
+    </div>
+</div>
+
+<script>
+(function() {
+    var ctx = document.getElementById('rrg-chart');
+    if (!ctx) return;
+
+    var data = {{ rotation_data | tojson }};
+
+    var quadrantColors = {
+        'leading':   { bg: 'rgba(34,197,94,0.85)',  border: '#22c55e' },
+        'weakening': { bg: 'rgba(234,179,8,0.85)',  border: '#eab308' },
+        'lagging':   { bg: 'rgba(239,68,68,0.85)',  border: '#ef4444' },
+        'improving': { bg: 'rgba(59,130,246,0.85)', border: '#3b82f6' },
+    };
+
+    var datasets = data.map(function(d) {
+        var c = quadrantColors[d.quadrant] || quadrantColors['lagging'];
+        return {
+            label: d.symbol,
+            data: [{ x: d.rs_ratio, y: d.rs_momentum }],
+            backgroundColor: c.bg,
+            borderColor: c.border,
+            borderWidth: 1.5,
+            pointRadius: 12,
+            pointHoverRadius: 14,
+        };
+    });
+
+    new Chart(ctx, {
+        type: 'scatter',
+        data: { datasets: datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            var d = data[ctx.datasetIndex];
+                            return d.name + ' (' + d.symbol + ') | RS比率:' + d.rs_ratio.toFixed(1) + ' 动量:' + d.rs_momentum.toFixed(1);
+                        }
+                    }
+                },
+                // Draw labels on points
+                afterDraw: null,
+            },
+            scales: {
+                x: {
+                    title: { display: true, text: 'RS-Ratio (相对强度)', color: '#6b7280', font: { size: 11 } },
+                    grid: { color: '#232b3e' },
+                    ticks: { color: '#6b7280' },
+                },
+                y: {
+                    title: { display: true, text: 'RS-Momentum (动量)', color: '#6b7280', font: { size: 11 } },
+                    grid: { color: '#232b3e' },
+                    ticks: { color: '#6b7280' },
+                }
+            },
+            // Draw symbol labels via plugin
+        },
+        plugins: [{
+            id: 'symbolLabels',
+            afterDatasetsDraw: function(chart) {
+                var ctx2 = chart.ctx;
+                chart.data.datasets.forEach(function(dataset, i) {
+                    var meta = chart.getDatasetMeta(i);
+                    if (meta.hidden) return;
+                    meta.data.forEach(function(point) {
+                        var label = dataset.label;
+                        ctx2.fillStyle = '#e5e7eb';
+                        ctx2.font = 'bold 9px sans-serif';
+                        ctx2.textAlign = 'center';
+                        ctx2.textBaseline = 'middle';
+                        ctx2.fillText(label, point.x, point.y);
+                    });
+                });
+            }
+        }]
+    });
+
+    // Draw quadrant divider lines
+    // (handled naturally by x=100, y=100 grid intersection)
+})();
+</script>

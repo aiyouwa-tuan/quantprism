@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-white">宏观经济</h1>
+        <p class="text-xs text-gray-500 mt-0.5">FRED 数据 · 1小时缓存</p>
+    </div>
+    <button hx-get="/api/macro-data" hx-target="#macro-content" hx-swap="outerHTML"
+            hx-indicator="#macro-loading"
+            class="text-xs px-3 py-1.5 bg-dark-600 hover:bg-dark-500 rounded-lg text-gray-400 hover:text-white transition-colors">
+        刷新数据
+    </button>
+</div>
+
+<div id="macro-loading" class="htmx-indicator text-center py-4 text-xs text-gray-500">加载中...</div>
+
+<div id="macro-content">
+{% if macro_error %}
+<div class="bg-dark-700 border border-accent-yellow/30 rounded-xl p-5 mb-6 text-center">
+    <div class="text-accent-yellow text-sm mb-1">宏观数据暂时不可用</div>
+    <div class="text-xs text-gray-500">{{ macro_error }}</div>
+    <div class="text-xs text-gray-600 mt-2">请在系统配置中添加 FRED_API_KEY</div>
+</div>
+{% else %}
+
+<!-- KPI Row -->
+<div class="grid grid-cols-4 gap-3 mb-6">
+    <!-- GDP -->
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
+        <div class="text-xs text-gray-500 mb-1">GDP (最新季度)</div>
+        {% if macro.gdp %}
+        <div class="text-xl font-bold text-white">${{ "%.2f"|format(macro.gdp[-1].value) }}T</div>
+        <div class="text-xs text-gray-500 mt-0.5">{{ macro.gdp[-1].date }}</div>
+        {% else %}
+        <div class="text-gray-600 text-sm">N/A</div>
+        {% endif %}
+    </div>
+    <!-- CPI YoY -->
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
+        <div class="text-xs text-gray-500 mb-1">CPI 同比</div>
+        {% if macro.cpi %}
+        {% set latest_cpi = macro.cpi | selectattr("yoy_pct", "defined") | list | last %}
+        {% if latest_cpi %}
+        <div class="text-xl font-bold {{ 'text-accent-red' if latest_cpi.yoy_pct > 3 else 'text-accent-green' if latest_cpi.yoy_pct < 2 else 'text-accent-yellow' }}">
+            {{ "%.1f"|format(latest_cpi.yoy_pct) }}%
+        </div>
+        <div class="text-xs text-gray-500 mt-0.5">{{ latest_cpi.date }}</div>
+        {% else %}
+        <div class="text-gray-600 text-sm">N/A</div>
+        {% endif %}
+        {% else %}
+        <div class="text-gray-600 text-sm">N/A</div>
+        {% endif %}
+    </div>
+    <!-- Fed Rate -->
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
+        <div class="text-xs text-gray-500 mb-1">联邦基金利率</div>
+        {% if macro.fed_rate %}
+        <div class="text-xl font-bold text-accent-blue">{{ "%.2f"|format(macro.fed_rate[-1].value) }}%</div>
+        <div class="text-xs text-gray-500 mt-0.5">{{ macro.fed_rate[-1].date }}</div>
+        {% else %}
+        <div class="text-gray-600 text-sm">N/A</div>
+        {% endif %}
+    </div>
+    <!-- Unemployment -->
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
+        <div class="text-xs text-gray-500 mb-1">失业率</div>
+        {% if macro.unemployment %}
+        <div class="text-xl font-bold {{ 'text-accent-red' if macro.unemployment[-1].value > 5 else 'text-accent-green' }}">
+            {{ "%.1f"|format(macro.unemployment[-1].value) }}%
+        </div>
+        <div class="text-xs text-gray-500 mt-0.5">{{ macro.unemployment[-1].date }}</div>
+        {% else %}
+        <div class="text-gray-600 text-sm">N/A</div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="grid grid-cols-2 gap-6 mb-6">
+    <!-- CPI Chart -->
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-5">
+        <h2 class="text-sm font-semibold text-white mb-3">CPI 趋势 (近24个月)</h2>
+        <div style="height: 200px;">
+            <canvas id="cpi-chart"></canvas>
+        </div>
+    </div>
+    <!-- Fed Rate Chart -->
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-5">
+        <h2 class="text-sm font-semibold text-white mb-3">联邦利率历史</h2>
+        <div style="height: 200px;">
+            <canvas id="fed-chart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Yield Curve + Rotation -->
+<div class="grid grid-cols-2 gap-6 mb-6">
+    <!-- Yield Curve -->
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-5">
+        <h2 class="text-sm font-semibold text-white mb-3">收益率曲线</h2>
+        {% if macro.yield_curve %}
+        <div style="height: 180px;">
+            <canvas id="yield-chart"></canvas>
+        </div>
+        {% set yc = macro.yield_curve %}
+        {% set is_inverted = yc.DGS2 and yc.DGS10 and yc.DGS2 > yc.DGS10 %}
+        <div class="mt-3 flex items-center gap-2">
+            <span class="text-xs px-2 py-0.5 rounded {{ 'bg-accent-red/20 text-accent-red' if is_inverted else 'bg-accent-green/20 text-accent-green' }}">
+                {{ "⚠ 倒挂" if is_inverted else "正常" }}
+            </span>
+            <span class="text-xs text-gray-500">
+                2Y-10Y 利差: {{ "%.0f"|format((yc.DGS10 - yc.DGS2) * 100) }}bp
+            </span>
+        </div>
+        {% else %}
+        <div class="text-gray-600 text-sm text-center py-8">N/A</div>
+        {% endif %}
+    </div>
+
+    <!-- Sector Rotation -->
+    <div class="bg-dark-700 rounded-xl border border-dark-600 p-5">
+        <h2 class="text-sm font-semibold text-white mb-3">板块轮动图 (RRG)</h2>
+        <div id="rotation-container"
+             hx-get="/api/rotation" hx-trigger="load" hx-swap="innerHTML">
+            <div class="text-center py-8 text-xs text-gray-500">加载板块轮动数据...</div>
+        </div>
+    </div>
+</div>
+
+<!-- Economic Calendar -->
+<div class="bg-dark-700 rounded-xl border border-dark-600">
+    <div class="px-5 py-3 border-b border-dark-600">
+        <h2 class="text-sm font-semibold text-white">经济日历</h2>
+    </div>
+    {% if macro.calendar %}
+    <div class="divide-y divide-dark-600/50">
+        {% for event in macro.calendar[:12] %}
+        <div class="px-5 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <span class="text-xs text-gray-400 font-mono w-24">{{ event.date }}</span>
+                <span class="text-sm text-gray-200">{{ event.event }}</span>
+            </div>
+            <span class="text-xs px-2 py-0.5 rounded
+                {{ 'bg-accent-red/20 text-accent-red' if event.impact == 'high'
+                   else 'bg-accent-yellow/20 text-accent-yellow' if event.impact == 'medium'
+                   else 'bg-dark-600 text-gray-500' }}">
+                {{ '高影响' if event.impact == 'high' else '中影响' if event.impact == 'medium' else '低影响' }}
+            </span>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-8 text-xs text-gray-500">暂无日历数据</div>
+    {% endif %}
+</div>
+
+{% endif %}
+</div><!-- #macro-content -->
+
+<script>
+(function() {
+    var chartDefaults = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { grid: { color: '#232b3e' }, ticks: { color: '#6b7280', maxTicksLimit: 8, font: { size: 10 } } },
+            y: { grid: { color: '#232b3e' }, ticks: { color: '#6b7280', font: { size: 10 } } }
+        }
+    };
+
+    // CPI Chart
+    {% if macro.cpi %}
+    var cpiData = {{ macro.cpi | tojson }};
+    var cpiYoy = cpiData.filter(function(d) { return d.yoy_pct != null; });
+    if (cpiYoy.length && document.getElementById('cpi-chart')) {
+        new Chart(document.getElementById('cpi-chart'), {
+            type: 'line',
+            data: {
+                labels: cpiYoy.map(function(d) { return d.date.slice(0, 7); }),
+                datasets: [{
+                    data: cpiYoy.map(function(d) { return d.yoy_pct; }),
+                    borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)',
+                    fill: true, tension: 0.3, pointRadius: 2,
+                }]
+            },
+            options: Object.assign({}, chartDefaults, {
+                scales: Object.assign({}, chartDefaults.scales, {
+                    y: Object.assign({}, chartDefaults.scales.y, {
+                        ticks: Object.assign({}, chartDefaults.scales.y.ticks, {
+                            callback: function(v) { return v + '%'; }
+                        })
+                    })
+                })
+            })
+        });
+    }
+    {% endif %}
+
+    // Fed Rate Chart
+    {% if macro.fed_rate %}
+    var fedData = {{ macro.fed_rate | tojson }};
+    if (fedData.length && document.getElementById('fed-chart')) {
+        var step = Math.max(1, Math.floor(fedData.length / 12));
+        new Chart(document.getElementById('fed-chart'), {
+            type: 'line',
+            data: {
+                labels: fedData.map(function(d) { return d.date.slice(0, 7); }),
+                datasets: [{
+                    data: fedData.map(function(d) { return d.value; }),
+                    borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)',
+                    fill: true, tension: 0.3, pointRadius: 2,
+                }]
+            },
+            options: Object.assign({}, chartDefaults, {
+                scales: Object.assign({}, chartDefaults.scales, {
+                    y: Object.assign({}, chartDefaults.scales.y, {
+                        ticks: Object.assign({}, chartDefaults.scales.y.ticks, {
+                            callback: function(v) { return v + '%'; }
+                        })
+                    })
+                })
+            })
+        });
+    }
+    {% endif %}
+
+    // Yield Curve Chart
+    {% if macro.yield_curve %}
+    var yc = {{ macro.yield_curve | tojson }};
+    var ycLabels = ['2Y', '5Y', '10Y', '30Y'];
+    var ycValues = [yc.DGS2, yc.DGS5, yc.DGS10, yc.DGS30];
+    if (document.getElementById('yield-chart')) {
+        new Chart(document.getElementById('yield-chart'), {
+            type: 'line',
+            data: {
+                labels: ycLabels,
+                datasets: [{
+                    data: ycValues,
+                    borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.1)',
+                    fill: true, tension: 0.3, pointRadius: 5,
+                    pointBackgroundColor: '#22c55e',
+                }]
+            },
+            options: Object.assign({}, chartDefaults, {
+                scales: Object.assign({}, chartDefaults.scales, {
+                    y: Object.assign({}, chartDefaults.scales.y, {
+                        ticks: Object.assign({}, chartDefaults.scales.y.ticks, {
+                            callback: function(v) { return v + '%'; }
+                        })
+                    })
+                })
+            })
+        });
+    }
+    {% endif %}
+})();
+</script>
+{% endblock %}

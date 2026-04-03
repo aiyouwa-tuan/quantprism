@@ -1,0 +1,33 @@
+<!-- 新闻面板 (HTMX partial for /api/news/{symbol}) -->
+{% if not articles %}
+<div class="text-xs text-gray-500 text-center py-4">暂无最新新闻</div>
+{% else %}
+<div class="space-y-2.5">
+    {% for article in articles %}
+    <a href="{{ article.url }}" target="_blank" rel="noopener"
+       class="block group hover:bg-dark-600/50 rounded-lg p-2.5 transition-colors">
+        <div class="flex items-start justify-between gap-2">
+            <div class="flex-1 min-w-0">
+                <p class="text-xs text-gray-200 group-hover:text-white leading-relaxed line-clamp-2">
+                    {{ article.title }}
+                </p>
+                {% if article.summary %}
+                <p class="text-xs text-gray-500 mt-1 line-clamp-1">{{ article.summary }}</p>
+                {% endif %}
+            </div>
+            <svg class="w-3 h-3 text-gray-600 group-hover:text-accent-blue flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+            </svg>
+        </div>
+        <div class="flex items-center gap-2 mt-1.5">
+            <span class="text-xs text-gray-600">{{ article.source }}</span>
+            <span class="text-gray-700">·</span>
+            <span class="text-xs text-gray-600">{{ article.published[:10] }}</span>
+        </div>
+    </a>
+    {% if not loop.last %}
+    <div class="border-t border-dark-600/40"></div>
+    {% endif %}
+    {% endfor %}
+</div>
+{% endif %}
