@@ -224,6 +224,14 @@ var _researchJobId = null;
 var _researchTimer = null;
 
 function startResearch() {
+    // Clear previous run before starting a new one
+    document.getElementById('research-steps').innerHTML = '';
+    document.getElementById('research-title').textContent = 'AI 后台研究中...';
+    document.getElementById('research-timer').textContent = '';
+    document.getElementById('research-model').textContent = '';
+    document.getElementById('research-spinner').classList.remove('hidden');
+    document.getElementById('hunt-results').innerHTML = '';
+
     fetch('/hunt/research/start', { method: 'POST' })
         .then(function(r) { return r.json(); })
         .then(function(data) {
