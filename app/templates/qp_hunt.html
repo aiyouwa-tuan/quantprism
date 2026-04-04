@@ -89,14 +89,27 @@
 
 <!-- 策略结果区域 -->
 <div id="hunt-results">
+{% if low_match_fallback %}
+    <div class="mb-4 px-4 py-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-sm text-yellow-300">
+        <span class="font-medium">当前目标较难达到</span>：库内没有匹配度 ≥ {{ min_match }}% 的策略。以下是最接近的候选，仅供参考，建议调整年化目标或回撤限额后重新搜索。
+    </div>
+{% endif %}
 {% if strategies %}
     <div class="flex items-center justify-between mb-4">
-        <h2 class="text-sm font-semibold text-white">找到 {{ strategies|length }} 个候选策略</h2>
+        <h2 class="text-sm font-semibold text-white">
+            {% if low_match_fallback %}最接近的 {{ strategies|length }} 个策略（不完全符合目标）{% else %}找到 {{ strategies|length }} 个候选策略{% endif %}
+        </h2>
         <button onclick="startResearch()"
                 class="text-xs px-3 py-1.5 rounded-lg border border-accent-blue/40 text-accent-blue hover:bg-accent-blue/10 transition">
             让 AI 再找更多
         </button>
     </div>
+{% elif goals %}
+    <div class="text-center py-12 text-gray-500">
+        <p class="text-base mb-2">暂无匹配策略</p>
+        <p class="text-sm">点击「搜索策略」或「让 AI 再找更多」</p>
+    </div>
+{% endif %}
 
     <div class="space-y-3">
     {% for s in strategies %}

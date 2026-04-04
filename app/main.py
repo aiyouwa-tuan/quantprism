@@ -1749,20 +1749,28 @@ def hunt_page(request: Request, db: Session = Depends(get_db)):
             "max_drawdown": goals.max_drawdown,
             "holding_period": goals.holding_period or "days_weeks",
         }
+        MIN_MATCH = 40
         for s in library:
             score = compute_match_score(s, goals_dict)
             strategies.append({**s, "match_pct": round(score)})
         strategies.sort(key=lambda x: x["match_pct"], reverse=True)
-        strategies = strategies[:10]  # Top 10
+        qualified = [s for s in strategies if s["match_pct"] >= MIN_MATCH]
+        if qualified:
+            strategies = qualified[:10]
+            low_match_fallback = False
+        else:
+            strategies = strategies[:5]
+            low_match_fallback = True
     else:
-        strategies = library[:10]
-        for s in strategies:
-            s["match_pct"] = 50  # Default if no goals
+        strategies = []
+        low_match_fallback = False
 
     return templates.TemplateResponse("qp_hunt.html", {
         "request": request,
         "goals": goals,
         "strategies": strategies,
+        "low_match_fallback": low_match_fallback,
+        "min_match": 40,
     })
 
 
