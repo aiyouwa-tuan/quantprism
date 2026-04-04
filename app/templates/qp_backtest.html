@@ -40,24 +40,15 @@
                        value="{{ preselect_symbol or 'SPY' }}"
                        class="w-full bg-dark-800 border border-dark-500 rounded-lg px-3 py-2 text-sm text-white focus:border-accent-blue focus:outline-none"
                        placeholder="输入代码">
-                <datalist id="symbol-list">
-                    {% for sym in ['SPY', 'QQQ', 'AAPL', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'IWM', 'DIA', 'TLT', 'GLD'] %}
-                    <option value="{{ sym }}">
+                <!-- 策略可选标的下拉（多标的时显示） -->
+                {% set syms = preselect_symbols or [preselect_symbol or 'SPY'] %}
+                <select id="symbol-select"
+                        onchange="document.getElementById('inp-symbol').value = this.value"
+                        class="w-full bg-dark-800 border border-dark-500 rounded-lg px-3 py-1.5 text-xs text-gray-400 mt-1.5 focus:border-accent-blue focus:outline-none {% if syms|length <= 1 %}hidden{% endif %}">
+                    {% for sym in syms %}
+                    <option value="{{ sym }}" {{ 'selected' if sym == (preselect_symbol or 'SPY') }}>{{ sym }}</option>
                     {% endfor %}
-                </datalist>
-                <!-- Strategy symbol pills — OR relationship (pick one to run), hidden when only 1 symbol -->
-                <div id="symbol-pills" class="flex flex-wrap items-center gap-1 mt-2 min-h-[22px] {% if (preselect_symbols or [preselect_symbol or 'SPY'])|length <= 1 %}hidden{% endif %}">
-                    {% for sym in (preselect_symbols or [preselect_symbol or 'SPY']) %}
-                    {% if not loop.first %}
-                    <span class="text-[10px] font-semibold text-gray-600 px-0.5">OR</span>
-                    {% endif %}
-                    <button type="button" onclick="selectSymbol('{{ sym }}')"
-                            class="symbol-pill px-2 py-0.5 rounded text-[11px] font-mono font-semibold border transition-colors
-                                   {% if loop.first %}bg-accent-blue/20 text-accent-blue border-accent-blue/40{% else %}bg-dark-600 text-gray-400 border-dark-500 hover:border-accent-blue/40 hover:text-accent-blue{% endif %}">
-                        {{ sym }}
-                    </button>
-                    {% endfor %}
-                </div>
+                </select>
             </div>
             <div class="flex-1">
                 <label class="block text-xs text-gray-400 mb-1.5">开始日期</label>
@@ -149,52 +140,28 @@
 // ── Symbol map: strategy id → list of symbols ──
 var SYMBOL_MAP = {{ symbol_map | tojson }};
 
-function selectSymbol(sym) {
-    document.getElementById('inp-symbol').value = sym;
-    document.querySelectorAll('.symbol-pill').forEach(function(p) {
-        var active = p.textContent.trim() === sym;
-        p.classList.toggle('bg-accent-blue/20', active);
-        p.classList.toggle('text-accent-blue', active);
-        p.classList.toggle('border-accent-blue/40', active);
-        p.classList.toggle('bg-dark-600', !active);
-        p.classList.toggle('text-gray-400', !active);
-        p.classList.toggle('border-dark-500', !active);
-    });
-}
-
-function updateSymbolPills(strategyId) {
+function updateSymbolSelect(strategyId) {
     var symbols = SYMBOL_MAP[strategyId] || ['SPY'];
-    var container = document.getElementById('symbol-pills');
-    container.innerHTML = '';
-    // 只有1个标的时隐藏pills（跟输入框重复）
-    if (symbols.length <= 1) {
-        container.classList.add('hidden');
-    } else {
-        container.classList.remove('hidden');
-    }
-    symbols.forEach(function(sym, idx) {
-        if (idx > 0) {
-            var or = document.createElement('span');
-            or.className = 'text-[10px] font-semibold text-gray-600 px-0.5';
-            or.textContent = 'OR';
-            container.appendChild(or);
-        }
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.textContent = sym;
-        btn.onclick = function() { selectSymbol(sym); };
-        btn.className = 'symbol-pill px-2 py-0.5 rounded text-[11px] font-mono font-semibold border transition-colors ' +
-            (idx === 0
-                ? 'bg-accent-blue/20 text-accent-blue border-accent-blue/40'
-                : 'bg-dark-600 text-gray-400 border-dark-500 hover:border-accent-blue/40 hover:text-accent-blue');
-        container.appendChild(btn);
+    var sel = document.getElementById('symbol-select');
+    sel.innerHTML = '';
+    symbols.forEach(function(sym) {
+        var opt = document.createElement('option');
+        opt.value = sym;
+        opt.textContent = sym;
+        sel.appendChild(opt);
     });
-    // Auto-fill input with first symbol
+    // 多标的显示下拉，单标的隐藏
+    if (symbols.length > 1) {
+        sel.classList.remove('hidden');
+    } else {
+        sel.classList.add('hidden');
+    }
+    // 自动填入第一个标的
     document.getElementById('inp-symbol').value = symbols[0];
 }
 
 document.getElementById('sel-strategy').addEventListener('change', function() {
-    updateSymbolPills(parseInt(this.value));
+    updateSymbolSelect(parseInt(this.value));
 });
 
 function switchMode(mode) {
