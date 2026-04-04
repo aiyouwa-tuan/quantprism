@@ -133,5 +133,16 @@
     </div>
 
     <script src="/static/qp-core.js"></script>
+    <script>
+    (function() {
+        fetch('/api/vix').then(function(r) { return r.json(); }).then(function(d) {
+            var el = document.querySelector('#vix-indicator span');
+            if (el && d.price) {
+                el.textContent = d.price.toFixed(2);
+                el.className = d.price > 30 ? 'text-red-400 font-mono' : d.price > 20 ? 'text-accent-yellow font-mono' : 'text-green-400 font-mono';
+            }
+        }).catch(function(){});
+    })();
+    </script>
 </body>
 </html>
