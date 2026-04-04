@@ -498,6 +498,86 @@ class {class_name}(StrategyBase):
         return False
 
 
+# ─── 3c. 快速回测 + 真实评分 ────────────────────────────────────────────────────────
+
+def quick_backtest_strategy(safe_id: str, symbol: str = "SPY", lookback_years: int = 2) -> dict | None:
+    """
+    用注册的 StrategyBase 类跑 2 年真实回测，返回实测指标。
+    这是 Karpathy autoresearch 范式的"eval"步骤。
+    """
+    from datetime import datetime, timedelta
+    from market_data import fetch_stock_history, compute_technicals
+    from backtester import _simulate_portfolio, COST_MODELS
+    from strategies.base import get_strategy
+
+    strategy_cls = get_strategy(safe_id)
+    if not strategy_cls:
+        return None
+
+    start = (datetime.now() - timedelta(days=lookback_years * 365)).strftime("%Y-%m-%d")
+    df = fetch_stock_history(symbol, start=start)
+    if df is None or df.empty or len(df) < 50:
+        return None
+
+    df = compute_technicals(df)
+    try:
+        strategy = strategy_cls({})
+        signals = strategy.generate_signals(df)
+        for s in signals:
+            s.symbol = symbol
+
+        metrics = _simulate_portfolio(
+            signals, df, risk_per_trade=0.02, cost_model=COST_MODELS["default"]
+        )
+
+        total_ret = metrics.total_return  # fraction
+        annual_ret = ((1 + total_ret) ** (1 / lookback_years) - 1) * 100
+
+        return {
+            "sharpe": round(metrics.sharpe_ratio, 2),
+            "total_return": round(total_ret * 100, 1),
+            "annual_return": round(annual_ret, 1),
+            "max_drawdown": round(abs(metrics.max_drawdown) * 100, 1),
+            "total_trades": metrics.total_trades,
+            "symbol": symbol,
+        }
+    except Exception as e:
+        logger.warning("quick_backtest_strategy failed for %s: %s", safe_id, e)
+        return None
+
+
+def score_vs_goals(bt_metrics: dict, goals: dict) -> float:
+    """
+    基于真实回测指标计算策略与目标的匹配分 (0–100)。
+    Sharpe 30分 + 年化收益 40分 + 回撤控制 30分。
+    """
+    score = 0.0
+
+    # Sharpe (30分): ≥1.0 满分, <0 得 0
+    sharpe = bt_metrics.get("sharpe", 0) or 0
+    score += min(30.0, max(0.0, sharpe * 30.0))
+
+    # 年化收益 (40分)
+    target_return = (goals.get("annual_return") or 0.15) * 100
+    actual_annual = bt_metrics.get("annual_return", 0) or 0
+    if target_return > 0:
+        ratio = actual_annual / target_return
+        score += min(40.0, max(0.0, ratio * 40.0))
+    else:
+        score += 40.0
+
+    # 最大回撤 (30分): 不超目标满分，超出按比例扣
+    max_dd_limit = (goals.get("max_drawdown") or 0.20) * 100
+    actual_dd = bt_metrics.get("max_drawdown", 100) or 100
+    if actual_dd <= max_dd_limit:
+        score += 30.0
+    elif actual_dd <= max_dd_limit * 2:
+        overshoot = (actual_dd - max_dd_limit) / max_dd_limit
+        score += max(0.0, 30.0 * (1 - overshoot))
+
+    return round(min(100.0, max(0.0, score)), 1)
+
+
 # ─── 4. 匹配评分 ─────────────────────────────────────────────────────────────────
 
 def compute_match_score(strategy_info: dict, goals: dict) -> float:
@@ -1000,37 +1080,57 @@ def run_research_job(job_id: int, goals_dict: dict, preferred_model: str) -> Non
 
                 strategy = json.loads(text[start:end])
 
-                # ── QuantEvolve 核心：用 backtesting.py 验证真实绩效 ──
-                # 用实际回测结果替代 AI 估算值，驱动下一轮进化提示词
-                try:
-                    from backtest_validator import validate_strategy, format_validation_summary
-                    test_symbol = (strategy.get("default_symbols") or ["SPY"])[0]
-                    validation = validate_strategy(strategy, symbol=test_symbol, period="2y")
-                    if validation:
-                        # 将真实结果写回策略，覆盖 AI 估算
-                        strategy["backtest_validation"] = validation
-                        strategy["annual_return_range"] = [
-                            max(0, int(validation["annual_return_pct"] * 0.85)),
-                            int(validation["annual_return_pct"] * 1.15),
-                        ]
-                        strategy["validated"] = True
-                        _log(job, f"  📊 回测验证：年化{validation['annual_return_pct']}%，回撤{validation['max_drawdown_pct']}%", "info")
-                        # 将验证摘要存入策略，供下一轮进化提示词使用
-                        strategy["_validation_summary"] = format_validation_summary(validation)
-                except Exception:
-                    pass
+                # ── Karpathy autoresearch 核心：生成真实代码 → 运行真实回测 ──
+                # 类比 train.py 修改 → 跑 5 分钟 → 测 val_bpb，我们是：
+                #   生成 StrategyBase 类 → 跑 2 年回测 → 测 Sharpe/收益/回撤
+                import re as _re
+                safe_id = _re.sub(r"[^a-z0-9_]", "_", (strategy.get("id") or "ai_r").lower())[:40]
+                test_symbol = (strategy.get("default_symbols") or ["SPY"])[0]
 
-                score = compute_match_score(strategy, goals_dict)
+                _log(job, f"  🔧 [代码生成] {strategy.get('name','?')} → strategies/{safe_id}.py", "info")
+                code_ok = generate_strategy_code(
+                    strategy_id=safe_id,
+                    strategy_name=strategy.get("name", "AI策略"),
+                    description=strategy.get("description", ""),
+                    style=style,
+                    default_symbols=strategy.get("default_symbols", ["SPY"]),
+                )
+
+                bt_metrics = None
+                if code_ok:
+                    _log(job, f"  📊 [回测] {safe_id} × {test_symbol} (2年)...", "info")
+                    bt_metrics = quick_backtest_strategy(safe_id, test_symbol)
+                    if bt_metrics:
+                        strategy["backtest_metrics"] = bt_metrics
+                        strategy["validated"] = True
+                        summary = (
+                            f"Sharpe={bt_metrics['sharpe']}, "
+                            f"年化={bt_metrics['annual_return']}%, "
+                            f"回撤={bt_metrics['max_drawdown']}%, "
+                            f"交易{bt_metrics['total_trades']}次"
+                        )
+                        strategy["_validation_summary"] = summary
+                        _log(job, f"  📊 实测结果：{summary}", "info")
+                    else:
+                        _log(job, f"  ⚠️ 回测无结果（策略无信号或数据不足）", "warn")
+                else:
+                    _log(job, f"  ⚠️ 代码生成失败，跳过回测", "warn")
+
+                # 评分：有真实回测用 score_vs_goals，否则 fallback 到假评分
+                if bt_metrics:
+                    score = score_vs_goals(bt_metrics, goals_dict)
+                else:
+                    score = compute_match_score(strategy, goals_dict)
                 strategy["match_pct"] = round(score)
 
                 # ── KEEP / DISCARD 决策（含回撤硬约束）──────────────
-                # 硬约束：用户设了回撤目标时，策略的预估回撤必须 ≤ 目标
-                dd_target_pct = (goals_dict.get("max_drawdown") or 1.0) * 100  # None=不限→100%
-                strategy_dd = None
-                if strategy.get("backtest_validation"):
-                    strategy_dd = strategy["backtest_validation"].get("max_drawdown_pct")
+                dd_target_pct = (goals_dict.get("max_drawdown") or 1.0) * 100
+                if bt_metrics:
+                    strategy_dd = bt_metrics.get("max_drawdown")
                 elif strategy.get("max_drawdown_range"):
-                    strategy_dd = strategy["max_drawdown_range"][0]  # 用下限
+                    strategy_dd = strategy["max_drawdown_range"][0]
+                else:
+                    strategy_dd = None
 
                 dd_exceeded = strategy_dd is not None and strategy_dd > dd_target_pct
 
@@ -1038,7 +1138,7 @@ def run_research_job(job_id: int, goals_dict: dict, preferred_model: str) -> Non
                     _log(job, f"  DISCARD ✗ {strategy.get('name','?')} 回撤{strategy_dd}%>{dd_target_pct}% 超出目标", "warn")
                     reason = f"回撤{strategy_dd}%超出目标{dd_target_pct}%"
                 elif score >= KEEP_THRESHOLD:
-                    _log(job, f"  KEEP ✅ {strategy.get('name','?')} 分数={round(score)}，回撤{strategy_dd or '?'}%", "success")
+                    _log(job, f"  KEEP ✅ {strategy.get('name','?')} 分数={round(score)}", "success")
                     _push_strategy(job, strategy, all_strategies)
                     if score > best_score_so_far:
                         best_score_so_far = score
@@ -1046,7 +1146,7 @@ def run_research_job(job_id: int, goals_dict: dict, preferred_model: str) -> Non
                         _log(job, f"  🏆 新最优！分数提升至 {round(score)}", "success")
                     continue
                 else:
-                    reason = "回撤过高" if score < 30 else "收益不达标" if score < 35 else "综合分数不足"
+                    reason = "回撤超标" if (strategy_dd or 0) > dd_target_pct * 0.8 else "收益不达标" if score < 35 else "综合分数不足"
                     discard_history.append({
                         "iteration": iteration,
                         "style": style,
@@ -1054,7 +1154,7 @@ def run_research_job(job_id: int, goals_dict: dict, preferred_model: str) -> Non
                         "score": round(score),
                         "reason": reason,
                     })
-                    _log(job, f"  DISCARD ✗ 分数={round(score)}<{KEEP_THRESHOLD}，记录失败方向，下轮避开", "warn")
+                    _log(job, f"  DISCARD ✗ 分数={round(score)}<{KEEP_THRESHOLD}，记录失败方向", "warn")
 
             except json.JSONDecodeError:
                 _log(job, f"  ⚠️ 第{iteration}轮 JSON 格式错误", "warn")

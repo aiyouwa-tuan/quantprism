@@ -15,6 +15,28 @@
             </span>
         </div>
         <p class="text-xs text-gray-400 mb-3">{{ s.description[:120] }}{% if s.description|length > 120 %}...{% endif %}</p>
+        {% if s.backtest_metrics %}
+        <div class="flex items-center gap-4 mb-2 px-3 py-2 rounded-lg bg-green-500/5 border border-green-500/20">
+            <span class="text-xs text-green-400 font-semibold">✓ 实测</span>
+            <div>
+                <span class="text-[10px] text-gray-500">年化</span>
+                <span class="ml-0.5 text-sm font-bold {% if s.backtest_metrics.annual_return > 0 %}text-accent-green{% else %}text-accent-red{% endif %}">{{ s.backtest_metrics.annual_return }}%</span>
+            </div>
+            <div>
+                <span class="text-[10px] text-gray-500">回撤</span>
+                <span class="ml-0.5 text-sm font-bold text-accent-red">-{{ s.backtest_metrics.max_drawdown }}%</span>
+            </div>
+            <div>
+                <span class="text-[10px] text-gray-500">Sharpe</span>
+                <span class="ml-0.5 text-sm font-bold {% if s.backtest_metrics.sharpe >= 0.5 %}text-accent-green{% elif s.backtest_metrics.sharpe >= 0 %}text-yellow-400{% else %}text-accent-red{% endif %}">{{ s.backtest_metrics.sharpe }}</span>
+            </div>
+            <div>
+                <span class="text-[10px] text-gray-500">交易</span>
+                <span class="ml-0.5 text-sm font-bold text-gray-300">{{ s.backtest_metrics.total_trades }}次</span>
+            </div>
+            <span class="ml-auto text-[10px] text-gray-600">▼ 展开</span>
+        </div>
+        {% else %}
         <div class="flex items-center gap-6 text-sm">
             <div>
                 <span class="text-xs text-gray-500">预估年化</span>
@@ -30,6 +52,7 @@
             </div>
             <span class="ml-auto text-xs text-gray-600">▼ 点击展开</span>
         </div>
+        {% endif %}
     </div>
     <div class="detail hidden border-t border-dark-600 bg-dark-800/50 p-5" onclick="event.stopPropagation()">
         {% if s.best_market %}
