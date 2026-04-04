@@ -66,11 +66,19 @@
                 </button>
             </form>
             <span class="save-result text-xs"></span>
-            <a href="/backtest?strategy={{ s.id or s.name }}&symbol=SPY"
-               class="px-4 py-2 rounded-lg bg-accent-blue text-white text-sm font-medium hover:brightness-110"
-               onclick="event.stopPropagation()">
-                去回测验证 →
-            </a>
+            <form method="post" action="/hunt/save-strategy" onclick="event.stopPropagation()" style="display:contents">
+                <input type="hidden" name="name" value="{{ s.name }}">
+                <input type="hidden" name="strategy_name" value="{{ s.id or (s.name | lower | replace(' ','_') | replace('-','_'))[:50] }}">
+                <input type="hidden" name="description" value="{{ s.description[:300] }}">
+                <input type="hidden" name="symbol_pool" value="SPY">
+                <input type="hidden" name="instrument" value="stock">
+                <input type="hidden" name="direction" value="bullish">
+                <input type="hidden" name="redirect_to" value="backtest">
+                <button type="submit" class="px-4 py-2 rounded-lg bg-accent-blue text-white text-sm font-medium hover:brightness-110"
+                        onclick="event.stopPropagation()">
+                    去回测验证 →
+                </button>
+            </form>
         </div>
     </div>
 </div>

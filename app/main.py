@@ -2070,7 +2070,7 @@ def research_latest(db: Session = Depends(get_db)):
     })
 
 
-@app.post("/hunt/save-strategy", response_class=HTMLResponse)
+@app.post("/hunt/save-strategy")
 def hunt_save_strategy(
     request: Request,
     name: str = Form(...),
@@ -2080,31 +2080,35 @@ def hunt_save_strategy(
     instrument: str = Form("stock"),
     direction: str = Form("bullish"),
     params_yaml: str = Form("{}"),
+    redirect_to: str = Form(""),
     db: Session = Depends(get_db),
 ):
     """把猎手找到的策略存入 StrategyConfig，使其在回测下拉里可见。"""
-    # Sanitise strategy_name → valid identifier
+    from fastapi.responses import RedirectResponse
     import re
     safe_name = re.sub(r"[^a-z0-9_]", "_", (strategy_name or name).lower())[:50]
-    # Avoid duplicate
     existing = db.query(StrategyConfig).filter(StrategyConfig.strategy_name == safe_name).first()
-    if existing:
-        return HTMLResponse(
-            f'<span class="text-accent-green text-xs">✓ 已在回测列表中（{existing.display_name}）</span>'
+    if not existing:
+        cfg = StrategyConfig(
+            strategy_name=safe_name,
+            display_name=name[:100],
+            description=description[:500] if description else "",
+            symbol_pool=symbol_pool,
+            instrument=instrument,
+            direction=direction,
+            params_yaml=params_yaml,
+            strategy_type="custom",
+            is_active=True,
         )
-    cfg = StrategyConfig(
-        strategy_name=safe_name,
-        display_name=name[:100],
-        description=description[:500] if description else "",
-        symbol_pool=symbol_pool,
-        instrument=instrument,
-        direction=direction,
-        params_yaml=params_yaml,
-        strategy_type="custom",
-        is_active=True,
-    )
-    db.add(cfg)
-    db.commit()
+        db.add(cfg)
+        db.commit()
+
+    if redirect_to == "backtest":
+        first_symbol = (symbol_pool.split(",")[0].strip() if symbol_pool else "SPY") or "SPY"
+        return RedirectResponse(
+            url=f"/backtest?strategy={safe_name}&symbol={first_symbol}",
+            status_code=303,
+        )
     return HTMLResponse(
         f'<span class="text-accent-green text-xs">✓ 已加入回测，可在回测实验室选择「{name[:30]}」</span>'
     )

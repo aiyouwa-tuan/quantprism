@@ -223,11 +223,20 @@
                 </button>
             </form>
             <span class="save-result text-xs"></span>
-            <a href="/backtest?strategy={{ s.id or s.name }}&symbol={{ s.default_symbols[0] if s.default_symbols else 'SPY' }}"
-               class="px-4 py-2 rounded-lg bg-accent-blue text-white text-sm font-medium hover:brightness-110"
-               onclick="event.stopPropagation()">
-                去回测验证 →
-            </a>
+            <form method="post" action="/hunt/save-strategy" onclick="event.stopPropagation()" style="display:contents">
+                <input type="hidden" name="name" value="{{ s.name }}">
+                <input type="hidden" name="strategy_name" value="{{ s.id or (s.name | lower | replace(' ','_') | replace('-','_'))[:50] }}">
+                <input type="hidden" name="description" value="{{ s.description[:300] }}">
+                <input type="hidden" name="symbol_pool" value="{{ s.default_symbols | join(',') if s.default_symbols else 'SPY' }}">
+                <input type="hidden" name="instrument" value="{{ s.instrument or 'stock' }}">
+                <input type="hidden" name="direction" value="{{ s.direction or 'bullish' }}">
+                <input type="hidden" name="params_yaml" value="{{ s.params | tojson if s.params else '{}' }}">
+                <input type="hidden" name="redirect_to" value="backtest">
+                <button type="submit" class="px-4 py-2 rounded-lg bg-accent-blue text-white text-sm font-medium hover:brightness-110"
+                        onclick="event.stopPropagation()">
+                    去回测验证 →
+                </button>
+            </form>
         </div>
     </div>
 </div>
