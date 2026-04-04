@@ -12,6 +12,11 @@ class TestDashboard:
         assert response.status_code == 200
         assert "QuantPrism" in response.text
 
+    def test_root_head_redirects(self, client):
+        response = client.head("/", follow_redirects=False)
+        assert response.status_code == 302
+        assert response.headers["location"] == "/goals"
+
     def test_dashboard_with_goals(self, client):
         client.post("/goals", data={
             "annual_return_target": "15",
@@ -63,6 +68,17 @@ class TestGoals:
         assert 'value="15"' in response.text
         assert 'value="crypto"' in response.text
         assert "checked" in response.text
+
+
+class TestBacktestUI:
+    def test_backtest_page_has_clean_copy(self, client):
+        response = client.get("/backtest")
+        assert response.status_code == 200
+        assert "策略对比" in response.text
+        assert "结束日期" in response.text
+        assert "开始对比" in response.text
+        assert "请至少选择2个策略进行对比" in response.text
+        assert "��" not in response.text
 
 
 class TestCalculator:

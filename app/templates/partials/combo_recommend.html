@@ -9,12 +9,12 @@
     </div>
 
     <div class="grid grid-cols-{{ [combos|length, 3]|min }} gap-4 qp-card-stagger">
-        {% set icons = {'conservative': '&#x1F6E1;', 'aggressive': '&#x26A1;', 'balanced': '&#x2696;'} %}
+        {% set icons = {'conservative': '🛡', 'aggressive': '⚡', 'balanced': '⚖'} %}
         {% for combo in combos %}
         <div class="bg-dark-700 rounded-xl p-5 border {{ combo.border_color }} hover:{{ combo.hover_color }} transition qp-card qp-card-enter">
             <!-- 标题 -->
             <div class="flex items-center gap-2 mb-3">
-                <span class="text-lg">{{ icons.get(combo.type, '&#x1F4CA;') }}</span>
+                <span class="text-lg">{{ icons.get(combo.type, '📊') }}</span>
                 <span class="text-base font-semibold text-white">{{ combo.name }}</span>
                 <span class="qp-badge qp-badge-blue ml-auto">{{ combo.count }} 个标的</span>
             </div>

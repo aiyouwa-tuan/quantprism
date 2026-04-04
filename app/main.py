@@ -182,6 +182,11 @@ def home_redirect():
     return RedirectResponse("/goals", status_code=302)
 
 
+@app.head("/", include_in_schema=False)
+def home_redirect_head():
+    return RedirectResponse("/goals", status_code=302)
+
+
 # ===== [LEGACY] 交易机会 =====
 
 @app.get("/legacy/opportunities", response_class=HTMLResponse)
