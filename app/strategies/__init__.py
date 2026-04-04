@@ -13,3 +13,4 @@ from strategies.qqq_leaps import QQQLeaps
 from strategies.waiting_strike import WaitingStrike
 from strategies.dip_watch import DipWatch
 from strategies.top_prediction import TopPrediction
+from strategies.covered_call import CoveredCall

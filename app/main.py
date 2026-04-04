@@ -2103,15 +2103,18 @@ def hunt_save_strategy(
         db.add(cfg)
         db.commit()
 
-    if redirect_to == "backtest":
-        first_symbol = (symbol_pool.split(",")[0].strip() if symbol_pool else "SPY") or "SPY"
-        # Generate real Python trading code for this strategy so backtest runs for real
+    # Always generate Python code for newly saved AI strategies (if not already registered)
+    from strategies.base import get_strategy
+    if not get_strategy(safe_name):
         generate_strategy_code(
             strategy_id=safe_name,
             strategy_name=name,
             description=description,
             default_symbols=symbol_pool.split(",") if symbol_pool else ["SPY"],
         )
+
+    if redirect_to == "backtest":
+        first_symbol = (symbol_pool.split(",")[0].strip() if symbol_pool else "SPY") or "SPY"
         return RedirectResponse(
             url=f"/backtest?strategy={safe_name}&symbol={first_symbol}",
             status_code=303,
