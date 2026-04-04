@@ -264,9 +264,10 @@ function pollStatus(jobId) {
                 clearInterval(_researchTimer);
                 _researchTimer = null;
                 if (data.status === 'completed') {
-                    document.getElementById('research-load-btn').classList.remove('hidden');
                     document.getElementById('research-spinner').classList.add('hidden');
                     document.getElementById('research-title').textContent = '✅ AI 研究完成！找到 ' + data.total_found + ' 个策略';
+                    // 自动载入结果
+                    loadResearchResults();
                 } else {
                     document.getElementById('research-title').textContent = '❌ 研究失败，请重试';
                     document.getElementById('research-spinner').classList.add('hidden');
@@ -301,7 +302,9 @@ function loadResearchResults() {
     fetch('/hunt/research/results/' + _researchJobId)
         .then(function(r) { return r.text(); })
         .then(function(html) {
-            document.getElementById('hunt-results').innerHTML = html;
+            var container = document.getElementById('hunt-results');
+            container.innerHTML = html;
+            if (typeof htmx !== 'undefined') htmx.process(container);
             document.getElementById('research-load-btn').classList.add('hidden');
         });
 }

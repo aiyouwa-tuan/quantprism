@@ -1848,8 +1848,13 @@ def hunt_search(request: Request, db: Session = Depends(get_db)):
                 period="2y",
             )
             if port:
-                port["match_pct"] = round(compute_match_score(port, goals_dict))
-                results.insert(0, port)
+                port_dd = port.get("max_drawdown_pct", 0)
+                dd_limit = (goals.max_drawdown or 1.0) * 100
+                if port_dd > dd_limit:
+                    pass  # 回撤超标，不加入结果
+                else:
+                    port["match_pct"] = round(compute_match_score(port, goals_dict))
+                    results.insert(0, port)
                 qualified2 = [r for r in results if r["match_pct"] >= MIN_MATCH]
                 if qualified2:
                     final = qualified2[:15]

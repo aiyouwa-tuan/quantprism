@@ -916,16 +916,29 @@ def run_research_job(job_id: int, goals_dict: dict, preferred_model: str) -> Non
                 score = compute_match_score(strategy, goals_dict)
                 strategy["match_pct"] = round(score)
 
-                # ── KEEP / DISCARD 决策 ──────────────────────────────
-                if score >= KEEP_THRESHOLD:
-                    _log(job, f"  KEEP ✅ {strategy.get('name','?')} 分数={round(score)}", "success")
+                # ── KEEP / DISCARD 决策（含回撤硬约束）──────────────
+                # 硬约束：用户设了回撤目标时，策略的预估回撤必须 ≤ 目标
+                dd_target_pct = (goals_dict.get("max_drawdown") or 1.0) * 100  # None=不限→100%
+                strategy_dd = None
+                if strategy.get("backtest_validation"):
+                    strategy_dd = strategy["backtest_validation"].get("max_drawdown_pct")
+                elif strategy.get("max_drawdown_range"):
+                    strategy_dd = strategy["max_drawdown_range"][0]  # 用下限
+
+                dd_exceeded = strategy_dd is not None and strategy_dd > dd_target_pct
+
+                if dd_exceeded:
+                    _log(job, f"  DISCARD ✗ {strategy.get('name','?')} 回撤{strategy_dd}%>{dd_target_pct}% 超出目标", "warn")
+                    reason = f"回撤{strategy_dd}%超出目标{dd_target_pct}%"
+                elif score >= KEEP_THRESHOLD:
+                    _log(job, f"  KEEP ✅ {strategy.get('name','?')} 分数={round(score)}，回撤{strategy_dd or '?'}%", "success")
                     _push_strategy(job, strategy, all_strategies)
                     if score > best_score_so_far:
                         best_score_so_far = score
                         best_strategy_so_far = strategy
                         _log(job, f"  🏆 新最优！分数提升至 {round(score)}", "success")
+                    continue
                 else:
-                    # Karpathy 模式：记录失败方向，传给下一轮 prompt 避免重复
                     reason = "回撤过高" if score < 30 else "收益不达标" if score < 35 else "综合分数不足"
                     discard_history.append({
                         "iteration": iteration,
@@ -991,11 +1004,22 @@ def run_research_job(job_id: int, goals_dict: dict, preferred_model: str) -> Non
                     end = text.rfind("}") + 1
                     if start != -1 and end > 0:
                         combo_strategy = json.loads(text[start:end])
-                        score = compute_match_score(combo_strategy, goals_dict)
-                        combo_strategy["match_pct"] = round(score)
-                        combo_strategy["is_portfolio"] = True
-                        _log(job, f"  ✅ 多资产组合策略生成，分数={round(score)}", "success")
-                        _push_strategy(job, combo_strategy, all_strategies)
+                        combo_dd_range = combo_strategy.get("annual_return_range", [0, 100])  # fallback
+                        # 检查 AI 声称的回撤是否超标
+                        combo_dd_est = combo_strategy.get("max_drawdown_range", [0, 0])
+                        if isinstance(combo_dd_est, list) and len(combo_dd_est) == 2:
+                            combo_dd_low = combo_dd_est[0]
+                        else:
+                            combo_dd_low = 0
+                        dd_limit = (goals_dict.get("max_drawdown") or 1.0) * 100
+                        if combo_dd_low > dd_limit:
+                            _log(job, f"  ✗ 多资产组合回撤{combo_dd_low}%>{dd_limit}%，不符合目标", "warn")
+                        else:
+                            score = compute_match_score(combo_strategy, goals_dict)
+                            combo_strategy["match_pct"] = round(score)
+                            combo_strategy["is_portfolio"] = True
+                            _log(job, f"  ✅ 多资产组合策略生成，分数={round(score)}", "success")
+                            _push_strategy(job, combo_strategy, all_strategies)
             except Exception as e:
                 _log(job, f"  ⚠️ 多资产组合生成失败: {e}", "warn")
 
@@ -1005,10 +1029,15 @@ def run_research_job(job_id: int, goals_dict: dict, preferred_model: str) -> Non
                 _log(job, "  📐 portfolio_optimizer 构建权重优化组合...", "progress")
                 port_strategy = build_portfolio_strategy(annual_ret, max_dd, period="2y")
                 if port_strategy:
-                    score = compute_match_score(port_strategy, goals_dict)
-                    port_strategy["match_pct"] = round(score)
-                    _log(job, f"  ✅ 权重优化组合：{port_strategy.get('method')}，分数={round(score)}", "success")
-                    _push_strategy(job, port_strategy, all_strategies)
+                    port_dd = port_strategy.get("max_drawdown_pct", 0)
+                    dd_limit = (goals_dict.get("max_drawdown") or 1.0) * 100
+                    if port_dd > dd_limit:
+                        _log(job, f"  ✗ 权重优化组合回撤{port_dd}%>{dd_limit}%，不符合目标，丢弃", "warn")
+                    else:
+                        score = compute_match_score(port_strategy, goals_dict)
+                        port_strategy["match_pct"] = round(score)
+                        _log(job, f"  ✅ 权重优化组合：{port_strategy.get('method')}，回撤{port_dd}%，分数={round(score)}", "success")
+                        _push_strategy(job, port_strategy, all_strategies)
             except Exception as e:
                 _log(job, f"  ⚠️ portfolio_optimizer 失败: {e}", "warn")
 
