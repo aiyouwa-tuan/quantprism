@@ -29,7 +29,7 @@ class QQQLeaps(StrategyBase):
         "position_pct": 0.20,
         "max_positions": 5,
         "dte_target": 365,  # 一年期
-        # 止盈阶梯
+        # 止盈阶梯（用底层股票收益近似期权收益）
         "profit_0_4m": 0.50,   # 0-4个月 50%
         "profit_4_6m": 0.30,   # 4-6个月 30%
         "profit_7_9m": 0.10,   # 7-9个月 10%
@@ -40,33 +40,30 @@ class QQQLeaps(StrategyBase):
         if df.empty or "close" not in df.columns:
             return []
 
-        signals = []
         returns = df.get("returns")
         if returns is None:
             return []
 
-        open_count = 0
+        p_0_4m = self.params["profit_0_4m"]
+        p_4_6m = self.params["profit_4_6m"]
+        p_7_9m = self.params["profit_7_9m"]
+        force_bars = int(self.params["force_close_months"] * 21)  # ~交易日
+
+        closes = df["close"].values
+        signals = []
+        in_position = False
 
         for i in range(1, len(df)):
+            if in_position:
+                continue  # one position at a time (simplification)
+
             if pd.isna(returns.iloc[i]):
                 continue
 
-            price = df["close"].iloc[i]
+            price = closes[i]
 
-            # 开仓: 当日跌幅 > 1%
+            # 开仓: 当日跌幅 >= 阈值
             if returns.iloc[i] <= self.params["dip_threshold"]:
-                if open_count >= self.params["max_positions"]:
-                    # 满 5 笔，先发出关闭最早的信号
-                    signals.append(Signal(
-                        timestamp=df.index[i],
-                        symbol="QQQ",
-                        direction="close",
-                        entry_price=price,
-                        strategy_name=self.name,
-                        metadata={"reason": "持仓满5笔，清掉最早一笔", "type": "leaps_rotate"},
-                    ))
-                    open_count -= 1
-
                 signals.append(Signal(
                     timestamp=df.index[i],
                     symbol="QQQ",
@@ -82,6 +79,42 @@ class QQQLeaps(StrategyBase):
                         "trigger": f"QQQ 日跌 {returns.iloc[i]*100:.1f}%",
                     },
                 ))
-                open_count += 1
+                in_position = True
+
+                # 向前扫描出仓
+                entry_price = price
+                exit_idx = None
+                exit_reason = "force_close"
+
+                for j in range(i + 1, min(i + force_bars + 1, len(df))):
+                    fwd_price = closes[j]
+                    ret = (fwd_price - entry_price) / entry_price
+                    bars_held = j - i
+
+                    m4 = 4 * 21
+                    m6 = 6 * 21
+
+                    if bars_held <= m4 and ret >= p_0_4m:
+                        exit_idx, exit_reason = j, f"0-4月止盈 {p_0_4m*100:.0f}%"
+                        break
+                    if m4 < bars_held <= m6 and ret >= p_4_6m:
+                        exit_idx, exit_reason = j, f"4-6月止盈 {p_4_6m*100:.0f}%"
+                        break
+                    if bars_held > m6 and ret >= p_7_9m:
+                        exit_idx, exit_reason = j, f"7-9月止盈 {p_7_9m*100:.0f}%"
+                        break
+
+                if exit_idx is None:
+                    exit_idx = min(i + force_bars, len(df) - 1)
+
+                signals.append(Signal(
+                    timestamp=df.index[exit_idx],
+                    symbol="QQQ",
+                    direction="close",
+                    entry_price=closes[exit_idx],
+                    strategy_name=self.name,
+                    metadata={"reason": exit_reason},
+                ))
+                in_position = False
 
         return signals

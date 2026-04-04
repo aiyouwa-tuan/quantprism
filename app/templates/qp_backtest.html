@@ -45,6 +45,19 @@
                     <option value="{{ sym }}">
                     {% endfor %}
                 </datalist>
+                <!-- Strategy symbol pills — OR relationship (pick one to run) -->
+                <div id="symbol-pills" class="flex flex-wrap items-center gap-1 mt-2 min-h-[22px]">
+                    {% for sym in (preselect_symbols or [preselect_symbol or 'SPY']) %}
+                    {% if not loop.first %}
+                    <span class="text-[10px] font-semibold text-gray-600 px-0.5">OR</span>
+                    {% endif %}
+                    <button type="button" onclick="selectSymbol('{{ sym }}')"
+                            class="symbol-pill px-2 py-0.5 rounded text-[11px] font-mono font-semibold border transition-colors
+                                   {% if loop.first %}bg-accent-blue/20 text-accent-blue border-accent-blue/40{% else %}bg-dark-600 text-gray-400 border-dark-500 hover:border-accent-blue/40 hover:text-accent-blue{% endif %}">
+                        {{ sym }}
+                    </button>
+                    {% endfor %}
+                </div>
             </div>
             <div class="flex-1">
                 <label class="block text-xs text-gray-400 mb-1.5">开始日期</label>
@@ -133,6 +146,51 @@
 </div><!-- end backtest-mode-tabs -->
 
 <script>
+// ── Symbol map: strategy id → list of symbols ──
+var SYMBOL_MAP = {{ symbol_map | tojson }};
+
+function selectSymbol(sym) {
+    document.getElementById('inp-symbol').value = sym;
+    document.querySelectorAll('.symbol-pill').forEach(function(p) {
+        var active = p.textContent.trim() === sym;
+        p.classList.toggle('bg-accent-blue/20', active);
+        p.classList.toggle('text-accent-blue', active);
+        p.classList.toggle('border-accent-blue/40', active);
+        p.classList.toggle('bg-dark-600', !active);
+        p.classList.toggle('text-gray-400', !active);
+        p.classList.toggle('border-dark-500', !active);
+    });
+}
+
+function updateSymbolPills(strategyId) {
+    var symbols = SYMBOL_MAP[strategyId] || ['SPY'];
+    var container = document.getElementById('symbol-pills');
+    container.innerHTML = '';
+    symbols.forEach(function(sym, idx) {
+        if (idx > 0) {
+            var or = document.createElement('span');
+            or.className = 'text-[10px] font-semibold text-gray-600 px-0.5';
+            or.textContent = 'OR';
+            container.appendChild(or);
+        }
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = sym;
+        btn.onclick = function() { selectSymbol(sym); };
+        btn.className = 'symbol-pill px-2 py-0.5 rounded text-[11px] font-mono font-semibold border transition-colors ' +
+            (idx === 0
+                ? 'bg-accent-blue/20 text-accent-blue border-accent-blue/40'
+                : 'bg-dark-600 text-gray-400 border-dark-500 hover:border-accent-blue/40 hover:text-accent-blue');
+        container.appendChild(btn);
+    });
+    // Auto-fill input with first symbol
+    document.getElementById('inp-symbol').value = symbols[0];
+}
+
+document.getElementById('sel-strategy').addEventListener('change', function() {
+    updateSymbolPills(parseInt(this.value));
+});
+
 function switchMode(mode) {
     document.querySelectorAll('#backtest-mode-tabs > .flex > .qp-tab').forEach(function(t) { t.classList.remove('active'); });
     document.querySelectorAll('#backtest-mode-tabs > .qp-tab-content').forEach(function(p) { p.classList.remove('active'); });

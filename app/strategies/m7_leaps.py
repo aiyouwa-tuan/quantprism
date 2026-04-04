@@ -36,7 +36,7 @@ class M7Leaps(StrategyBase):
         "profit_7d": 0.10,    # 7天内 10% 落袋
         "profit_4w": 0.20,    # 4周内 20% 止盈
         "profit_strong": 1.0, # 100% 强烈止盈
-        "force_close_dte": 90, # 到期前 90 天强平
+        "force_close_dte": 90, # 到期前 90 天强平（用交易日近似）
         "symbols": M7_SYMBOLS,
     }
 
@@ -44,18 +44,29 @@ class M7Leaps(StrategyBase):
         if df.empty or "close" not in df.columns:
             return []
 
-        signals = []
         rsi = df.get("rsi_14")
         bb_lower = df.get("bb_lower")
 
         if rsi is None or bb_lower is None:
             return []
 
+        p7d = self.params["profit_7d"]
+        p4w = self.params["profit_4w"]
+        p_strong = self.params["profit_strong"]
+        force_bars = self.params["force_close_dte"]  # ~90 trading days
+
+        closes = df["close"].values
+        signals = []
+        in_position = False
+
         for i in range(1, len(df)):
+            if in_position:
+                continue  # one position at a time
+
             if pd.isna(rsi.iloc[i]) or pd.isna(bb_lower.iloc[i]):
                 continue
 
-            price = df["close"].iloc[i]
+            price = closes[i]
 
             # 开仓: RSI <= 40 且触碰布林带下轨
             if rsi.iloc[i] <= self.params["rsi_threshold"] and price <= bb_lower.iloc[i]:
@@ -64,7 +75,7 @@ class M7Leaps(StrategyBase):
                     symbol="",
                     direction="long",
                     entry_price=price,
-                    stop_loss=0,  # LEAPS 不设止损，按时间止盈
+                    stop_loss=0,
                     strategy_name=self.name,
                     metadata={
                         "delta": self.params["delta_target"],
@@ -72,5 +83,39 @@ class M7Leaps(StrategyBase):
                         "exit_rules": "7d:10% | 4w:20% | 100%:止盈 | 90DTE:强平",
                     },
                 ))
+                in_position = True
+
+                # 向前扫描，找到第一个触发的出仓条件
+                entry_price = price
+                exit_idx = None
+                exit_reason = "force_close"
+
+                for j in range(i + 1, min(i + force_bars + 1, len(df))):
+                    fwd_price = closes[j]
+                    ret = (fwd_price - entry_price) / entry_price
+                    bars_held = j - i
+
+                    if ret >= p_strong:
+                        exit_idx, exit_reason = j, f"强止盈 {p_strong*100:.0f}%"
+                        break
+                    if bars_held <= 7 and ret >= p7d:
+                        exit_idx, exit_reason = j, f"7日止盈 {p7d*100:.0f}%"
+                        break
+                    if bars_held <= 28 and ret >= p4w:
+                        exit_idx, exit_reason = j, f"4周止盈 {p4w*100:.0f}%"
+                        break
+
+                if exit_idx is None:
+                    exit_idx = min(i + force_bars, len(df) - 1)
+
+                signals.append(Signal(
+                    timestamp=df.index[exit_idx],
+                    symbol="",
+                    direction="close",
+                    entry_price=closes[exit_idx],
+                    strategy_name=self.name,
+                    metadata={"reason": exit_reason},
+                ))
+                in_position = False
 
         return signals

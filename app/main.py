@@ -1775,6 +1775,8 @@ def hunt_page(request: Request, db: Session = Depends(get_db)):
         "strategies": strategies,
         "low_match_fallback": low_match_fallback,
         "min_match": 40,
+        "param_hints": PARAM_HINTS,
+        "param_labels": PARAM_LABELS,
     })
 
 
@@ -2084,6 +2086,19 @@ def backtest_page(request: Request, strategy: str = "", symbol: str = "", db: Se
     five_years_ago = (datetime.now() - timedelta(days=5*365)).strftime('%Y-%m-%d')
     today = datetime.now().strftime('%Y-%m-%d')
 
+    # Build id→symbols map for JS auto-fill
+    symbol_map = {
+        c.id: [s.strip() for s in c.symbol_pool.split(",") if s.strip()]
+        if c.symbol_pool else ["SPY"]
+        for c in configs
+    }
+    # Determine preselect symbol from strategy's actual pool
+    preselected_symbols = ["SPY"]
+    if preselect_id and preselect_id in symbol_map:
+        preselected_symbols = symbol_map[preselect_id]
+    elif symbol:
+        preselected_symbols = [symbol]
+
     return templates.TemplateResponse("qp_backtest.html", {
         "request": request,
         "goals": goals,
@@ -2091,7 +2106,9 @@ def backtest_page(request: Request, strategy: str = "", symbol: str = "", db: Se
         "configs": configs,
         "preselect_strategy": strategy,
         "preselect_id": preselect_id,
-        "preselect_symbol": symbol or "SPY",
+        "preselect_symbol": preselected_symbols[0],
+        "preselect_symbols": preselected_symbols,
+        "symbol_map": symbol_map,
         "five_years_ago": five_years_ago,
         "today": today,
     })
