@@ -1,23 +1,7 @@
 <!-- Hunt search results partial — HTMX target #hunt-results -->
-<div class="flex items-center justify-between mb-4">
-    {% if low_match_fallback %}
-    <span class="text-lg text-white font-medium">未找到符合目标的策略</span>
-    {% else %}
-    <span class="text-lg text-white font-medium">找到 {{ strategies|length }} 个候选策略</span>
-    {% endif %}
-    <div class="flex items-center gap-2">
-        <button class="px-3 py-1.5 rounded-lg border border-dark-500 text-gray-400 hover:text-white hover:border-dark-400 text-xs"
-                hx-post="/hunt/search" hx-target="#hunt-results" hx-swap="innerHTML"
-                hx-indicator="#hunt-spinner">
-            &#x1F504; 重新搜索
-        </button>
-        <button class="px-3 py-1.5 rounded-lg border border-accent-blue/40 text-accent-blue hover:bg-accent-blue/10 text-xs font-medium"
-                hx-post="/hunt/ai-generate" hx-target="#hunt-more" hx-swap="beforeend"
-                hx-indicator="#ai-spinner">
-            &#x2728; 让AI再生成更多
-        </button>
-    </div>
-</div>
+<p class="text-sm text-gray-500 mb-4">
+    {% if low_match_fallback %}未找到完全符合目标的策略，以下为最接近候选{% else %}找到 {{ strategies|length }} 个候选策略{% endif %}
+</p>
 
 {% if low_match_fallback %}
 <div class="mb-4 px-4 py-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-sm text-yellow-300">
@@ -252,6 +236,14 @@
 {% endfor %}
 
 <div id="hunt-more"></div>
+
+<div class="mt-4 text-center">
+    <button class="px-5 py-2 rounded-lg border border-accent-blue/40 text-accent-blue hover:bg-accent-blue/10 text-sm font-medium transition"
+            hx-post="/hunt/ai-generate" hx-target="#hunt-more" hx-swap="beforeend"
+            hx-indicator="#ai-spinner">
+        &#x2728; 让AI再生成更多策略
+    </button>
+</div>
 <div id="ai-spinner" class="htmx-indicator text-center py-4">
     <span class="text-sm text-gray-400">AI 正在生成策略...</span>
 </div>
