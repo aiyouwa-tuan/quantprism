@@ -99,10 +99,20 @@
         <h2 class="text-sm font-semibold text-white">
             {% if low_match_fallback %}最接近的 {{ strategies|length }} 个策略（不完全符合目标）{% else %}找到 {{ strategies|length }} 个候选策略{% endif %}
         </h2>
-        <button onclick="startResearch()"
-                class="text-xs px-3 py-1.5 rounded-lg border border-accent-blue/40 text-accent-blue hover:bg-accent-blue/10 transition">
-            让 AI 再找更多
-        </button>
+        <div class="flex items-center gap-2">
+            <button onclick="startResearch()"
+                    class="text-xs px-3 py-1.5 rounded-lg border border-accent-blue/40 text-accent-blue hover:bg-accent-blue/10 font-medium transition">
+                &#x1F504; 重新搜索
+            </button>
+            <button hx-post="/hunt/portfolio-optimize" hx-target="#hunt-more" hx-swap="beforeend" hx-indicator="#ai-spinner"
+                    class="text-xs px-3 py-1.5 rounded-lg border border-dark-500 text-gray-400 hover:text-white hover:border-accent-blue transition">
+                组合优化
+            </button>
+            <button hx-post="/hunt/ai-generate" hx-target="#hunt-more" hx-swap="beforeend" hx-indicator="#ai-spinner"
+                    class="text-xs px-3 py-1.5 rounded-lg border border-dark-500 text-gray-400 hover:text-white hover:border-accent-blue transition">
+                让 AI 再找更多
+            </button>
+        </div>
     </div>
 {% elif goals %}
     <div class="text-center py-12 text-gray-500">

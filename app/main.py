@@ -1695,8 +1695,8 @@ def goals_page(request: Request, db: Session = Depends(get_db)):
 @app.post("/goals/save", response_class=HTMLResponse)
 def save_goals_v4(
     request: Request,
-    annual_return_target: Optional[float] = Form(None),
-    max_drawdown: Optional[float] = Form(None),
+    annual_return_target: str = Form(""),
+    max_drawdown: str = Form(""),
     risk_per_trade: float = Form(2.0),
     asset_classes: str = Form(""),
     holding_period: str = Form("days_weeks"),
@@ -1708,9 +1708,11 @@ def save_goals_v4(
     normalized_asset_classes = _normalize_goal_assets(asset_classes, assets)
     normalized_holding_period = _normalize_holding_period(holding_period, horizon)
     goals = db.query(UserGoals).first()
-    # None 表示用户主动清空该字段（不设上限/下限），直接存 None
-    new_return = (annual_return_target / 100) if annual_return_target is not None else None
-    new_drawdown = (max_drawdown / 100) if max_drawdown is not None else None
+    # 空字符串 = 用户清空了字段 = 不设限 → 存 None
+    _ret = float(annual_return_target) if annual_return_target.strip() else None
+    _dd = float(max_drawdown) if max_drawdown.strip() else None
+    new_return = (_ret / 100) if _ret is not None else None
+    new_drawdown = (_dd / 100) if _dd is not None else None
     if goals:
         goals.annual_return_target = new_return
         goals.max_drawdown = new_drawdown

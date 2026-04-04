@@ -205,8 +205,14 @@ function saveAndHunt() {
     const form = document.querySelector('form');
     const data = new FormData(form);
     data.append('redirect_to', 'hunt');
-    fetch('/goals/save', { method: 'POST', body: data }).then(function() {
-        window.location.href = '/hunt';
+    fetch('/goals/save', { method: 'POST', body: data }).then(function(r) {
+        if (r.ok || r.redirected) {
+            window.location.href = '/hunt';
+        } else {
+            alert('保存失败，请检查输入');
+        }
+    }).catch(function(e) {
+        alert('保存失败: ' + e.message);
     });
 }
 </script>
