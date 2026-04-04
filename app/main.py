@@ -1760,7 +1760,13 @@ def hunt_page(request: Request, db: Session = Depends(get_db)):
             "holding_period": goals.holding_period or "days_weeks",
         }
         MIN_MATCH = 40
+        # 硬筛选：回撤目标有值时，只保留预估回撤下限 ≤ 目标的策略
+        dd_target = goals.max_drawdown
         for s in library:
+            if dd_target is not None:
+                dd_range = s.get("max_drawdown_range", [0, 100])
+                if dd_range[0] > dd_target * 100:
+                    continue  # 该策略的最低回撤都超过目标，跳过
             score = compute_match_score(s, goals_dict)
             strategies.append({**s, "match_pct": round(score)})
         strategies.sort(key=lambda x: x["match_pct"], reverse=True)
@@ -1769,8 +1775,8 @@ def hunt_page(request: Request, db: Session = Depends(get_db)):
             strategies = qualified[:10]
             low_match_fallback = False
         else:
-            strategies = strategies[:5]
-            low_match_fallback = True
+            strategies = strategies[:5] if strategies else []
+            low_match_fallback = bool(strategies)
     else:
         strategies = []
         low_match_fallback = False
@@ -1799,10 +1805,15 @@ def hunt_search(request: Request, db: Session = Depends(get_db)):
         "holding_period": goals.holding_period or "days_weeks",
     }
 
-    # Search library
+    # Search library — 硬筛选回撤
     library = get_strategy_library()
+    dd_target = goals.max_drawdown  # None = 不设下限
     results = []
     for s in library:
+        if dd_target is not None:
+            dd_range = s.get("max_drawdown_range", [0, 100])
+            if dd_range[0] > dd_target * 100:
+                continue  # 最低回撤超过目标，直接排除
         score = compute_match_score(s, goals_dict)
         results.append({**s, "match_pct": round(score), "source": s.get("source", "library")})
 

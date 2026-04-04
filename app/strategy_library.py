@@ -716,9 +716,29 @@ STRATEGY_LIBRARY = [
 ]
 
 
+def _infer_drawdown(s: dict) -> list:
+    """根据风险等级和收益区间推算预估最大回撤范围"""
+    if s.get("max_drawdown_range"):
+        return s["max_drawdown_range"]
+    risk = s.get("risk_level", "medium")
+    ret = s.get("annual_return_range", [10, 20])
+    avg_ret = (ret[0] + ret[1]) / 2
+    if risk == "low":
+        return [max(3, int(avg_ret * 0.3)), max(5, int(avg_ret * 0.6))]
+    elif risk == "high":
+        return [max(15, int(avg_ret * 0.6)), max(25, int(avg_ret * 1.0))]
+    else:  # medium
+        return [max(8, int(avg_ret * 0.4)), max(12, int(avg_ret * 0.7))]
+
+
 def get_library() -> list[dict]:
-    """返回所有策略，按名称排序"""
-    return sorted(STRATEGY_LIBRARY, key=lambda x: x["name"])
+    """返回所有策略（含推算回撤），按名称排序"""
+    out = []
+    for s in STRATEGY_LIBRARY:
+        s = dict(s)
+        s["max_drawdown_range"] = _infer_drawdown(s)
+        out.append(s)
+    return sorted(out, key=lambda x: x["name"])
 
 
 def filter_library(

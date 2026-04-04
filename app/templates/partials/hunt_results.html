@@ -210,10 +210,8 @@
                 <span class="ml-1 font-bold text-accent-green">{{ s.annual_return_range[0] if s.annual_return_range else '?' }}-{{ s.annual_return_range[1] if s.annual_return_range else '?' }}%</span>
             </div>
             <div>
-                <span class="text-xs text-gray-500">风险等级</span>
-                <span class="ml-1 font-bold {{ 'text-accent-green' if s.risk_level == 'low' else 'text-accent-yellow' if s.risk_level == 'medium' else 'text-accent-red' }}">
-                    {{ s.risk_level or 'medium' }}
-                </span>
+                <span class="text-xs text-gray-500">预估回撤</span>
+                <span class="ml-1 font-bold text-accent-red">{% if s.max_drawdown_range %}{{ s.max_drawdown_range[0] }}-{{ s.max_drawdown_range[1] }}%{% elif s.backtest_validation %}{{ s.backtest_validation.max_drawdown_pct }}%{% else %}?{% endif %}</span>
             </div>
             <div>
                 <span class="text-xs text-gray-500">预估胜率</span>
