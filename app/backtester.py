@@ -535,7 +535,9 @@ def run_full_backtest(config: StrategyConfig, goals: UserGoals = None, db=None,
     metrics_test = _simulate_portfolio(signals_test, df_test, risk_per_trade=risk_per_trade, cost_model=cost_model)
 
     compatible = True
-    if goals and metrics.max_drawdown < -goals.max_drawdown:
+    if goals and goals.max_drawdown is not None and metrics.max_drawdown < -goals.max_drawdown:
+        compatible = False
+    if goals and goals.annual_return_target is not None and metrics.annual_return < goals.annual_return_target:
         compatible = False
 
     report = generate_backtest_report(metrics, cost_model)

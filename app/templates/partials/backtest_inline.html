@@ -92,15 +92,17 @@
             <h2 class="text-sm font-semibold text-white">AI 建议</h2>
         </div>
         <p class="text-sm text-gray-300 leading-relaxed mb-4">
-            {% if goals and metrics.annual_return >= goals.annual_return_target and metrics.max_drawdown <= goals.max_drawdown %}
+            {% set ret_ok = (not goals or goals.annual_return_target is none or metrics.annual_return >= goals.annual_return_target) %}
+            {% set dd_ok  = (not goals or goals.max_drawdown is none or metrics.max_drawdown >= -goals.max_drawdown) %}
+            {% if goals and ret_ok and dd_ok %}
                 该策略在 {{ symbol }} 上的历史表现 <span class="text-accent-green font-medium">达到了你的目标</span>。
-                年化 {{ '%.1f'|format(metrics.annual_return * 100) }}% 超过目标 {{ '%.0f'|format(goals.annual_return_target * 100) }}%，
-                回撤 {{ '%.1f'|format(metrics.max_drawdown * 100) }}% 低于限额 {{ '%.0f'|format(goals.max_drawdown * 100) }}%。
+                {% if goals.annual_return_target is not none %}年化 {{ '%.1f'|format(metrics.annual_return * 100) }}% 超过目标 {{ '%.0f'|format(goals.annual_return_target * 100) }}%。{% endif %}
+                {% if goals.max_drawdown is not none %}回撤 {{ '%.1f'|format(metrics.max_drawdown * 100) }}% 低于限额 {{ '%.0f'|format(goals.max_drawdown * 100) }}%。{% endif %}
                 建议用不同标的进一步验证稳健性。
-            {% elif goals and metrics.max_drawdown > goals.max_drawdown %}
+            {% elif goals and not dd_ok %}
                 回撤 {{ '%.1f'|format(metrics.max_drawdown * 100) }}% <span class="text-accent-red font-medium">超过了你的目标 {{ '%.0f'|format(goals.max_drawdown * 100) }}%</span>。
                 建议加入止损或降低仓位来控制回撤。也可以尝试与低相关策略组合使用。
-            {% elif goals and metrics.annual_return < goals.annual_return_target %}
+            {% elif goals and not ret_ok %}
                 年化收益 {{ '%.1f'|format(metrics.annual_return * 100) }}% <span class="text-accent-red font-medium">未达到目标 {{ '%.0f'|format(goals.annual_return_target * 100) }}%</span>。
                 可以尝试优化参数或换一个波动更大的标的。
             {% else %}

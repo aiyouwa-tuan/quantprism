@@ -2266,7 +2266,7 @@ def backtest_run(
             win_rate=round(metrics.win_rate, 4),
             total_trades=metrics.total_trades,
             profit_factor=round(metrics.profit_factor, 2),
-            compatible_with_goals=True,
+            compatible_with_goals=result.get("compatible", True),
         )
         db.add(run_record)
         db.commit()
