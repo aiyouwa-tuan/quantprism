@@ -1800,10 +1800,22 @@ def hunt_search(request: Request, db: Session = Depends(get_db)):
 
     results.sort(key=lambda x: x["match_pct"], reverse=True)
 
+    # 只展示匹配度 ≥ 40 的策略；不足时保留最高分的最多 5 条并标记"低匹配"
+    MIN_MATCH = 40
+    qualified = [r for r in results if r["match_pct"] >= MIN_MATCH]
+    if qualified:
+        final = qualified[:15]
+        low_match_fallback = False
+    else:
+        final = results[:5]
+        low_match_fallback = True
+
     return templates.TemplateResponse("partials/hunt_results.html", {
         "request": request,
-        "strategies": results[:15],
+        "strategies": final,
         "goals": goals,
+        "low_match_fallback": low_match_fallback,
+        "min_match": MIN_MATCH,
     })
 
 
