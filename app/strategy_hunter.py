@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 # ─── AI 调用（复用 ai_analysis 的配置）──────────────────────────────────────────
 
-def _call_ai(prompt: str, max_tokens: int = 2000) -> str | None:
+def _call_ai(prompt: str, max_tokens: int = 2000):
     """调用当前可用 AI 返回文本，复用 ai_analysis 的 provider 配置"""
     from ai_analysis import (
         AI_PROVIDERS,
@@ -601,3 +601,310 @@ async def hunt_strategies(goals: dict) -> list[dict]:
     all_strategies.sort(key=lambda x: x.get("match_score", 0), reverse=True)
 
     return all_strategies
+
+
+# ─── 后台研究引擎 ─────────────────────────────────────────────────────────────────
+
+def _call_ai_with_provider(prompt: str, provider: str, max_tokens: int = 2000):
+    """调用指定 provider 的 AI，不走 get_active_provider() 自动选择"""
+    from ai_analysis import AI_PROVIDERS, _call_openai_compatible, _call_claude, _call_gemini
+    if provider not in AI_PROVIDERS:
+        return _call_ai(prompt, max_tokens)
+    cfg = AI_PROVIDERS[provider]
+    key = os.getenv(cfg["env_key"])
+    if not key:
+        return _call_ai(prompt, max_tokens)
+    try:
+        if provider in ("deepseek", "openai", "xai"):
+            result = _call_openai_compatible(cfg["base_url"], key, cfg["model"], prompt, provider)
+        elif provider == "claude":
+            result = _call_claude(key, cfg["model"], prompt)
+        elif provider == "gemini":
+            result = _call_gemini(key, cfg["model"], prompt)
+        else:
+            return None
+        return result.get("analysis")
+    except Exception as e:
+        logger.warning("Research AI call failed (%s): %s", provider, e)
+        return None
+
+
+def _ai_generate_with_provider(goals: dict, provider: str, iteration: int = 1):
+    """与 ai_generate_strategy 相同但使用指定 provider，并要求生成不同类型策略"""
+    annual_ret = goals.get("annual_return", 0.15)
+    max_dd = goals.get("max_drawdown", 0.10)
+    instruments = ", ".join(goals.get("asset_classes", "us_stocks,etf").split(","))
+
+    # 每轮要求不同风格，避免重复
+    styles = ["momentum", "mean_reversion", "volatility", "options_selling", "trend_following"]
+    style = styles[(iteration - 1) % len(styles)]
+
+    prompt = f"""你是量化交易策略研究专家。这是第{iteration}轮研究，请生成一个【{style}】风格的交易策略。
+
+用户目标：年化{annual_ret*100:.0f}%，最大回撤≤{max_dd*100:.0f}%，交易品种：{instruments}
+
+严格输出 JSON，字段：
+{{
+  "id": "英文snake_case唯一ID",
+  "name": "中文策略名",
+  "description": "2-3句中文描述",
+  "source": "AI Research R{iteration}",
+  "instrument": "stock/etf/option之一",
+  "direction": "bullish/bearish/neutral之一",
+  "style": "{style}",
+  "risk_level": "low/medium/high之一",
+  "annual_return_range": [最小年化%, 最大年化%],
+  "win_rate_pct": 胜率数字,
+  "params": {{"param1": value1}},
+  "tags": ["标签1", "标签2"],
+  "why_it_works": "原理解释（2句）",
+  "best_market": "最适合市场条件",
+  "worst_market": "最不适合市场条件",
+  "default_symbols": ["TICKER1", "TICKER2"]
+}}
+
+只输出JSON。"""
+
+    raw = _call_ai_with_provider(prompt, provider, max_tokens=1500)
+    if not raw:
+        return None
+    try:
+        text = raw.strip()
+        start = text.find("{")
+        end = text.rfind("}") + 1
+        if start == -1 or end == 0:
+            return None
+        parsed = json.loads(text[start:end])
+        parsed["source"] = f"AI Research R{iteration}"
+        return parsed
+    except Exception:
+        return None
+
+
+def run_research_job(job_id: int, goals_dict: dict, preferred_model: str) -> None:
+    """
+    后台研究主函数 — 基于 Karpathy autoresearch 范式。
+
+    核心循环（autoresearch loop）：
+      LOOP N 次：
+        1. 生成假设（新策略）
+        2. 评分（compute_match_score = 量化指标）
+        3. 分数 ≥ KEEP_THRESHOLD → KEEP（加入结果集）
+           否则 → DISCARD，并记录原因
+        4. 若本轮有留下的策略 → 下轮让 AI 在最优结果基础上改进
+           否则 → 换风格重新探索
+
+    结合 GitHub 搜索作为初始化种子，AI 迭代研究不断优化。
+    """
+    from models import SessionLocal, ResearchJob
+    db = SessionLocal()
+
+    KEEP_THRESHOLD = 55   # 分数阈值：≥55 才 KEEP
+    MAX_ITERATIONS = 5    # autoresearch 轮数（可调）
+
+    def _save(job):
+        job.updated_at = datetime.now()
+        db.commit()
+
+    def _log(job, msg: str, step_type: str = "info"):
+        steps = json.loads(job.steps_log or "[]")
+        steps.append({"time": datetime.now().strftime("%H:%M:%S"), "msg": msg, "type": step_type})
+        job.steps_log = json.dumps(steps, ensure_ascii=False)
+        _save(job)
+
+    def _push_strategy(job, strategy, all_strategies):
+        """将策略加入结果集并持久化"""
+        all_strategies.append(strategy)
+        all_strategies.sort(key=lambda x: x.get("match_pct", 0), reverse=True)
+        job.strategies_found = json.dumps(all_strategies, ensure_ascii=False, default=str)
+        job.total_found = len(all_strategies)
+        _save(job)
+
+    try:
+        job = db.query(ResearchJob).filter(ResearchJob.id == job_id).first()
+        if not job:
+            return
+        job.status = "running"
+        job.model_used = preferred_model
+        _save(job)
+
+        all_strategies = []
+        best_score_so_far = 0.0
+        best_strategy_so_far = None
+
+        # ══ Phase 0: GitHub 种子搜索 ══════════════════════════════════
+        _log(job, "🌐 [Phase 0] GitHub 量化策略库种子搜索...", "progress")
+        try:
+            query = "quantitative trading strategy python"
+            if "crypto" in goals_dict.get("asset_classes", ""):
+                query = "crypto trading bot python strategy"
+            elif "options" in goals_dict.get("asset_classes", ""):
+                query = "options trading strategy python sell put"
+            repos = search_github_strategies(query, min_stars=100)
+            if repos:
+                _log(job, f"✅ GitHub 找到 {len(repos)} 个仓库，摘要分析中...", "success")
+                for repo in repos[:3]:
+                    try:
+                        summary = ai_summarize_strategy(repo)
+                        strategy = {
+                            "id": summary.get("name", "").replace("/", "_").replace(" ", "_").lower()[:40],
+                            "name": summary.get("name", "GitHub策略"),
+                            "description": summary.get("summary_cn", summary.get("description", "")),
+                            "source": f"GitHub ⭐{summary.get('stars', 0)}",
+                            "url": summary.get("url", ""),
+                            "instrument": "stock",
+                            "direction": "bullish",
+                            "style": summary.get("strategy_type", "other"),
+                            "risk_level": "medium",
+                            "annual_return_range": summary.get("expected_annual_return", [10, 20]),
+                            "win_rate_pct": 50,
+                            "tags": (summary.get("instruments", []) + summary.get("topics", []))[:4],
+                            "why_it_works": summary.get("summary_cn", ""),
+                            "best_market": summary.get("best_market", ""),
+                            "worst_market": summary.get("risks", ""),
+                            "default_symbols": ["SPY", "QQQ"],
+                        }
+                        score = compute_match_score(strategy, goals_dict)
+                        strategy["match_pct"] = round(score)
+                        if score >= KEEP_THRESHOLD:
+                            _log(job, f"  KEEP ✅ {strategy['name']} (分数={round(score)})", "success")
+                            _push_strategy(job, strategy, all_strategies)
+                            if score > best_score_so_far:
+                                best_score_so_far = score
+                                best_strategy_so_far = strategy
+                        else:
+                            _log(job, f"  DISCARD ✗ {strategy['name']} (分数={round(score)}<{KEEP_THRESHOLD})", "warn")
+                    except Exception:
+                        continue
+            else:
+                _log(job, "⚠️ GitHub 受限，跳过种子搜索", "warn")
+        except Exception as e:
+            _log(job, f"⚠️ GitHub 阶段异常: {e}", "warn")
+
+        # ══ Phase 1+: Autoresearch 迭代循环 ═══════════════════════════
+        styles = ["momentum", "mean_reversion", "volatility_breakout", "options_selling", "trend_following"]
+
+        for iteration in range(1, MAX_ITERATIONS + 1):
+            _log(job, f"─── [迭代 {iteration}/{MAX_ITERATIONS}] autoresearch 循环开始 ───", "progress")
+
+            # 构造本轮 prompt：若有最优策略则让 AI 改进，否则换风格探索
+            style = styles[(iteration - 1) % len(styles)]
+            if best_strategy_so_far and iteration > 1:
+                # 改进模式：基于最优策略变体
+                annual_ret = goals_dict.get("annual_return", 0.15)
+                max_dd = goals_dict.get("max_drawdown", 0.10)
+                best_name = best_strategy_so_far.get("name", "")
+                best_desc = best_strategy_so_far.get("description", "")
+                prompt = f"""你是量化策略研究专家，进行第{iteration}轮 autoresearch 迭代。
+
+当前最优策略（分数={round(best_score_so_far)}）：
+名称：{best_name}
+描述：{best_desc}
+
+用户目标：年化{annual_ret*100:.0f}%，最大回撤≤{max_dd*100:.0f}%
+
+请生成一个【改进版本或互补策略】，要求：
+1. 解决上述策略的主要缺点
+2. 或从不同角度（{style}风格）达到同样目标
+3. 必须比上述策略有更好的风险调整收益
+
+严格输出 JSON：
+{{
+  "id": "唯一英文snake_case",
+  "name": "中文名称",
+  "description": "2-3句中文描述",
+  "source": "AI Autoresearch R{iteration}",
+  "instrument": "stock/etf/option之一",
+  "direction": "bullish/bearish/neutral之一",
+  "style": "{style}",
+  "risk_level": "low/medium/high",
+  "annual_return_range": [最小%, 最大%],
+  "win_rate_pct": 胜率数字,
+  "params": {{}},
+  "tags": ["tag1","tag2"],
+  "why_it_works": "原理2句",
+  "best_market": "适合市场",
+  "worst_market": "不适合市场",
+  "default_symbols": ["TICKER1"]
+}}
+只输出JSON。"""
+            else:
+                # 探索模式：全新风格
+                annual_ret = goals_dict.get("annual_return", 0.15)
+                max_dd = goals_dict.get("max_drawdown", 0.10)
+                prompt = f"""你是量化策略研究专家，进行第{iteration}轮探索，风格：{style}。
+
+用户目标：年化{annual_ret*100:.0f}%，最大回撤≤{max_dd*100:.0f}%
+
+生成一个【{style}】风格策略，严格输出 JSON：
+{{
+  "id": "唯一英文snake_case",
+  "name": "中文名称",
+  "description": "2-3句中文描述",
+  "source": "AI Autoresearch R{iteration}",
+  "instrument": "stock/etf/option之一",
+  "direction": "bullish/bearish/neutral之一",
+  "style": "{style}",
+  "risk_level": "low/medium/high",
+  "annual_return_range": [最小%, 最大%],
+  "win_rate_pct": 胜率数字,
+  "params": {{}},
+  "tags": ["tag1","tag2"],
+  "why_it_works": "原理2句",
+  "best_market": "适合市场",
+  "worst_market": "不适合市场",
+  "default_symbols": ["TICKER1"]
+}}
+只输出JSON。"""
+
+            # ── 执行生成 + 评分 + keep/discard ──────────────────────
+            try:
+                raw = _call_ai_with_provider(prompt, preferred_model, max_tokens=1200)
+                if not raw:
+                    _log(job, f"  ⚠️ 第{iteration}轮 AI 无响应", "warn")
+                    continue
+
+                text = raw.strip()
+                start = text.find("{")
+                end = text.rfind("}") + 1
+                if start == -1 or end == 0:
+                    _log(job, f"  ⚠️ 第{iteration}轮 JSON 解析失败", "warn")
+                    continue
+
+                strategy = json.loads(text[start:end])
+                score = compute_match_score(strategy, goals_dict)
+                strategy["match_pct"] = round(score)
+
+                # ── KEEP / DISCARD 决策 ──────────────────────────────
+                if score >= KEEP_THRESHOLD:
+                    _log(job, f"  KEEP ✅ {strategy.get('name','?')} 分数={round(score)}", "success")
+                    _push_strategy(job, strategy, all_strategies)
+                    if score > best_score_so_far:
+                        best_score_so_far = score
+                        best_strategy_so_far = strategy
+                        _log(job, f"  🏆 新最优！分数提升至 {round(score)}", "success")
+                else:
+                    _log(job, f"  DISCARD ✗ 分数={round(score)}<{KEEP_THRESHOLD}，重新探索", "warn")
+
+            except json.JSONDecodeError:
+                _log(job, f"  ⚠️ 第{iteration}轮 JSON 格式错误", "warn")
+            except Exception as e:
+                _log(job, f"  ❌ 第{iteration}轮异常: {e}", "error")
+
+        # ══ 完成 ═══════════════════════════════════════════════════════
+        job.status = "completed"
+        job.completed_at = datetime.now()
+        _log(job, f"🎉 Autoresearch 完成！KEEP {len(all_strategies)} 个策略，最优分数={round(best_score_so_far)}", "done")
+
+    except Exception as e:
+        try:
+            job = db.query(ResearchJob).filter(ResearchJob.id == job_id).first()
+            if job:
+                job.status = "failed"
+                job.error = str(e)
+                db.commit()
+        except Exception:
+            pass
+        logger.error("ResearchJob %d crashed: %s", job_id, e)
+    finally:
+        db.close()

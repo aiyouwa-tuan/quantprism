@@ -64,22 +64,63 @@
 
             <!-- Placeholder rows for unconfigured services -->
             {% set configured = api_configs | map(attribute='service_name') | list %}
-            {% for svc in [('claude', 'Claude API'), ('openai', 'OpenAI'), ('xai', 'XAI (Grok)')] %}
+            {% for svc in [('deepseek', 'DeepSeek', 'DEEPSEEK_API_KEY'), ('claude', 'Claude API', 'ANTHROPIC_API_KEY'), ('openai', 'ChatGPT (OpenAI)', 'OPENAI_API_KEY'), ('gemini', 'Google Gemini', 'GEMINI_API_KEY'), ('xai', 'XAI (Grok)', 'XAI_API_KEY')] %}
             {% if svc[0] not in configured %}
-            <div class="bg-dark-600 rounded-lg p-4 flex items-center justify-between gap-4 opacity-60">
-                <div class="flex items-center gap-3">
-                    <span class="w-2.5 h-2.5 rounded-full bg-gray-600"></span>
-                    <span class="text-sm text-gray-400 font-semibold">{{ svc[1] }}</span>
-                    <span class="text-xs text-gray-600">&#x672A;&#x914D;&#x7F6E;</span>
+            <div class="bg-dark-600 rounded-lg p-4 space-y-3 opacity-80" data-service="{{ svc[0] }}">
+                <div class="flex items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <span class="w-2.5 h-2.5 rounded-full bg-gray-600"></span>
+                        <span class="text-sm text-gray-300 font-semibold">{{ svc[1] }}</span>
+                        <span class="text-xs text-gray-600">未配置</span>
+                    </div>
+                    <button class="api-toggle-btn text-xs px-3 py-1.5 rounded-lg border border-accent-blue/40 text-accent-blue hover:bg-accent-blue/10 transition-colors"
+                            onclick="toggleApiEdit(this)">
+                        添加
+                    </button>
                 </div>
-                <a href="/settings/api/add?service={{ svc[0] }}&name={{ svc[1] }}"
-                   class="text-xs px-3 py-1.5 rounded-lg border border-accent-blue/30 text-accent-blue hover:bg-accent-blue/10 transition-colors">
-                    &#x6DFB;&#x52A0;
-                </a>
+                <div class="api-display hidden"></div>
+                <div class="api-edit hidden space-y-2">
+                    <input type="text" name="api_key"
+                           class="w-full bg-dark-800 border border-accent-blue rounded-lg px-3 py-1.5 text-sm text-white font-mono focus:outline-none"
+                           placeholder="API Key">
+                    <input type="text" name="api_secret"
+                           class="w-full bg-dark-800 border border-dark-500 rounded-lg px-3 py-1.5 text-sm text-white font-mono focus:outline-none"
+                           placeholder="API Secret (可选)">
+                </div>
             </div>
             {% endif %}
             {% endfor %}
         </div>
+    </div>
+
+    <!-- AI 研究模型选择 -->
+    <div class="bg-dark-700 border border-dark-600 rounded-xl p-5 space-y-4">
+        <div>
+            <h2 class="text-lg font-semibold text-white">AI 研究模型</h2>
+            <p class="text-xs text-gray-500 mt-1">选择「让AI再找更多」后台研究使用的模型，建议使用价格低的 DeepSeek</p>
+        </div>
+
+        {% if configured_providers %}
+        <div class="space-y-2" id="model-selector">
+            {% for p in configured_providers %}
+            <label class="flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors
+                          {{ 'border-accent-blue bg-accent-blue/10' if p.id == preferred_model else 'border-dark-500 hover:border-dark-400' }}">
+                <input type="radio" name="preferred_model" value="{{ p.id }}"
+                       class="hidden" {{ 'checked' if p.id == preferred_model }}
+                       onchange="savePreferredModel('{{ p.id }}', this.closest('label').parentElement)">
+                <span class="w-3 h-3 rounded-full border-2 flex-shrink-0
+                             {{ 'border-accent-blue bg-accent-blue' if p.id == preferred_model else 'border-gray-500' }}"></span>
+                <span class="text-sm text-white font-medium">{{ p.name }}</span>
+                {% if p.id == 'deepseek' %}<span class="text-xs text-gray-500 ml-auto">推荐 · 价格低</span>{% endif %}
+                {% if p.id == 'claude' %}<span class="text-xs text-gray-500 ml-auto">最强推理</span>{% endif %}
+                {% if p.id == 'gemini' %}<span class="text-xs text-gray-500 ml-auto">免费额度多</span>{% endif %}
+            </label>
+            {% endfor %}
+        </div>
+        <div id="model-save-toast" class="hidden text-xs text-accent-green">✅ 已保存</div>
+        {% else %}
+        <div class="text-sm text-gray-500 py-2">请先在上方配置至少一个 AI 服务的 API Key</div>
+        {% endif %}
     </div>
 
     <!-- Toast notification (hidden by default) -->
@@ -134,6 +175,31 @@ function showToast() {
         toast.classList.add('opacity-0', 'pointer-events-none');
         toast.classList.remove('opacity-100');
     }, 2000);
+}
+
+function savePreferredModel(modelId, container) {
+    fetch('/settings/system', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'key=preferred_ai_model&value=' + encodeURIComponent(modelId)
+    }).then(function() {
+        // Update visual state of all labels
+        container.querySelectorAll('label').forEach(function(lbl) {
+            const radio = lbl.querySelector('input[type=radio]');
+            const dot = lbl.querySelector('span.rounded-full');
+            if (radio && radio.value === modelId) {
+                lbl.classList.add('border-accent-blue', 'bg-accent-blue\\/10');
+                lbl.classList.remove('border-dark-500');
+                if (dot) { dot.classList.add('border-accent-blue', 'bg-accent-blue'); dot.classList.remove('border-gray-500'); }
+            } else {
+                lbl.classList.remove('border-accent-blue', 'bg-accent-blue\\/10');
+                lbl.classList.add('border-dark-500');
+                if (dot) { dot.classList.remove('border-accent-blue', 'bg-accent-blue'); dot.classList.add('border-gray-500'); }
+            }
+        });
+        const t = document.getElementById('model-save-toast');
+        if (t) { t.classList.remove('hidden'); setTimeout(function(){ t.classList.add('hidden'); }, 2000); }
+    });
 }
 </script>
 {% endblock %}

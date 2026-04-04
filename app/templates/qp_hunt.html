@@ -70,14 +70,30 @@
     </script>
 </div>
 
+<!-- 后台研究状态横幅 -->
+<div id="research-banner" class="hidden mb-4 bg-dark-700 border border-accent-blue/30 rounded-xl p-4">
+    <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-3">
+            <div id="research-spinner" class="w-4 h-4 border-2 border-accent-blue border-t-transparent rounded-full animate-spin"></div>
+            <span id="research-title" class="text-sm font-semibold text-white">AI 后台研究中...</span>
+        </div>
+        <div class="flex items-center gap-3">
+            <span id="research-timer" class="text-xs text-gray-500"></span>
+            <span id="research-model" class="text-xs px-2 py-0.5 rounded bg-dark-600 text-gray-400"></span>
+            <button id="research-load-btn" class="hidden text-xs px-3 py-1 rounded-lg bg-accent-blue text-white hover:brightness-110"
+                    onclick="loadResearchResults()">载入结果</button>
+        </div>
+    </div>
+    <div id="research-steps" class="space-y-1 text-xs text-gray-400 max-h-28 overflow-y-auto"></div>
+</div>
+
 <!-- 策略结果区域 -->
 <div id="hunt-results">
 {% if strategies %}
     <div class="flex items-center justify-between mb-4">
         <h2 class="text-sm font-semibold text-white">找到 {{ strategies|length }} 个候选策略</h2>
-        <button hx-post="/hunt/search?more=1" hx-target="#hunt-results" hx-swap="innerHTML"
-                hx-indicator="#hunt-spinner"
-                class="text-xs text-accent-blue hover:underline htmx-hide-on-request">
+        <button onclick="startResearch()"
+                class="text-xs px-3 py-1.5 rounded-lg border border-accent-blue/40 text-accent-blue hover:bg-accent-blue/10 transition">
             让 AI 再找更多
         </button>
     </div>
@@ -177,8 +193,130 @@
     <div class="text-center py-16">
         <div class="text-4xl mb-4">&#x1F50D;</div>
         <p class="text-gray-400 text-sm">点击「开始搜索」，系统将从多个来源寻找匹配策略</p>
+        <button onclick="startResearch()" class="mt-4 text-xs px-4 py-2 rounded-lg border border-accent-blue/40 text-accent-blue hover:bg-accent-blue/10 transition">
+            让 AI 深度研究
+        </button>
     </div>
 {% endif %}
 </div>
+
+<script>
+var _researchJobId = null;
+var _researchTimer = null;
+
+function startResearch() {
+    fetch('/hunt/research/start', { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.error) { alert(data.error); return; }
+            _researchJobId = data.job_id;
+            localStorage.setItem('research_job_id', data.job_id);
+            showBanner(true);
+            document.getElementById('research-model').textContent = data.model || '';
+            startPolling(data.job_id);
+        });
+}
+
+function startPolling(jobId) {
+    if (_researchTimer) clearInterval(_researchTimer);
+    _researchTimer = setInterval(function() { pollStatus(jobId); }, 3000);
+}
+
+function pollStatus(jobId) {
+    fetch('/hunt/research/status/' + jobId)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            updateBanner(data);
+            if (data.status === 'completed' || data.status === 'failed') {
+                clearInterval(_researchTimer);
+                _researchTimer = null;
+                if (data.status === 'completed') {
+                    document.getElementById('research-load-btn').classList.remove('hidden');
+                    document.getElementById('research-spinner').classList.add('hidden');
+                    document.getElementById('research-title').textContent = '✅ AI 研究完成！找到 ' + data.total_found + ' 个策略';
+                } else {
+                    document.getElementById('research-title').textContent = '❌ 研究失败，请重试';
+                    document.getElementById('research-spinner').classList.add('hidden');
+                }
+            }
+        });
+}
+
+function updateBanner(data) {
+    var elapsed = data.elapsed_seconds || 0;
+    var min = Math.floor(elapsed / 60);
+    var sec = elapsed % 60;
+    document.getElementById('research-timer').textContent = (min > 0 ? min + '分' : '') + sec + '秒';
+    document.getElementById('research-title').textContent = 'AI 后台研究中... 已找到 ' + (data.total_found || 0) + ' 个策略';
+    if (data.model_used) document.getElementById('research-model').textContent = data.model_used;
+
+    var stepsEl = document.getElementById('research-steps');
+    var steps = data.steps || [];
+    stepsEl.innerHTML = steps.slice(-6).map(function(s) {
+        var color = s.type === 'success' ? 'text-accent-green' : s.type === 'error' ? 'text-accent-red' : s.type === 'done' ? 'text-accent-blue' : 'text-gray-400';
+        return '<div class="' + color + '">[' + s.time + '] ' + s.msg + '</div>';
+    }).join('');
+    stepsEl.scrollTop = stepsEl.scrollHeight;
+}
+
+function showBanner(show) {
+    document.getElementById('research-banner').classList.toggle('hidden', !show);
+}
+
+function loadResearchResults() {
+    if (!_researchJobId) return;
+    fetch('/hunt/research/results/' + _researchJobId)
+        .then(function(r) { return r.text(); })
+        .then(function(html) {
+            document.getElementById('hunt-results').innerHTML = html;
+            document.getElementById('research-load-btn').classList.add('hidden');
+        });
+}
+
+// 页面加载时恢复上次研究状态
+(function() {
+    var savedJobId = localStorage.getItem('research_job_id');
+    if (!savedJobId) {
+        // 查询服务器最新任务
+        fetch('/hunt/research/latest')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data.job_id) return;
+                _researchJobId = data.job_id;
+                if (data.status === 'running' || data.status === 'pending') {
+                    showBanner(true);
+                    if (data.model_used) document.getElementById('research-model').textContent = data.model_used;
+                    updateBanner(data);
+                    startPolling(data.job_id);
+                } else if (data.status === 'completed' && data.total_found > 0) {
+                    showBanner(true);
+                    document.getElementById('research-spinner').classList.add('hidden');
+                    document.getElementById('research-title').textContent = '✅ 上次研究找到 ' + data.total_found + ' 个策略（可载入）';
+                    document.getElementById('research-load-btn').classList.remove('hidden');
+                    updateBanner(data);
+                }
+            });
+        return;
+    }
+    _researchJobId = parseInt(savedJobId);
+    fetch('/hunt/research/status/' + savedJobId)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.error) { localStorage.removeItem('research_job_id'); return; }
+            if (data.status === 'running' || data.status === 'pending') {
+                showBanner(true);
+                if (data.model_used) document.getElementById('research-model').textContent = data.model_used;
+                updateBanner(data);
+                startPolling(savedJobId);
+            } else if (data.status === 'completed' && data.total_found > 0) {
+                showBanner(true);
+                document.getElementById('research-spinner').classList.add('hidden');
+                document.getElementById('research-title').textContent = '✅ 上次研究找到 ' + data.total_found + ' 个策略（可载入）';
+                document.getElementById('research-load-btn').classList.remove('hidden');
+                updateBanner(data);
+            }
+        });
+})();
+</script>
 
 {% endblock %}

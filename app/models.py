@@ -294,6 +294,33 @@ class AnalysisMemory(Base):
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
 
+class ResearchJob(Base):
+    """后台 AI 研究任务"""
+    __tablename__ = "research_jobs"
+
+    id = Column(Integer, primary_key=True)
+    status = Column(String(20), default="pending")   # pending/running/completed/failed
+    model_used = Column(String(50), nullable=True)
+    goals_snapshot = Column(Text, nullable=True)     # JSON snapshot of user goals
+    steps_log = Column(Text, default="[]")           # JSON array of {time, msg, type}
+    strategies_found = Column(Text, default="[]")    # JSON array of strategy dicts
+    total_found = Column(Integer, default=0)
+    started_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    completed_at = Column(DateTime, nullable=True)
+    error = Column(Text, nullable=True)
+
+
+class SystemConfig(Base):
+    """系统级配置键值对"""
+    __tablename__ = "system_config"
+
+    id = Column(Integer, primary_key=True)
+    key = Column(String(100), unique=True, nullable=False)
+    value = Column(Text, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 def init_db():
     """创建所有表"""
     Base.metadata.create_all(engine)

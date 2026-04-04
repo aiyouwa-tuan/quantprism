@@ -34,6 +34,12 @@ AI_PROVIDERS = {
         "model": "gpt-4o",
         "env_key": "OPENAI_API_KEY",
     },
+    "xai": {
+        "name": "XAI (Grok)",
+        "base_url": "https://api.x.ai/v1",
+        "model": "grok-3",
+        "env_key": "XAI_API_KEY",
+    },
 }
 
 
