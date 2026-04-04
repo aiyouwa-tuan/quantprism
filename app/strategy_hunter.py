@@ -240,104 +240,89 @@ Star 数：{stars}
 
 # ─── 3. AI 生成策略 ─────────────────────────────────────────────────────────────
 
-def ai_generate_strategy(goals: dict) -> dict:
-    """
-    让 AI 根据用户目标生成一个交易策略。
-
-    Args:
-        goals: {
-            "annual_return": 0.15,      # 目标年化收益 15%
-            "max_drawdown": 0.10,       # 最大可接受回撤 10%
-            "instruments": ["stock", "etf"],
-            "holding_period": "days_to_weeks"
-        }
-
-    Returns:
-        {
-            strategy_name, description, logic_explanation,
-            estimated_performance, python_signal_code, source
-        }
-    """
+def ai_generate_strategies(goals: dict, count: int = 5) -> list:
+    """一次调用 AI 生成 count 个风格各异的策略，返回列表。"""
     annual_ret = goals.get("annual_return", 0.15)
-    max_dd = goals.get("max_drawdown", 0.10)
+    max_dd = goals.get("max_drawdown", None)
     instruments = ", ".join(goals.get("instruments", ["stock"]))
     holding = goals.get("holding_period", "days_to_weeks")
 
     holding_cn = {
-        "seconds": "秒级",
-        "minutes": "分钟级",
-        "hours": "小时级",
-        "days": "日级",
-        "days_to_weeks": "数天到数周",
-        "weeks": "周级",
-        "months": "月级",
+        "seconds": "秒级", "minutes": "分钟级", "hours": "小时级",
+        "days": "日级", "days_to_weeks": "数天到数周",
+        "weeks": "周级", "months": "月级",
     }.get(holding, holding)
 
-    prompt = f"""你是一名量化交易策略开发专家。请根据以下约束条件设计一个完整的交易策略。
+    styles = ["动量/趋势跟踪", "均值回归", "突破/波动率", "因子选股", "宏观轮动"][:count]
+
+    prompt = f"""你是量化交易策略专家。请根据以下目标，生成 {count} 个风格各异的交易策略。
 
 用户目标：
 - 年化收益目标：{annual_ret * 100:.0f}%
 - 最大可接受回撤：{f"{max_dd * 100:.0f}%" if max_dd is not None else "不设限制"}
 - 交易工具：{instruments}
 - 持仓周期：{holding_cn}
+- 策略风格（每个策略对应一种）：{", ".join(styles)}
 
-请用 JSON 格式输出：
+请输出一个 JSON 数组，包含 {count} 个策略对象，每个对象格式如下：
 {{
-  "strategy_name": "策略名称（中文）",
-  "strategy_id": "英文下划线slug",
+  "strategy_name": "策略名称（中文，含风格关键词）",
+  "strategy_id": "英文下划线slug_唯一",
   "description": "策略简介（2-3句中文）",
-  "logic_explanation": "入场/出场/仓位管理的详细逻辑（中文，5-8句）",
   "entry_rules": ["入场条件1", "入场条件2"],
   "exit_rules": ["出场条件1", "出场条件2"],
-  "risk_management": "风险管理方法（1-2句）",
-  "estimated_annual_return": 数字百分比,
-  "estimated_max_drawdown": 数字百分比,
-  "estimated_win_rate": 数字百分比,
-  "estimated_sharpe": 数字,
-  "best_market": "最适合的市场环境",
-  "worst_market": "最不适合的市场环境",
-  "python_signal_code": "一段可运行的 Python 函数代码，输入 pandas DataFrame (columns: open, high, low, close, volume)，输出 signal 列 (1=买入, -1=卖出, 0=持有)"
+  "estimated_annual_return": 数字（百分比，如300表示300%）,
+  "estimated_max_drawdown": 数字（百分比，如25表示25%）,
+  "estimated_win_rate": 数字（百分比，如45表示45%）,
+  "best_market": "最适合的市场环境（一句话）"
 }}
 
 要求：
-1. 策略必须在目标回撤范围内可行
-2. python_signal_code 必须是可运行的真实代码，使用 pandas 和 numpy
-3. 只输出 JSON，不要其他文字"""
+1. {count} 个策略风格必须明显不同，不能雷同
+2. 每个策略的 strategy_id 必须唯一
+3. 只输出 JSON 数组 [...], 不要其他文字"""
 
-    raw = _call_ai(prompt, max_tokens=2500)
+    raw = _call_ai(prompt, max_tokens=4000)
     if not raw:
-        return _fallback_strategy(goals)
+        return []
 
     try:
         text = raw.strip()
-        start = text.find("{")
-        end = text.rfind("}") + 1
+        start = text.find("[")
+        end = text.rfind("]") + 1
         if start == -1 or end == 0:
-            raise ValueError("No JSON found")
-        parsed = json.loads(text[start:end])
+            raise ValueError("No JSON array found")
+        parsed_list = json.loads(text[start:end])
+        if not isinstance(parsed_list, list):
+            raise ValueError("Not a list")
     except (json.JSONDecodeError, ValueError):
-        logger.warning("Failed to parse AI generated strategy")
-        return _fallback_strategy(goals)
+        logger.warning("Failed to parse AI generated strategies batch")
+        return []
 
-    _name = parsed.get("strategy_name", "AI 生成策略")
-    _est_ret = parsed.get("estimated_annual_return", 0) or 0
-    _est_dd = parsed.get("estimated_max_drawdown", 0) or 0
-    return {
-        "name": _name,
-        "id": parsed.get("strategy_id", "ai_generated"),
-        "description": parsed.get("description", ""),
-        "logic_explanation": parsed.get("logic_explanation", ""),
-        "entry_rules": parsed.get("entry_rules", []),
-        "exit_rules": parsed.get("exit_rules", []),
-        "risk_management": parsed.get("risk_management", ""),
-        "annual_return_range": [int(_est_ret * 0.8), int(_est_ret * 1.2)] if _est_ret else [0, 0],
-        "max_drawdown_range": [int(_est_dd * 0.8), int(_est_dd * 1.2)] if _est_dd else None,
-        "win_rate_pct": parsed.get("estimated_win_rate", 0),
-        "best_market": parsed.get("best_market", ""),
-        "worst_market": parsed.get("worst_market", ""),
-        "source": "AI 生成",
-        "instrument": "stock",
-    }
+    results = []
+    for p in parsed_list:
+        _est_ret = p.get("estimated_annual_return", 0) or 0
+        _est_dd = p.get("estimated_max_drawdown", 0) or 0
+        results.append({
+            "name": p.get("strategy_name", "AI 生成策略"),
+            "id": p.get("strategy_id", "ai_generated"),
+            "description": p.get("description", ""),
+            "entry_rules": p.get("entry_rules", []),
+            "exit_rules": p.get("exit_rules", []),
+            "annual_return_range": [max(0, int(_est_ret * 0.8)), int(_est_ret * 1.2)] if _est_ret else [0, 0],
+            "max_drawdown_range": [max(0, int(_est_dd * 0.8)), int(_est_dd * 1.2)] if _est_dd else None,
+            "win_rate_pct": p.get("estimated_win_rate", 0),
+            "best_market": p.get("best_market", ""),
+            "source": "AI 生成",
+            "instrument": "stock",
+        })
+    return results
+
+
+def ai_generate_strategy(goals: dict) -> dict:
+    """兼容旧调用，生成单个策略。"""
+    results = ai_generate_strategies(goals, count=1)
+    return results[0] if results else None
 
 
 def _fallback_strategy(goals: dict) -> dict:

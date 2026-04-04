@@ -6,19 +6,15 @@
     <span class="text-lg text-white font-medium">找到 {{ strategies|length }} 个候选策略</span>
     {% endif %}
     <div class="flex items-center gap-2">
-        <button class="px-3 py-1.5 rounded-lg border border-accent-blue/40 text-accent-blue hover:bg-accent-blue/10 text-xs font-medium"
-                onclick="startResearch()">
+        <button class="px-3 py-1.5 rounded-lg border border-dark-500 text-gray-400 hover:text-white hover:border-dark-400 text-xs"
+                hx-post="/hunt/search" hx-target="#hunt-results" hx-swap="innerHTML"
+                hx-indicator="#hunt-spinner">
             &#x1F504; 重新搜索
         </button>
-        <button class="px-3 py-1.5 rounded-lg border border-dark-500 text-gray-400 hover:text-white hover:border-accent-blue text-xs"
-                hx-post="/hunt/portfolio-optimize" hx-target="#hunt-more" hx-swap="beforeend"
-                hx-indicator="#ai-spinner">
-            组合优化
-        </button>
-        <button class="px-3 py-1.5 rounded-lg border border-dark-500 text-gray-400 hover:text-white hover:border-accent-blue text-xs"
+        <button class="px-3 py-1.5 rounded-lg border border-accent-blue/40 text-accent-blue hover:bg-accent-blue/10 text-xs font-medium"
                 hx-post="/hunt/ai-generate" hx-target="#hunt-more" hx-swap="beforeend"
                 hx-indicator="#ai-spinner">
-            让 AI 再找更多
+            &#x2728; 让AI再生成5个
         </button>
     </div>
 </div>

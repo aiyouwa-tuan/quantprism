@@ -1,0 +1,77 @@
+{% for s in strategies %}
+<div class="bg-dark-700 border border-accent-blue/20 rounded-xl mb-3 overflow-hidden cursor-pointer hover:border-accent-blue/40 transition-colors"
+     onclick="this.querySelector('.detail').classList.toggle('hidden')">
+    <div class="p-5">
+        <div class="flex items-center justify-between mb-2">
+            <div>
+                <h3 class="text-base font-semibold text-white">{{ s.name }}</h3>
+                <p class="text-xs text-gray-500 mt-0.5">来源: AI 生成 | {{ s.instrument or 'stock' }}</p>
+            </div>
+            <span class="px-3 py-1 rounded-md text-sm font-bold
+                {% if s.match_pct >= 70 %}bg-green-500/20 text-green-400
+                {% elif s.match_pct >= 50 %}bg-yellow-500/20 text-yellow-400
+                {% else %}bg-gray-500/20 text-gray-400{% endif %}">
+                匹配 {{ s.match_pct }}%
+            </span>
+        </div>
+        <p class="text-xs text-gray-400 mb-3">{{ s.description[:120] }}{% if s.description|length > 120 %}...{% endif %}</p>
+        <div class="flex items-center gap-6 text-sm">
+            <div>
+                <span class="text-xs text-gray-500">预估年化</span>
+                <span class="ml-1 font-bold text-accent-green">{{ s.annual_return_range[0] if s.annual_return_range else '?' }}-{{ s.annual_return_range[1] if s.annual_return_range else '?' }}%</span>
+            </div>
+            <div>
+                <span class="text-xs text-gray-500">预估回撤</span>
+                <span class="ml-1 font-bold text-accent-red">{% if s.max_drawdown_range %}{{ s.max_drawdown_range[0] }}-{{ s.max_drawdown_range[1] }}%{% else %}?{% endif %}</span>
+            </div>
+            <div>
+                <span class="text-xs text-gray-500">预估胜率</span>
+                <span class="ml-1 font-bold text-white">{{ s.win_rate_pct or '?' }}%</span>
+            </div>
+            <span class="ml-auto text-xs text-gray-600">▼ 点击展开</span>
+        </div>
+    </div>
+    <div class="detail hidden border-t border-dark-600 bg-dark-800/50 p-5" onclick="event.stopPropagation()">
+        {% if s.best_market %}
+        <p class="text-xs text-gray-500 mb-3">适合: {{ s.best_market }}</p>
+        {% endif %}
+        {% if s.entry_rules %}
+        <div class="mb-3">
+            <p class="text-xs text-gray-500 mb-1 font-medium">入场条件</p>
+            <ul class="text-xs text-gray-300 space-y-0.5 list-disc list-inside">
+                {% for r in s.entry_rules %}<li>{{ r }}</li>{% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        {% if s.exit_rules %}
+        <div class="mb-4">
+            <p class="text-xs text-gray-500 mb-1 font-medium">出场条件</p>
+            <ul class="text-xs text-gray-300 space-y-0.5 list-disc list-inside">
+                {% for r in s.exit_rules %}<li>{{ r }}</li>{% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        <div class="flex items-center gap-3 flex-wrap">
+            <form hx-post="/hunt/save-strategy" hx-target="next .save-result" hx-swap="innerHTML"
+                  onclick="event.stopPropagation()" style="display:contents">
+                <input type="hidden" name="name" value="{{ s.name }}">
+                <input type="hidden" name="strategy_name" value="{{ s.id or (s.name | lower | replace(' ','_') | replace('-','_'))[:50] }}">
+                <input type="hidden" name="description" value="{{ s.description[:300] }}">
+                <input type="hidden" name="symbol_pool" value="SPY">
+                <input type="hidden" name="instrument" value="stock">
+                <input type="hidden" name="direction" value="bullish">
+                <button type="submit" class="px-4 py-2 rounded-lg border border-accent-green/40 text-accent-green text-sm font-medium hover:bg-accent-green/10"
+                        onclick="event.stopPropagation()">
+                    + 加入回测
+                </button>
+            </form>
+            <span class="save-result text-xs"></span>
+            <a href="/backtest?strategy={{ s.id or s.name }}&symbol=SPY"
+               class="px-4 py-2 rounded-lg bg-accent-blue text-white text-sm font-medium hover:brightness-110"
+               onclick="event.stopPropagation()">
+                去回测验证 →
+            </a>
+        </div>
+    </div>
+</div>
+{% endfor %}

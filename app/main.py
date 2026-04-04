@@ -37,7 +37,7 @@ from sync import sync_positions_from_broker
 from stock_screener import SECTORS, diagnose_stock, screen_sector, build_combo
 from ibkr_options import fetch_ibkr_options_chain, filter_options_for_sell_put
 from strategy_library import get_library as get_strategy_library, filter_library, get_strategy_by_id
-from strategy_hunter import compute_match_score, search_github_strategies, ai_generate_strategy
+from strategy_hunter import compute_match_score, search_github_strategies, ai_generate_strategy, ai_generate_strategies
 from ai_analysis import get_active_provider
 from scanner import scan_index, INDEX_MAP
 
@@ -1943,7 +1943,7 @@ def hunt_portfolio_optimize(request: Request, db: Session = Depends(get_db)):
 
 @app.post("/hunt/ai-generate", response_class=HTMLResponse)
 def hunt_ai_generate(request: Request, db: Session = Depends(get_db)):
-    """Ask AI to generate a new strategy (legacy sync endpoint)"""
+    """AI 批量生成 5 个风格各异的策略，追加到结果列表"""
     goals = db.query(UserGoals).order_by(UserGoals.updated_at.desc()).first()
     if not goals:
         return HTMLResponse('<div class="text-center text-gray-400 py-4">请先设定投资目标</div>')
@@ -1956,20 +1956,18 @@ def hunt_ai_generate(request: Request, db: Session = Depends(get_db)):
     }
 
     try:
-        strategy = ai_generate_strategy(goals_dict)
-        if strategy:
-            score = compute_match_score(strategy, goals_dict)
-            strategy["match_pct"] = round(score)
-            strategy["source"] = "ai"
-            return templates.TemplateResponse("partials/hunt_results.html", {
+        strategies = ai_generate_strategies(goals_dict, count=5)
+        if strategies:
+            for s in strategies:
+                s["match_pct"] = round(compute_match_score(s, goals_dict))
+                s["source"] = "AI 生成"
+            return templates.TemplateResponse("partials/hunt_more_cards.html", {
                 "request": request,
-                "strategies": [strategy],
+                "strategies": strategies,
                 "goals": goals,
-                "low_match_fallback": False,
-                "min_match": 40,
             })
     except Exception:
-        pass
+        import traceback; traceback.print_exc()
 
     return HTMLResponse('<div class="text-center text-gray-400 py-4">AI 暂时无法生成策略，请稍后再试</div>')
 
