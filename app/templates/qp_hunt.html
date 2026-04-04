@@ -7,8 +7,8 @@
         {% if goals %}
         <p class="text-sm text-gray-400 mt-1">
             基于你的目标
-            (<span class="text-accent-green">年化 {{ '%.0f'|format(goals.annual_return_target * 100) }}%</span>,
-             回撤 &le; <span class="text-accent-red">{{ '%.0f'|format(goals.max_drawdown * 100) }}%</span>)
+            (<span class="text-accent-green">年化 {% if goals.annual_return_target %}{{ '%.0f'|format(goals.annual_return_target * 100) }}%{% else %}不限{% endif %}</span>,
+             回撤 &le; <span class="text-accent-red">{% if goals.max_drawdown %}{{ '%.0f'|format(goals.max_drawdown * 100) }}%{% else %}不限{% endif %}</span>)
             全网搜索 + AI 生成
         </p>
         {% else %}

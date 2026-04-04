@@ -411,8 +411,10 @@ def compute_match_score(strategy_info: dict, goals: dict) -> float:
         0-100 的匹配百分比
     """
     score = 0.0
-    target_return = goals.get("annual_return", 0.15) * 100  # 转换为百分比
-    target_dd = goals.get("max_drawdown", 0.10) * 100
+    _annual = goals.get("annual_return")   # None = 不设收益上限
+    _drawdown = goals.get("max_drawdown")  # None = 不设回撤下限
+    target_return = (_annual * 100) if _annual is not None else None
+    target_dd = (_drawdown * 100) if _drawdown is not None else None
     target_instruments = set(goals.get("instruments", ["stock"]))
     target_holding = goals.get("holding_period", "days_to_weeks")
 
@@ -428,13 +430,14 @@ def compute_match_score(strategy_info: dict, goals: dict) -> float:
         else:
             est_return = 0
 
-    if target_return > 0 and est_return > 0:
+    if target_return is None:
+        # 不设收益上限：所有策略满分
+        score += 40.0
+    elif target_return > 0 and est_return > 0:
         ratio = est_return / target_return
         if ratio >= 1.0:
-            # 满足或超过目标
             score += 40.0
         elif ratio >= 0.7:
-            # 接近目标
             score += 40.0 * (ratio - 0.3) / 0.7
         else:
             score += 40.0 * ratio * 0.5
@@ -449,16 +452,16 @@ def compute_match_score(strategy_info: dict, goals: dict) -> float:
         else:
             est_dd = 0
 
-    if target_dd > 0 and est_dd > 0:
+    if target_dd is None:
+        # 不设回撤下限：所有策略满分
+        score += 30.0
+    elif target_dd > 0 and est_dd > 0:
         if est_dd <= target_dd:
-            # 回撤在目标内 — 满分
             score += 30.0
         elif est_dd <= target_dd * 1.5:
-            # 略超目标
             overshoot = (est_dd - target_dd) / (target_dd * 0.5)
             score += 30.0 * (1 - overshoot)
         else:
-            # 回撤远超目标
             score += 5.0
 
     # --- 工具匹配（15 分）---

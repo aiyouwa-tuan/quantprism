@@ -30,7 +30,7 @@
                    oninput="updateReturnHelper()">
             <span class="text-lg text-gray-400">%</span>
         </div>
-        <p id="return-helper" class="text-xs text-gray-500 mt-2">{% if goals and goals.annual_return_target %}10 万投入，一年后变 <span class="text-accent-green font-medium">{{ '%.1f'|format(10 * (1 + goals.annual_return_target)) }} 万</span>{% else %}输入目标收益率{% endif %}</p>
+        <p id="return-helper" class="text-xs text-gray-500 mt-2">{% if goals and goals.annual_return_target %}10 万投入，一年后变 <span class="text-accent-green font-medium">{{ '%.1f'|format(10 * (1 + goals.annual_return_target)) }} 万</span>{% else %}<span class="text-gray-600 italic">不设收益上限，匹配所有策略</span>{% endif %}</p>
     </div>
 
     <!-- 回撤目标 -->
@@ -53,7 +53,7 @@
                    oninput="updateDrawdownHelper()">
             <span class="text-lg text-gray-400">%</span>
         </div>
-        <p id="drawdown-helper" class="text-xs text-gray-500 mt-2">{% if goals and goals.max_drawdown %}10 万账户最多跌到 <span class="text-accent-red font-medium">{{ '%.1f'|format(10 * (1 - goals.max_drawdown)) }} 万</span>{% else %}输入最大可接受回撤{% endif %}</p>
+        <p id="drawdown-helper" class="text-xs text-gray-500 mt-2">{% if goals and goals.max_drawdown %}10 万账户最多跌到 <span class="text-accent-red font-medium">{{ '%.1f'|format(10 * (1 - goals.max_drawdown)) }} 万</span>{% else %}<span class="text-gray-600 italic">不设回撤下限，所有回撤均可接受</span>{% endif %}</p>
     </div>
 </div>
 
@@ -180,17 +180,25 @@
 
 <script>
 function updateReturnHelper() {
-    const pct = parseFloat(document.getElementById('inp-return').value) || 0;
-    const result = (10 * (1 + pct / 100)).toFixed(1);
-    document.getElementById('return-helper').innerHTML =
-        '10 万投入，一年后变 <span class="text-accent-green font-medium">' + result + ' 万</span>';
+    const val = document.getElementById('inp-return').value;
+    const el = document.getElementById('return-helper');
+    if (!val) {
+        el.innerHTML = '<span class="text-gray-600 italic">不设收益上限，匹配所有策略</span>';
+    } else {
+        const result = (10 * (1 + parseFloat(val) / 100)).toFixed(1);
+        el.innerHTML = '10 万投入，一年后变 <span class="text-accent-green font-medium">' + result + ' 万</span>';
+    }
 }
 
 function updateDrawdownHelper() {
-    const pct = parseFloat(document.getElementById('inp-drawdown').value) || 0;
-    const result = (10 * (1 - pct / 100)).toFixed(1);
-    document.getElementById('drawdown-helper').innerHTML =
-        '10 万账户最多跌到 <span class="text-accent-red font-medium">' + result + ' 万</span>';
+    const val = document.getElementById('inp-drawdown').value;
+    const el = document.getElementById('drawdown-helper');
+    if (!val) {
+        el.innerHTML = '<span class="text-gray-600 italic">不设回撤下限，所有回撤均可接受</span>';
+    } else {
+        const result = (10 * (1 - parseFloat(val) / 100)).toFixed(1);
+        el.innerHTML = '10 万账户最多跌到 <span class="text-accent-red font-medium">' + result + ' 万</span>';
+    }
 }
 
 function saveAndHunt() {

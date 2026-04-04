@@ -190,8 +190,8 @@ def _equal_weight(prices: pd.DataFrame) -> dict:
 # ─── 主入口 ───────────────────────────────────────────────────────────────────
 
 def build_portfolio_strategy(
-    target_return: float,
-    max_drawdown: float,
+    target_return: Optional[float],
+    max_drawdown: Optional[float],
     period: str = "3y",
 ) -> Optional[dict]:
     """
@@ -210,6 +210,9 @@ def build_portfolio_strategy(
         - name/description/source 等界面字段
         None 表示获取数据失败。
     """
+    # None = 不设限，用保守默认值做优化计算
+    target_return = target_return if target_return is not None else 0.15
+    max_drawdown = max_drawdown if max_drawdown is not None else 0.20
     symbols = _select_symbols(target_return, max_drawdown)
     prices = _fetch_prices(symbols, period)
     if prices is None:

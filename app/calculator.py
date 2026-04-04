@@ -105,7 +105,7 @@ def calculate_position_size(
 
 
 def derive_constraints(
-    max_drawdown: float,
+    max_drawdown,
     risk_per_trade: float,
 ) -> ConstraintResult:
     """
@@ -115,9 +115,13 @@ def derive_constraints(
     假设: 持仓间零相关 (保守估计)
 
     Args:
-        max_drawdown: 最大回撤容忍度 (如 0.10 = 10%)
+        max_drawdown: 最大回撤容忍度 (如 0.10 = 10%); None=不设下限，默认按 0.20 计算
         risk_per_trade: 单笔风险比例 (如 0.02 = 2%)
     """
+    # None 表示不设回撤下限，用保守默认值推导持仓约束
+    if max_drawdown is None:
+        max_drawdown = 0.20
+
     if risk_per_trade <= 0:
         return ConstraintResult(
             max_positions=0,

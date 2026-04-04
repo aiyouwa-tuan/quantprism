@@ -1708,18 +1708,19 @@ def save_goals_v4(
     normalized_asset_classes = _normalize_goal_assets(asset_classes, assets)
     normalized_holding_period = _normalize_holding_period(holding_period, horizon)
     goals = db.query(UserGoals).first()
+    # None 表示用户主动清空该字段（不设上限/下限），直接存 None
+    new_return = (annual_return_target / 100) if annual_return_target is not None else None
+    new_drawdown = (max_drawdown / 100) if max_drawdown is not None else None
     if goals:
-        if annual_return_target is not None:
-            goals.annual_return_target = annual_return_target / 100
-        if max_drawdown is not None:
-            goals.max_drawdown = max_drawdown / 100
+        goals.annual_return_target = new_return
+        goals.max_drawdown = new_drawdown
         goals.risk_per_trade = risk_per_trade / 100
         goals.asset_classes = normalized_asset_classes
         goals.holding_period = normalized_holding_period
     else:
         goals = UserGoals(
-            annual_return_target=(annual_return_target / 100) if annual_return_target is not None else 0.15,
-            max_drawdown=(max_drawdown / 100) if max_drawdown is not None else 0.10,
+            annual_return_target=new_return,
+            max_drawdown=new_drawdown,
             risk_per_trade=risk_per_trade / 100,
             asset_classes=normalized_asset_classes,
             holding_period=normalized_holding_period,

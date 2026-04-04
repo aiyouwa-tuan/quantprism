@@ -26,8 +26,8 @@ class UserGoals(Base):
     __tablename__ = "user_goals"
 
     id = Column(Integer, primary_key=True)
-    annual_return_target = Column(Float, nullable=False)  # 年化收益目标 (如 0.15 = 15%)
-    max_drawdown = Column(Float, nullable=False)           # 最大回撤容忍度 (如 0.10 = 10%)
+    annual_return_target = Column(Float, nullable=True)   # 年化收益目标 (如 0.15 = 15%); None=不设上限
+    max_drawdown = Column(Float, nullable=True)            # 最大回撤容忍度 (如 0.10 = 10%); None=不设下限
     risk_per_trade = Column(Float, default=0.02)           # 单笔风险比例 (默认 2%)
     # 系统推导的约束
     max_positions = Column(Integer)                         # 同时持仓上限
