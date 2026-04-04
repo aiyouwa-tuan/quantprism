@@ -39,7 +39,7 @@ from strategy_hunter import compute_match_score, search_github_strategies, ai_ge
 from ai_analysis import get_active_provider
 from scanner import scan_index, INDEX_MAP
 
-app = FastAPI(title="Goal-Driven Trading OS", version="0.1.0")
+app = FastAPI(title="Goal-Driven Trading OS", version="2.1.0")
 
 BASE_DIR = Path(__file__).resolve().parent
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
