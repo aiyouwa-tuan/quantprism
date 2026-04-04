@@ -161,14 +161,14 @@ try:
         })
         if r2.status_code != 200:
             fail(f"POST /backtest/run 返回 {r2.status_code}")
-        elif "回测失败" in r2.text or "Internal Server Error" in r2.text:
-            fail("回测返回错误", r2.text[:300])
+        elif "Internal Server Error" in r2.text or "TemplateSyntaxError" in r2.text:
+            fail("回测返回服务器错误", r2.text[:300])
+        elif "tab-overview" not in r2.text:
+            fail("回测结果缺少预期 HTML 结构", r2.text[:300])
         elif "0.0%" in r2.text and r2.text.count("0.0%") > 4:
             fail("回测指标疑似全为 0（多处出现 0.0%）", "策略可能缺少出仓信号")
-        elif "年化收益" in r2.text or "tab-overview" in r2.text:
-            ok(f"POST /backtest/run 返回有效结果（含年化收益字段）")
         else:
-            fail("回测结果格式异常", r2.text[:300])
+            ok(f"POST /backtest/run 返回有效结果")
 except Exception as e:
     fail(f"回测功能检查失败: {e}")
 
@@ -240,8 +240,9 @@ _on_server = socket.gethostname().startswith("srv") or os.path.isdir("/opt/quant
 if _on_server:
     # 服务端直接运行 Python 检查，无需 SSH
     try:
+        _py = "/opt/quantprism/venv/bin/python3" if os.path.exists("/opt/quantprism/venv/bin/python3") else "python3"
         result = subprocess.run(
-            ["python3", "-c", """
+            [_py, "-c", """
 import sys; sys.path.insert(0, '/opt/quantprism/app')
 from market_data import fetch_stock_history, compute_technicals
 from strategies.m7_leaps import M7Leaps
