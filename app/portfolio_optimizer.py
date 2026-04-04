@@ -260,6 +260,17 @@ def build_portfolio_strategy(
             if w > 0.01
         ],
         "is_portfolio": True,
+        # 优化参数（用于详情展示）
+        "opt_params": {
+            "目标年化收益": f"{target_return*100:.0f}%",
+            "回撤上限": f"{max_drawdown*100:.0f}%",
+            "数据回溯期": period,
+            "优化引擎": result["method"],
+            "历史年化": f"{est_ret}%" if est_ret else "—",
+            "历史最大回撤": f"{est_dd}%" if est_dd else "—",
+            "夏普比率": str(result.get("sharpe", "—")),
+            "持仓数量": str(len([s for s, w in weights.items() if w > 0.01])),
+        },
     })
 
     return result

@@ -97,23 +97,39 @@
         </div>
     </div>
 
-    <div class="detail hidden border-t border-dark-600 bg-dark-800/50 p-5">
+    <div class="detail hidden border-t border-dark-600 bg-dark-800/50 p-5" onclick="event.stopPropagation()">
         {% if s.why_it_works %}
-        <p class="text-sm text-gray-300 mb-3">{{ s.why_it_works }}</p>
+        <p class="text-sm text-gray-300 mb-4">{{ s.why_it_works }}</p>
+        {% endif %}
+
+        {# 优化参数详情 #}
+        {% if s.opt_params %}
+        <div class="mb-4">
+            <p class="text-xs text-gray-500 mb-2 font-medium uppercase tracking-wide">优化参数</p>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {% for k, v in s.opt_params.items() %}
+                <div class="bg-dark-700 rounded-lg px-3 py-2 border border-dark-600">
+                    <div class="text-[10px] text-gray-500 mb-0.5">{{ k }}</div>
+                    <div class="text-sm text-white font-medium">{{ v }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
         {% endif %}
 
         {% if s.holdings_breakdown %}
         <div class="mb-4">
-            <p class="text-xs text-gray-500 mb-2 font-medium">持仓明细（优化权重）</p>
-            <div class="space-y-1">
+            <p class="text-xs text-gray-500 mb-2 font-medium uppercase tracking-wide">持仓明细（优化权重）</p>
+            <div class="space-y-1.5">
+                {% set colors = ['bg-accent-blue', 'bg-accent-green', 'bg-accent-yellow', 'bg-purple-500', 'bg-red-400', 'bg-orange-400'] %}
                 {% for h in s.holdings_breakdown %}
                 <div class="flex items-center justify-between">
-                    <span class="text-sm text-white font-medium">{{ h.symbol }}</span>
-                    <div class="flex items-center gap-3">
-                        <div class="w-32 h-1.5 rounded bg-dark-500 overflow-hidden">
-                            <div class="h-full bg-accent-blue rounded" style="width:{{ h.weight_pct }}%"></div>
+                    <span class="text-sm text-white font-medium w-16">{{ h.symbol }}</span>
+                    <div class="flex-1 flex items-center gap-3 ml-3">
+                        <div class="flex-1 h-1.5 rounded bg-dark-500 overflow-hidden">
+                            <div class="h-full {{ colors[loop.index0 % colors|length] }} rounded" style="width:{{ h.weight_pct }}%"></div>
                         </div>
-                        <span class="text-sm text-accent-blue font-bold w-12 text-right">{{ h.weight_pct }}%</span>
+                        <span class="text-sm font-bold w-14 text-right {{ colors[loop.index0 % colors|length] | replace('bg-', 'text-') }}">{{ h.weight_pct }}%</span>
                     </div>
                 </div>
                 {% endfor %}
@@ -122,14 +138,29 @@
         {% endif %}
 
         {% if s.best_market %}
-        <p class="text-xs text-gray-500 mb-3">适合: {{ s.best_market }}</p>
+        <p class="text-xs text-gray-500 mb-4">适合: {{ s.best_market }}</p>
         {% endif %}
 
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 flex-wrap">
             <button class="px-4 py-2 rounded-lg bg-accent-blue text-white text-sm font-medium hover:brightness-110"
+                    onclick="event.stopPropagation()"
                     hx-post="/hunt/portfolio-optimize" hx-target="#hunt-more" hx-swap="beforeend">
                 重新优化权重
             </button>
+            <form hx-post="/hunt/save-strategy" hx-target="next .save-result" hx-swap="innerHTML"
+                  onclick="event.stopPropagation()" style="display:contents">
+                <input type="hidden" name="name" value="{{ s.name }}">
+                <input type="hidden" name="strategy_name" value="portfolio_{{ s.method | lower | replace('-','_') | replace(' ','_') }}">
+                <input type="hidden" name="description" value="{{ s.description[:300] }}">
+                <input type="hidden" name="symbol_pool" value="{{ s.holdings_breakdown | map(attribute='symbol') | join(',') if s.holdings_breakdown else 'SPY' }}">
+                <input type="hidden" name="instrument" value="portfolio">
+                <input type="hidden" name="direction" value="bullish">
+                <button type="submit" class="px-4 py-2 rounded-lg border border-accent-green/40 text-accent-green text-sm font-medium hover:bg-accent-green/10"
+                        onclick="event.stopPropagation()">
+                    + 加入回测
+                </button>
+            </form>
+            <span class="save-result text-xs"></span>
         </div>
     </div>
 </div>
@@ -187,16 +218,32 @@
             <span class="ml-auto text-xs text-gray-600">&#x25BC; 点击展开</span>
         </div>
     </div>
-    <div class="detail hidden border-t border-dark-600 bg-dark-800/50 p-5">
+    <div class="detail hidden border-t border-dark-600 bg-dark-800/50 p-5" onclick="event.stopPropagation()">
         {% if s.why_it_works %}
         <p class="text-sm text-gray-300 mb-3">{{ s.why_it_works }}</p>
         {% endif %}
         {% if s.best_market %}
         <p class="text-xs text-gray-500 mb-3">适合: {{ s.best_market }}</p>
         {% endif %}
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 flex-wrap">
+            <form hx-post="/hunt/save-strategy" hx-target="next .save-result" hx-swap="innerHTML"
+                  onclick="event.stopPropagation()" style="display:contents">
+                <input type="hidden" name="name" value="{{ s.name }}">
+                <input type="hidden" name="strategy_name" value="{{ s.id or (s.name | lower | replace(' ','_') | replace('-','_'))[:50] }}">
+                <input type="hidden" name="description" value="{{ s.description[:300] }}">
+                <input type="hidden" name="symbol_pool" value="{{ s.default_symbols | join(',') if s.default_symbols else 'SPY' }}">
+                <input type="hidden" name="instrument" value="{{ s.instrument or 'stock' }}">
+                <input type="hidden" name="direction" value="{{ s.direction or 'bullish' }}">
+                <input type="hidden" name="params_yaml" value="{{ s.params | tojson if s.params else '{}' }}">
+                <button type="submit" class="px-4 py-2 rounded-lg border border-accent-green/40 text-accent-green text-sm font-medium hover:bg-accent-green/10"
+                        onclick="event.stopPropagation()">
+                    + 加入回测
+                </button>
+            </form>
+            <span class="save-result text-xs"></span>
             <a href="/backtest?strategy={{ s.id or s.name }}&symbol={{ s.default_symbols[0] if s.default_symbols else 'SPY' }}"
-               class="px-4 py-2 rounded-lg bg-accent-blue text-white text-sm font-medium hover:brightness-110">
+               class="px-4 py-2 rounded-lg bg-accent-blue text-white text-sm font-medium hover:brightness-110"
+               onclick="event.stopPropagation()">
                 去回测验证 →
             </a>
         </div>

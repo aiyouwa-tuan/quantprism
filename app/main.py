@@ -2031,6 +2031,46 @@ def research_latest(db: Session = Depends(get_db)):
     })
 
 
+@app.post("/hunt/save-strategy", response_class=HTMLResponse)
+def hunt_save_strategy(
+    request: Request,
+    name: str = Form(...),
+    strategy_name: str = Form(""),
+    description: str = Form(""),
+    symbol_pool: str = Form("SPY"),
+    instrument: str = Form("stock"),
+    direction: str = Form("bullish"),
+    params_yaml: str = Form("{}"),
+    db: Session = Depends(get_db),
+):
+    """把猎手找到的策略存入 StrategyConfig，使其在回测下拉里可见。"""
+    # Sanitise strategy_name → valid identifier
+    import re
+    safe_name = re.sub(r"[^a-z0-9_]", "_", (strategy_name or name).lower())[:50]
+    # Avoid duplicate
+    existing = db.query(StrategyConfig).filter(StrategyConfig.strategy_name == safe_name).first()
+    if existing:
+        return HTMLResponse(
+            f'<span class="text-accent-green text-xs">✓ 已在回测列表中（{existing.display_name}）</span>'
+        )
+    cfg = StrategyConfig(
+        strategy_name=safe_name,
+        display_name=name[:100],
+        description=description[:500] if description else "",
+        symbol_pool=symbol_pool,
+        instrument=instrument,
+        direction=direction,
+        params_yaml=params_yaml,
+        strategy_type="custom",
+        is_active=True,
+    )
+    db.add(cfg)
+    db.commit()
+    return HTMLResponse(
+        f'<span class="text-accent-green text-xs">✓ 已加入回测，可在回测实验室选择「{name[:30]}」</span>'
+    )
+
+
 @app.post("/settings/system")
 def save_system_config(request: Request, db: Session = Depends(get_db), key: str = Form(...), value: str = Form(...)):
     """保存系统配置（如首选 AI 模型）"""
