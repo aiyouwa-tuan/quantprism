@@ -81,7 +81,7 @@
         <div class="text-center py-20">
             <div class="text-5xl mb-4">&#x1F9EA;</div>
             <p class="text-gray-500 text-sm">选择策略和标的，点击「开始回测」查看历史表现</p>
-            {% if goals %}
+            {% if goals and goals.annual_return_target is not none and goals.max_drawdown is not none %}
             <p class="text-xs text-gray-600 mt-2">
                 回测将对比你的目标：年化 {{ '%.0f'|format(goals.annual_return_target * 100) }}% / 回撤 &le; {{ '%.0f'|format(goals.max_drawdown * 100) }}%
             </p>
