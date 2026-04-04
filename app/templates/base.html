@@ -96,7 +96,7 @@
             观察列表
         </a>
 
-        <a href="/risk/shield" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm {{ 'bg-dark-500 text-white' if request and '/risk/shield' in request.url.path else 'text-gray-400 hover:text-white hover:bg-dark-700' }} transition">
+        <a href="/risk" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm {{ 'bg-dark-500 text-white' if request and request.url.path == '/risk' else 'text-gray-400 hover:text-white hover:bg-dark-700' }} transition">
             <span class="text-base w-5 text-center">&#x1F6E1;</span>
             风控护盾
         </a>
