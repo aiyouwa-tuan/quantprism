@@ -253,7 +253,7 @@ def ai_generate_strategies(goals: dict, count: int = None) -> list:
         "weeks": "周级", "months": "月级",
     }.get(holding, holding)
 
-    count_instruction = f"生成 {count} 个" if count else "尽可能多地生成（至少6个，上限不超过12个）"
+    count_instruction = f"生成 {count} 个" if count else "尽可能多地生成符合目标的（上限不超过12个，若目标较难匹配也可以少于5个）"
 
     prompt = f"""你是量化交易策略专家。请根据以下目标，{count_instruction}风格各异的交易策略。
 
