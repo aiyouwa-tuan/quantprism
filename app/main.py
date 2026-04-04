@@ -2147,11 +2147,14 @@ def backtest_page(request: Request, strategy: str = "", symbol: str = "", db: Se
     today = datetime.now().strftime('%Y-%m-%d')
 
     # Build id→symbols map for JS auto-fill
-    symbol_map = {
-        c.id: [s.strip() for s in c.symbol_pool.split(",") if s.strip()]
-        if c.symbol_pool else ["SPY"]
-        for c in configs
-    }
+    # 优先用 StrategyConfig.symbol_pool，无数据时从策略库 default_symbols 回退
+    _lib_symbols = {s["id"]: s.get("default_symbols", ["SPY"]) for s in get_strategy_library()}
+    symbol_map = {}
+    for c in configs:
+        if c.symbol_pool and c.symbol_pool.strip() and c.symbol_pool.strip() != "SPY":
+            symbol_map[c.id] = [s.strip() for s in c.symbol_pool.split(",") if s.strip()]
+        else:
+            symbol_map[c.id] = _lib_symbols.get(c.strategy_name, ["SPY"])
     # Determine preselect symbol from strategy's actual pool
     preselected_symbols = ["SPY"]
     if preselect_id and preselect_id in symbol_map:

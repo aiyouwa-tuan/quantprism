@@ -45,8 +45,8 @@
                     <option value="{{ sym }}">
                     {% endfor %}
                 </datalist>
-                <!-- Strategy symbol pills — OR relationship (pick one to run) -->
-                <div id="symbol-pills" class="flex flex-wrap items-center gap-1 mt-2 min-h-[22px]">
+                <!-- Strategy symbol pills — OR relationship (pick one to run), hidden when only 1 symbol -->
+                <div id="symbol-pills" class="flex flex-wrap items-center gap-1 mt-2 min-h-[22px] {% if (preselect_symbols or [preselect_symbol or 'SPY'])|length <= 1 %}hidden{% endif %}">
                     {% for sym in (preselect_symbols or [preselect_symbol or 'SPY']) %}
                     {% if not loop.first %}
                     <span class="text-[10px] font-semibold text-gray-600 px-0.5">OR</span>
@@ -166,6 +166,12 @@ function updateSymbolPills(strategyId) {
     var symbols = SYMBOL_MAP[strategyId] || ['SPY'];
     var container = document.getElementById('symbol-pills');
     container.innerHTML = '';
+    // 只有1个标的时隐藏pills（跟输入框重复）
+    if (symbols.length <= 1) {
+        container.classList.add('hidden');
+    } else {
+        container.classList.remove('hidden');
+    }
     symbols.forEach(function(sym, idx) {
         if (idx > 0) {
             var or = document.createElement('span');
