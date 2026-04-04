@@ -15,6 +15,23 @@ from strategies.base import get_strategy, BacktestMetrics
 from models import BacktestRun, StrategyConfig, UserGoals
 
 
+def _resolve_strategy(config: StrategyConfig):
+    """Return (strategy_cls, proxy_note). Falls back to a built-in if custom strategy has no code."""
+    cls = get_strategy(config.strategy_name)
+    if cls:
+        return cls, None
+    desc = ((config.description or "") + " " + (config.strategy_name or "")).lower()
+    if any(k in desc for k in ("reversion", "mean", "bollinger", "均值", "回归")):
+        fallback, label = "bollinger_reversion", "布林带均值回归"
+    elif any(k in desc for k in ("rsi", "momentum", "动量", "趋势", "breaker", "surge", "acceleration")):
+        fallback, label = "rsi_momentum", "RSI动量"
+    else:
+        fallback, label = "sma_crossover", "SMA双均线"
+    fallback_cls = get_strategy(fallback)
+    note = f"AI策略「{config.display_name or config.strategy_name}」尚无实际交易代码，以「{label}」策略作参考代理回测，结果仅供参考"
+    return fallback_cls, note
+
+
 CRISIS_PERIODS = [
     ("2008 金融危机", "2008-09-01", "2009-03-31"),
     ("2020 COVID 崩盘", "2020-02-15", "2020-04-15"),
@@ -481,22 +498,9 @@ def run_full_backtest(config: StrategyConfig, goals: UserGoals = None, db=None,
     """
     运行完整回测 + walk-forward 验证 + 成本模型
     """
-    strategy_cls = get_strategy(config.strategy_name)
-    proxy_note = None
+    strategy_cls, proxy_note = _resolve_strategy(config)
     if not strategy_cls:
-        # AI-generated / custom strategies have no code implementation yet.
-        # Fall back to the most similar built-in strategy based on keywords.
-        desc = ((config.description or "") + " " + (config.strategy_name or "")).lower()
-        if any(k in desc for k in ("reversion", "mean", "bollinger", "均值", "回归")):
-            fallback_name = "bollinger_reversion"
-        elif any(k in desc for k in ("rsi", "momentum", "动量", "趋势")):
-            fallback_name = "rsi_momentum"
-        else:
-            fallback_name = "sma_crossover"
-        strategy_cls = get_strategy(fallback_name)
-        if not strategy_cls:
-            return {"error": f"Strategy '{config.strategy_name}' not found"}
-        proxy_note = f"AI 策略「{config.display_name or config.strategy_name}」尚无回测代码，以「{fallback_name}」作为参考代理回测"
+        return {"error": f"Strategy '{config.strategy_name}' not found"}
 
     params = yaml.safe_load(config.params_yaml) if config.params_yaml else {}
     strategy = strategy_cls(params)
@@ -594,7 +598,7 @@ def run_full_backtest(config: StrategyConfig, goals: UserGoals = None, db=None,
 
 def run_stress_test(config: StrategyConfig, db=None) -> list:
     """压力测试：在极端历史时期运行策略"""
-    strategy_cls = get_strategy(config.strategy_name)
+    strategy_cls, _ = _resolve_strategy(config)
     if not strategy_cls:
         return [{"error": f"Strategy '{config.strategy_name}' not found"}]
 

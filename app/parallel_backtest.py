@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 
 from market_data import fetch_stock_history, compute_technicals
 from strategies.base import get_strategy, BacktestMetrics
-from backtester import _simulate_portfolio, COST_MODELS
+from backtester import _simulate_portfolio, COST_MODELS, _resolve_strategy
 from models import StrategyConfig, UserGoals
 
 
@@ -29,7 +29,7 @@ def run_parallel_backtest(config: StrategyConfig, goals: UserGoals = None,
     """
     t0 = time.time()
 
-    strategy_cls = get_strategy(config.strategy_name)
+    strategy_cls, _ = _resolve_strategy(config)
     if not strategy_cls:
         return {"error": f"Strategy '{config.strategy_name}' not found"}
 
