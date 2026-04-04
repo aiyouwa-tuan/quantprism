@@ -240,8 +240,8 @@ Star 数：{stars}
 
 # ─── 3. AI 生成策略 ─────────────────────────────────────────────────────────────
 
-def ai_generate_strategies(goals: dict, count: int = 5) -> list:
-    """一次调用 AI 生成 count 个风格各异的策略，返回列表。"""
+def ai_generate_strategies(goals: dict, count: int = None) -> list:
+    """一次调用 AI 生成尽可能多的风格各异策略，返回列表。count 为 None 时让 AI 自行决定数量。"""
     annual_ret = goals.get("annual_return", 0.15)
     max_dd = goals.get("max_drawdown", None)
     instruments = ", ".join(goals.get("instruments", ["stock"]))
@@ -253,18 +253,19 @@ def ai_generate_strategies(goals: dict, count: int = 5) -> list:
         "weeks": "周级", "months": "月级",
     }.get(holding, holding)
 
-    styles = ["动量/趋势跟踪", "均值回归", "突破/波动率", "因子选股", "宏观轮动"][:count]
+    count_instruction = f"生成 {count} 个" if count else "尽可能多地生成（至少6个，上限不超过12个）"
 
-    prompt = f"""你是量化交易策略专家。请根据以下目标，生成 {count} 个风格各异的交易策略。
+    prompt = f"""你是量化交易策略专家。请根据以下目标，{count_instruction}风格各异的交易策略。
 
 用户目标：
 - 年化收益目标：{annual_ret * 100:.0f}%
 - 最大可接受回撤：{f"{max_dd * 100:.0f}%" if max_dd is not None else "不设限制"}
 - 交易工具：{instruments}
 - 持仓周期：{holding_cn}
-- 策略风格（每个策略对应一种）：{", ".join(styles)}
 
-请输出一个 JSON 数组，包含 {count} 个策略对象，每个对象格式如下：
+请尽量覆盖不同策略风格，如：动量/趋势跟踪、均值回归、突破/波动率、因子选股、宏观轮动、套利/对冲等。
+
+请输出一个 JSON 数组，每个对象格式如下：
 {{
   "strategy_name": "策略名称（中文，含风格关键词）",
   "strategy_id": "英文下划线slug_唯一",
@@ -278,7 +279,7 @@ def ai_generate_strategies(goals: dict, count: int = 5) -> list:
 }}
 
 要求：
-1. {count} 个策略风格必须明显不同，不能雷同
+1. 每个策略风格必须明显不同，不能雷同
 2. 每个策略的 strategy_id 必须唯一
 3. 只输出 JSON 数组 [...], 不要其他文字"""
 

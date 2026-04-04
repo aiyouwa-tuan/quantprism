@@ -1943,7 +1943,7 @@ def hunt_portfolio_optimize(request: Request, db: Session = Depends(get_db)):
 
 @app.post("/hunt/ai-generate", response_class=HTMLResponse)
 def hunt_ai_generate(request: Request, db: Session = Depends(get_db)):
-    """AI 批量生成 5 个风格各异的策略，追加到结果列表"""
+    """AI 批量生成风格各异的策略，追加到结果列表"""
     goals = db.query(UserGoals).order_by(UserGoals.updated_at.desc()).first()
     if not goals:
         return HTMLResponse('<div class="text-center text-gray-400 py-4">请先设定投资目标</div>')
@@ -1956,7 +1956,7 @@ def hunt_ai_generate(request: Request, db: Session = Depends(get_db)):
     }
 
     try:
-        strategies = ai_generate_strategies(goals_dict, count=5)
+        strategies = ai_generate_strategies(goals_dict)
         if strategies:
             for s in strategies:
                 s["match_pct"] = round(compute_match_score(s, goals_dict))
