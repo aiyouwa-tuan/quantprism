@@ -49,6 +49,15 @@ class BacktestMetrics:
     rolling_sortino: list = field(default_factory=list)
     rolling_volatility: list = field(default_factory=list)
     trade_details: list = field(default_factory=list)
+    # Phase 2: Advanced Statistics
+    var_95: float = 0
+    cvar_95: float = 0
+    omega_ratio: float = 0
+    psr: float = 0
+    kelly_full: float = 0
+    kelly_half: float = 0
+    monte_carlo: dict = field(default_factory=dict)
+    trade_heatmap: list = field(default_factory=list)
 
 
 STRATEGY_REGISTRY: dict[str, type] = {}

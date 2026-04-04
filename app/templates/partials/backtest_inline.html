@@ -9,7 +9,7 @@
     <button class="qp-tab" data-tab="tab-kline">标的分析</button>
     <button class="qp-tab" data-tab="tab-trades">逐笔分析</button>
     <button class="qp-tab" data-tab="tab-rolling">滚动指标</button>
-    <button class="qp-tab" data-tab="tab-advanced">高阶统计 <span class="qp-badge qp-badge-purple ml-1">Phase 2</span></button>
+    <button class="qp-tab" data-tab="tab-advanced">高阶统计</button>
     <button class="qp-tab" data-tab="tab-parallel">平行时空</button>
 </div>
 
@@ -121,7 +121,12 @@
 <!-- ════════════════════════════════════════════════ -->
 <div class="qp-tab-content" id="tab-equity">
     <div class="bg-dark-700 border border-dark-600 rounded-xl p-5 mb-4 qp-card">
-        <h3 class="text-sm font-semibold text-white mb-3">权益曲线</h3>
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold text-white">权益曲线</h3>
+            <button id="btn-macro-overlay" onclick="toggleMacroOverlay()" class="text-xs bg-dark-600 text-gray-400 px-3 py-1 rounded-full hover:text-white hover:bg-dark-500 transition">
+                &#x1F30D; 叠加宏观
+            </button>
+        </div>
         <div id="ch-equity" style="height: 300px; width: 100%;"></div>
     </div>
     <div class="bg-dark-700 border border-dark-600 rounded-xl p-5 mb-4 qp-card">
@@ -266,29 +271,96 @@
 </div>
 
 <!-- ════════════════════════════════════════════════ -->
-<!-- Tab 7: 高阶统计 (Phase 2 锁定)                   -->
+<!-- Tab 7: 高阶统计                                  -->
 <!-- ════════════════════════════════════════════════ -->
 <div class="qp-tab-content" id="tab-advanced">
-    <div class="qp-phase2-lock">
-        <div class="grid grid-cols-2 gap-4">
-            <div class="bg-dark-700 border border-dark-600 rounded-xl p-5">
-                <h3 class="text-sm font-semibold text-white mb-3">VaR / CVaR 风险指标</h3>
-                <div class="qp-skeleton h-32 rounded-lg"></div>
-            </div>
-            <div class="bg-dark-700 border border-dark-600 rounded-xl p-5">
-                <h3 class="text-sm font-semibold text-white mb-3">Monte Carlo 模拟</h3>
-                <div class="qp-skeleton h-32 rounded-lg"></div>
-            </div>
-            <div class="bg-dark-700 border border-dark-600 rounded-xl p-5">
-                <h3 class="text-sm font-semibold text-white mb-3">Omega / PSR / Kelly</h3>
-                <div class="qp-skeleton h-32 rounded-lg"></div>
-            </div>
-            <div class="bg-dark-700 border border-dark-600 rounded-xl p-5">
-                <h3 class="text-sm font-semibold text-white mb-3">交易时机热力图</h3>
-                <div class="qp-skeleton h-32 rounded-lg"></div>
-            </div>
+
+    <!-- 6个指标卡片 -->
+    <div class="grid grid-cols-6 gap-3 mb-4 qp-card-stagger">
+        <div class="bg-dark-800 rounded-lg p-3 text-center qp-card-enter">
+            <div class="text-xs text-gray-500 mb-1">VaR 95%</div>
+            <div class="text-lg font-bold text-accent-red">{{ '%.2f'|format(metrics.var_95) }}%</div>
+            <div class="text-[10px] text-gray-600">日最大损失</div>
         </div>
-        <div class="qp-lock-overlay">&#x1F512; Phase 2 功能 — 即将上线</div>
+        <div class="bg-dark-800 rounded-lg p-3 text-center qp-card-enter">
+            <div class="text-xs text-gray-500 mb-1">CVaR 95%</div>
+            <div class="text-lg font-bold text-accent-red">{{ '%.2f'|format(metrics.cvar_95) }}%</div>
+            <div class="text-[10px] text-gray-600">尾部均损</div>
+        </div>
+        <div class="bg-dark-800 rounded-lg p-3 text-center qp-card-enter">
+            <div class="text-xs text-gray-500 mb-1">Omega</div>
+            <div class="text-lg font-bold {{ 'text-accent-green' if metrics.omega_ratio > 1 else 'text-accent-red' }}">{{ '%.2f'|format(metrics.omega_ratio) }}</div>
+            <div class="text-[10px] text-gray-600">{{ '>1 正期望' if metrics.omega_ratio > 1 else '<1 负期望' }}</div>
+        </div>
+        <div class="bg-dark-800 rounded-lg p-3 text-center qp-card-enter">
+            <div class="text-xs text-gray-500 mb-1">PSR</div>
+            <div class="text-lg font-bold {{ 'text-accent-green' if metrics.psr > 0.95 else 'text-accent-yellow' if metrics.psr > 0.5 else 'text-accent-red' }}">{{ '%.1f'|format(metrics.psr * 100) }}%</div>
+            <div class="text-[10px] text-gray-600">{{ 'Sharpe可信' if metrics.psr > 0.95 else '需更多数据' }}</div>
+        </div>
+        <div class="bg-dark-800 rounded-lg p-3 text-center qp-card-enter">
+            <div class="text-xs text-gray-500 mb-1">Full Kelly</div>
+            <div class="text-lg font-bold text-white">{{ '%.1f'|format(metrics.kelly_full * 100) }}%</div>
+            <div class="text-[10px] text-gray-600">最优仓位</div>
+        </div>
+        <div class="bg-dark-800 rounded-lg p-3 text-center qp-card-enter">
+            <div class="text-xs text-gray-500 mb-1">Half Kelly</div>
+            <div class="text-lg font-bold text-accent-blue">{{ '%.1f'|format(metrics.kelly_half * 100) }}%</div>
+            <div class="text-[10px] text-gray-600">推荐仓位</div>
+        </div>
+    </div>
+
+    <!-- Kelly 可视化条 -->
+    <div class="bg-dark-700 border border-dark-600 rounded-xl p-4 mb-4 qp-card">
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-sm text-white font-semibold">Kelly 仓位建议</span>
+            <span class="text-xs text-gray-500">胜率 {{ '%.0f'|format(metrics.win_rate * 100) }}% &times; 盈亏比 {{ metrics.profit_factor }}</span>
+        </div>
+        <div class="w-full bg-dark-800 rounded-full h-4 relative">
+            <div class="h-4 rounded-full bg-accent-blue/40 absolute left-0 top-0" style="width: {{ [metrics.kelly_full * 100 * 2, 100]|min }}%"></div>
+            <div class="h-4 rounded-full bg-accent-blue absolute left-0 top-0" style="width: {{ [metrics.kelly_half * 100 * 2, 100]|min }}%"></div>
+        </div>
+        <div class="flex justify-between mt-1 text-xs text-gray-500">
+            <span>0%</span>
+            <span>Half Kelly {{ '%.1f'|format(metrics.kelly_half * 100) }}%</span>
+            <span>Full Kelly {{ '%.1f'|format(metrics.kelly_full * 100) }}%</span>
+            <span>50%</span>
+        </div>
+    </div>
+
+    <!-- Monte Carlo + 交易热力图 (2列) -->
+    <div class="grid grid-cols-2 gap-4 mb-4">
+        <!-- Monte Carlo 置信锥 -->
+        <div class="bg-dark-700 border border-dark-600 rounded-xl p-5 qp-card">
+            <h3 class="text-sm font-semibold text-white mb-3">Monte Carlo 模拟 (1000路径 &times; 252天)</h3>
+            <div id="ch-monte-carlo" style="height: 280px; width: 100%;"></div>
+            {% if metrics.monte_carlo %}
+            <div class="grid grid-cols-3 gap-2 mt-3">
+                <div class="bg-dark-800 rounded-lg p-2 text-center">
+                    <div class="text-[10px] text-gray-500">乐观 (95%)</div>
+                    <div class="text-sm font-bold text-accent-green">+{{ metrics.monte_carlo.p95_return }}%</div>
+                </div>
+                <div class="bg-dark-800 rounded-lg p-2 text-center">
+                    <div class="text-[10px] text-gray-500">中位数</div>
+                    <div class="text-sm font-bold text-white">{{ '+' if metrics.monte_carlo.p50_return >= 0 else '' }}{{ metrics.monte_carlo.p50_return }}%</div>
+                </div>
+                <div class="bg-dark-800 rounded-lg p-2 text-center">
+                    <div class="text-[10px] text-gray-500">悲观 (5%)</div>
+                    <div class="text-sm font-bold text-accent-red">{{ metrics.monte_carlo.p5_return }}%</div>
+                </div>
+            </div>
+            {% else %}
+            <p class="text-center text-gray-500 text-sm mt-4">交易日不足30天，无法运行模拟</p>
+            {% endif %}
+        </div>
+
+        <!-- 交易时机热力图 -->
+        <div class="bg-dark-700 border border-dark-600 rounded-xl p-5 qp-card">
+            <h3 class="text-sm font-semibold text-white mb-3">交易时机热力图</h3>
+            <div id="ch-trade-heatmap" style="height: 280px; width: 100%;"></div>
+            {% if not metrics.trade_heatmap %}
+            <p class="text-center text-gray-500 text-sm mt-4">无交易记录</p>
+            {% endif %}
+        </div>
     </div>
 </div>
 
@@ -344,6 +416,8 @@
     var rollingVol = {{ rolling_vol_json|safe if rolling_vol_json else '[]' }};
     var tradeDetails = {{ trade_details_json|safe if trade_details_json else '[]' }};
     var heatmapData = {{ heatmap_data|safe }};
+    var monteCarloData = {{ monte_carlo_json|safe if monte_carlo_json else '{}' }};
+    var tradeHeatmapData = {{ trade_heatmap_json|safe if trade_heatmap_json else '[]' }};
 
     window.qpCharts = window.qpCharts || {};
 
@@ -539,6 +613,92 @@
         });
     });
 
+    // ═══ Tab 7: Advanced Statistics (Monte Carlo + Trade Heatmap) ═══
+    document.addEventListener('qp:tab-activate', function(e) {
+        if (e.detail.tabId !== 'tab-advanced') return;
+
+        // Monte Carlo cone chart
+        var mcEl = document.getElementById('ch-monte-carlo');
+        if (mcEl && monteCarloData && monteCarloData.paths && monteCarloData.paths.length) {
+            var mcChart = echarts.init(mcEl, null, { renderer: 'canvas' });
+            var xData = [];
+            var nPts = monteCarloData.paths[0].length;
+            var step = Math.round(monteCarloData.n_days / nPts);
+            for (var i = 0; i < nPts; i++) xData.push('Day ' + (i * step));
+
+            var series = [];
+            // 20 sample paths (light opacity)
+            monteCarloData.paths.forEach(function(path, idx) {
+                var finalVal = path[path.length - 1];
+                var clr = finalVal >= monteCarloData.start_equity
+                    ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)';
+                series.push({
+                    type: 'line', data: path, symbol: 'none',
+                    lineStyle: { color: clr, width: 1 }, silent: true, z: 1
+                });
+            });
+            // Confidence bands
+            if (monteCarloData.p25_line) {
+                series.push({
+                    name: '25%-75%', type: 'line', data: monteCarloData.p75_line, symbol: 'none',
+                    lineStyle: { opacity: 0 }, areaStyle: { color: 'rgba(59,130,246,0.1)' },
+                    stack: 'band', z: 2
+                });
+                series.push({
+                    type: 'line', data: monteCarloData.p25_line.map(function(v, i) {
+                        return monteCarloData.p75_line[i] - v;
+                    }), symbol: 'none', lineStyle: { opacity: 0 },
+                    areaStyle: { color: 'rgba(59,130,246,0.1)' }, stack: 'band', z: 2
+                });
+            }
+            // Percentile lines
+            series.push({ name: 'P5 悲观', type: 'line', data: monteCarloData.p5_line, symbol: 'none',
+                lineStyle: { color: '#ef4444', width: 1.5, type: 'dashed' }, z: 3 });
+            series.push({ name: 'P50 中位', type: 'line', data: monteCarloData.p50_line, symbol: 'none',
+                lineStyle: { color: '#3b82f6', width: 2 }, z: 4 });
+            series.push({ name: 'P95 乐观', type: 'line', data: monteCarloData.p95_line, symbol: 'none',
+                lineStyle: { color: '#22c55e', width: 1.5, type: 'dashed' }, z: 3 });
+
+            mcChart.setOption({
+                grid: { top: 40, right: 20, bottom: 30, left: 60 },
+                legend: { data: ['P5 悲观', 'P50 中位', 'P95 乐观'], textStyle: { color: '#9ca3af', fontSize: 10 }, top: 0 },
+                xAxis: { type: 'category', data: xData, axisLabel: { color: '#9ca3af', fontSize: 9, interval: Math.floor(nPts / 5) },
+                    axisLine: { lineStyle: { color: '#232b3e' } } },
+                yAxis: { type: 'value', axisLabel: { color: '#9ca3af', formatter: '${value}' },
+                    axisLine: { lineStyle: { color: '#232b3e' } }, splitLine: { lineStyle: { color: '#232b3e' } } },
+                series: series,
+                tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+                backgroundColor: 'transparent',
+            });
+        }
+
+        // Trade timing heatmap
+        var hmEl = document.getElementById('ch-trade-heatmap');
+        if (hmEl && tradeHeatmapData && tradeHeatmapData.length) {
+            var hmChart = echarts.init(hmEl, null, { renderer: 'canvas' });
+            var dows = ['周一', '周二', '周三', '周四', '周五'];
+            var months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+            var hmData = tradeHeatmapData.map(function(d) {
+                return [d.month - 1, d.dow, d.avg_return];
+            });
+            hmChart.setOption({
+                grid: { top: 10, right: 20, bottom: 60, left: 60 },
+                xAxis: { type: 'category', data: months, axisLabel: { color: '#9ca3af', fontSize: 10 },
+                    axisLine: { lineStyle: { color: '#232b3e' } }, splitLine: { show: false } },
+                yAxis: { type: 'category', data: dows, axisLabel: { color: '#9ca3af', fontSize: 10 },
+                    axisLine: { lineStyle: { color: '#232b3e' } }, splitLine: { show: false } },
+                visualMap: { min: -5, max: 5, calculable: true, orient: 'horizontal', left: 'center', bottom: 0,
+                    inRange: { color: ['#ef4444', '#1a2035', '#22c55e'] },
+                    textStyle: { color: '#9ca3af' }, formatter: function(v) { return v.toFixed(1) + '%'; } },
+                series: [{ type: 'heatmap', data: hmData,
+                    label: { show: true, formatter: function(p) { return p.value[2].toFixed(1); }, color: '#e5e7eb', fontSize: 10 },
+                    itemStyle: { borderColor: '#1a2035', borderWidth: 2, borderRadius: 3 } }],
+                tooltip: { formatter: function(p) { return dows[p.value[1]] + ' ' + months[p.value[0]] + ': ' + p.value[2] + '%'; } },
+                backgroundColor: 'transparent',
+            });
+        }
+    });
+
     // ═══ Tab init: activate first tab's chart on load ═══
     window.qpCore && window.qpCore.initTabs('#bt-tabs');
 
@@ -566,6 +726,51 @@
                 run(0);
             })
             .catch(function(e) { container.innerHTML = '<div class="text-center text-red-400 py-8">平行回测失败: ' + e.message + '</div>'; });
+    };
+
+    // ═══ Macro overlay for Tab 2 equity chart ═══
+    var macroOverlayLoaded = false;
+    window.toggleMacroOverlay = function() {
+        if (macroOverlayLoaded) return;
+        var btn = document.getElementById('btn-macro-overlay');
+        btn.textContent = '加载中...';
+        var startDate = dailyDetails.length ? dailyDetails[0].date : '';
+        var endDate = dailyDetails.length ? dailyDetails[dailyDetails.length - 1].date : '';
+        fetch('/api/macro-overlay?start_date=' + startDate + '&end_date=' + endDate)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.error) { btn.textContent = '无数据'; return; }
+                macroOverlayLoaded = true;
+                btn.textContent = '✓ 已叠加';
+                btn.classList.add('bg-accent-blue/20', 'text-accent-blue');
+                // Overlay Fed Rate on equity chart as ECharts overlay
+                var eqEl = document.getElementById('ch-equity');
+                if (!eqEl) return;
+                var overlayDiv = document.createElement('div');
+                overlayDiv.style.cssText = 'height:100px;width:100%;margin-top:8px;';
+                overlayDiv.id = 'ch-macro-fed';
+                eqEl.parentNode.appendChild(overlayDiv);
+                var fedChart = echarts.init(overlayDiv, null, { renderer: 'canvas' });
+                var fedData = (data.fed_rate || []).map(function(d) { return [d.date, d.value]; });
+                var dgs10Data = (data.dgs10 || []).map(function(d) { return [d.date, d.value]; });
+                fedChart.setOption({
+                    grid: { top: 15, right: 40, bottom: 20, left: 60 },
+                    legend: { data: ['联邦基金利率', '10Y国债'], textStyle: { color: '#6b7280', fontSize: 9 }, top: 0 },
+                    xAxis: { type: 'category', data: fedData.map(function(d) { return d[0]; }),
+                        axisLabel: { color: '#6b7280', fontSize: 9 }, axisLine: { lineStyle: { color: '#232b3e' } } },
+                    yAxis: { type: 'value', axisLabel: { color: '#6b7280', fontSize: 9, formatter: '{value}%' },
+                        splitLine: { lineStyle: { color: '#232b3e' } } },
+                    series: [
+                        { name: '联邦基金利率', type: 'line', data: fedData.map(function(d) { return d[1]; }),
+                          lineStyle: { color: '#ef4444', width: 1.5 }, symbol: 'none', smooth: true },
+                        { name: '10Y国债', type: 'line', data: dgs10Data.map(function(d) { return d[1]; }),
+                          lineStyle: { color: '#eab308', width: 1 }, symbol: 'none', smooth: true }
+                    ],
+                    tooltip: { trigger: 'axis' },
+                    backgroundColor: 'transparent',
+                });
+            })
+            .catch(function() { btn.textContent = '加载失败'; });
     };
 
     window.switchPeriod = function(p) {

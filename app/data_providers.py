@@ -338,6 +338,69 @@ def fetch_macro_data() -> dict:
         return {"gdp": [], "cpi": [], "fed_rate": [], "yield_curve": {}, "unemployment": [], "calendar": [], "error": str(e)}
 
 
+def fetch_macro_overlay(start_date: str = None, end_date: str = None) -> dict:
+    """Fetch long-history macro series for overlay on backtest equity curve (20yr)."""
+    key = f"macro_overlay:{start_date}:{end_date}"
+    cached = _cache_get(key, TTL_MACRO)
+    if cached is not None:
+        return cached
+
+    api_key = os.getenv("FRED_API_KEY", "")
+    if not api_key:
+        return {"error": "未配置 FRED_API_KEY"}
+
+    def _filter(series, start, end):
+        if not series:
+            return series
+        out = series
+        if start:
+            out = [s for s in out if s["date"] >= start]
+        if end:
+            out = [s for s in out if s["date"] <= end]
+        return out
+
+    try:
+        fed_rate = _fetch_fred_series("FEDFUNDS", limit=500, api_key=api_key)
+        unemployment = _fetch_fred_series("UNRATE", limit=500, api_key=api_key)
+        cpi = _fetch_fred_series("CPIAUCSL", limit=500, api_key=api_key)
+        dgs10 = _fetch_fred_series("DGS10", limit=500, api_key=api_key)
+        result = {
+            "fed_rate": _filter(fed_rate, start_date, end_date),
+            "unemployment": _filter(unemployment, start_date, end_date),
+            "cpi": _filter(cpi, start_date, end_date),
+            "dgs10": _filter(dgs10, start_date, end_date),
+        }
+        _cache_set(key, result)
+        return result
+    except Exception as e:
+        logger.warning(f"fetch_macro_overlay() failed: {e}")
+        return {"error": str(e)}
+
+
+def analyze_news_sentiment(symbol: str) -> dict:
+    """Simple keyword-based sentiment from Finnhub news headlines."""
+    articles = fetch_news(symbol, limit=10)
+    if not articles:
+        return {"score": 0, "label": "neutral", "count": 0}
+
+    pos_words = {"surge", "soar", "beat", "upgrade", "rally", "gain", "bullish",
+                 "record", "breakout", "outperform", "buy", "strong", "profit", "growth"}
+    neg_words = {"crash", "plunge", "miss", "downgrade", "selloff", "loss", "bearish",
+                 "concern", "risk", "cut", "weak", "decline", "layoff", "warning", "lawsuit"}
+    pos_count = neg_count = 0
+    for art in articles:
+        text = (art.get("title", "") + " " + art.get("summary", "")).lower()
+        pos_count += sum(1 for w in pos_words if w in text)
+        neg_count += sum(1 for w in neg_words if w in text)
+
+    total = pos_count + neg_count
+    if total == 0:
+        return {"score": 0, "label": "neutral", "count": len(articles)}
+    score = round((pos_count - neg_count) / total, 2)
+    label = "bullish" if score > 0.2 else ("bearish" if score < -0.2 else "neutral")
+    return {"score": score, "label": label, "count": len(articles)}
+
+
 # ---------------------------------------------------------------------------
 # Economic Calendar
 # ---------------------------------------------------------------------------

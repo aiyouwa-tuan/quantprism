@@ -40,7 +40,7 @@ from strategy_hunter import compute_match_score, search_github_strategies, ai_ge
 from ai_analysis import get_active_provider
 from scanner import scan_index, INDEX_MAP
 
-app = FastAPI(title="Goal-Driven Trading OS", version="3.0.0")
+app = FastAPI(title="Goal-Driven Trading OS", version="3.1.0")
 
 BASE_DIR = Path(__file__).resolve().parent
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
@@ -2130,6 +2130,14 @@ def backtest_run(
         "rolling_sortino": getattr(_m, 'rolling_sortino', []),
         "rolling_volatility": getattr(_m, 'rolling_volatility', []),
         "trade_details": getattr(_m, 'trade_details', []),
+        "var_95": getattr(_m, 'var_95', 0),
+        "cvar_95": getattr(_m, 'cvar_95', 0),
+        "omega_ratio": getattr(_m, 'omega_ratio', 0),
+        "psr": getattr(_m, 'psr', 0),
+        "kelly_full": getattr(_m, 'kelly_full', 0),
+        "kelly_half": getattr(_m, 'kelly_half', 0),
+        "monte_carlo": getattr(_m, 'monte_carlo', {}),
+        "trade_heatmap": getattr(_m, 'trade_heatmap', []),
     })()
 
     return templates.TemplateResponse("partials/backtest_inline.html", {
@@ -2145,6 +2153,8 @@ def backtest_run(
         "rolling_sortino_json": _json.dumps(getattr(_m, 'rolling_sortino', [])),
         "rolling_vol_json": _json.dumps(getattr(_m, 'rolling_volatility', [])),
         "trade_details_json": _json.dumps(getattr(_m, 'trade_details', [])),
+        "monte_carlo_json": _json.dumps(getattr(_m, 'monte_carlo', {})),
+        "trade_heatmap_json": _json.dumps(getattr(_m, 'trade_heatmap', [])),
     })
 
 
@@ -2224,6 +2234,14 @@ async def scan_run(
         elif days_since <= 1:
             reason += "（昨日信号）"
 
+        # News sentiment (P1)
+        sentiment = {"score": 0, "label": "neutral", "count": 0}
+        try:
+            from data_providers import analyze_news_sentiment
+            sentiment = analyze_news_sentiment(symbol)
+        except Exception:
+            pass
+
         results.append({
             "symbol": symbol,
             "company_name": symbol,
@@ -2242,6 +2260,7 @@ async def scan_run(
             "position_amount": round(position_amount, 0),
             "max_loss": round(max_loss, 0),
             "max_loss_pct": round(max_loss / account_balance * 100, 2) if account_balance else 0,
+            "sentiment": sentiment,
         })
 
     # Smart combo recommendations
@@ -2807,6 +2826,13 @@ async def api_macro_data():
     from data_providers import fetch_macro_data
     from fastapi.responses import JSONResponse
     return JSONResponse(fetch_macro_data())
+
+
+@app.get("/api/macro-overlay")
+async def api_macro_overlay(start_date: str = "", end_date: str = ""):
+    """Macro overlay data for backtest equity curve (20yr FRED series)"""
+    from data_providers import fetch_macro_overlay
+    return JSONResponse(fetch_macro_overlay(start_date or None, end_date or None))
 
 
 @app.get("/api/rotation", response_class=HTMLResponse)

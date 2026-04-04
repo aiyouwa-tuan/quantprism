@@ -256,6 +256,112 @@ def _simulate_portfolio(signals, df, initial_capital=10000, risk_per_trade=0.02,
             rolling_sortino_data.append({"date": date_str, "value": round(rso, 2)})
             rolling_vol_data.append({"date": date_str, "value": round(rv, 1)})
 
+    # ═══ Phase 2: Advanced Statistics ═══
+
+    # VaR 95% + CVaR 95% (Historical Percentile)
+    var_95 = 0.0
+    cvar_95 = 0.0
+    if len(returns) > 20:
+        var_95 = round(float(np.percentile(returns, 5)) * 100, 4)
+        tail = returns[returns <= np.percentile(returns, 5)]
+        cvar_95 = round(float(tail.mean()) * 100, 4) if len(tail) > 0 else var_95
+
+    # Omega Ratio (probability-weighted gains vs losses, threshold=0)
+    omega_val = 0.0
+    if len(returns) > 10:
+        excess = returns - 0.0
+        gains_sum = float(excess[excess > 0].sum())
+        losses_abs = float(abs(excess[excess <= 0].sum()))
+        omega_val = round(gains_sum / losses_abs, 2) if losses_abs > 0 else 99.0
+
+    # PSR (Probabilistic Sharpe Ratio) — Bailey-Lopez de Prado
+    psr_val = 0.0
+    if len(returns) > 30:
+        from scipy.stats import norm as _norm
+        n = len(returns)
+        sr = sharpe
+        skew_val = float(returns.skew())
+        kurt_val = float(returns.kurtosis())
+        sr_std = math.sqrt((1 + 0.5 * sr**2 - skew_val * sr + ((kurt_val) / 4) * sr**2) / max(n - 1, 1))
+        if sr_std > 0:
+            psr_val = round(float(_norm.cdf(sr / sr_std)), 4)
+
+    # Kelly Criterion (Full + Half)
+    kelly_full = 0.0
+    kelly_half = 0.0
+    win_rate_val = len(wins) / len(trades) if trades else 0
+    if win_rate_val > 0 and len(losses) > 0:
+        avg_w = float(np.mean([abs(t["pnl"]) for t in wins])) if wins else 0
+        avg_l = float(np.mean([abs(t["pnl"]) for t in losses])) if losses else 1
+        if avg_l > 0:
+            b = avg_w / avg_l  # win/loss ratio
+            kelly_full = round(float(win_rate_val - (1 - win_rate_val) / b), 4) if b > 0 else 0
+            kelly_half = round(kelly_full / 2, 4)
+            kelly_full = max(kelly_full, 0)
+            kelly_half = max(kelly_half, 0)
+
+    # Monte Carlo (1000 paths, 252-day bootstrap projection)
+    monte_carlo_data = {}
+    if len(returns) > 30:
+        n_paths = 1000
+        n_days = 252
+        ret_arr = returns.values
+        rng = np.random.default_rng(42)
+        paths = np.zeros((n_paths, n_days + 1))
+        paths[:, 0] = capital
+        for p in range(n_paths):
+            sampled = rng.choice(ret_arr, size=n_days, replace=True)
+            paths[p, 1:] = capital * np.cumprod(1 + sampled)
+        final_vals = paths[:, -1]
+        # Sample 20 representative paths, downsample to 50 points
+        sample_idx = np.linspace(0, n_paths - 1, 20, dtype=int)
+        step_size = max(1, n_days // 50)
+        sampled_paths = []
+        for idx in sample_idx:
+            sampled_paths.append([round(float(v), 2) for v in paths[idx, ::step_size]])
+        # Percentile bands (50 points each)
+        p5_line = [round(float(v), 2) for v in np.percentile(paths, 5, axis=0)[::step_size]]
+        p25_line = [round(float(v), 2) for v in np.percentile(paths, 25, axis=0)[::step_size]]
+        p50_line = [round(float(v), 2) for v in np.percentile(paths, 50, axis=0)[::step_size]]
+        p75_line = [round(float(v), 2) for v in np.percentile(paths, 75, axis=0)[::step_size]]
+        p95_line = [round(float(v), 2) for v in np.percentile(paths, 95, axis=0)[::step_size]]
+        monte_carlo_data = {
+            "p5_final": round(float(np.percentile(final_vals, 5)), 2),
+            "p50_final": round(float(np.median(final_vals)), 2),
+            "p95_final": round(float(np.percentile(final_vals, 95)), 2),
+            "mean_final": round(float(np.mean(final_vals)), 2),
+            "p5_return": round(float((np.percentile(final_vals, 5) / capital - 1) * 100), 1),
+            "p50_return": round(float((np.median(final_vals) / capital - 1) * 100), 1),
+            "p95_return": round(float((np.percentile(final_vals, 95) / capital - 1) * 100), 1),
+            "paths": sampled_paths,
+            "p5_line": p5_line, "p25_line": p25_line, "p50_line": p50_line,
+            "p75_line": p75_line, "p95_line": p95_line,
+            "n_days": n_days,
+            "start_equity": round(capital, 2),
+        }
+
+    # Trading Time Heatmap (by day-of-week × month)
+    trade_heatmap = []
+    if trades:
+        hm_data = {}
+        for t in trades:
+            try:
+                exit_dt = pd.Timestamp(t.get("exit_time", ""))
+                dow = int(exit_dt.dayofweek)   # 0=Mon, 4=Fri
+                month = int(exit_dt.month)     # 1-12
+                key = (dow, month)
+                if key not in hm_data:
+                    hm_data[key] = []
+                hm_data[key].append(t.get("return_pct", 0))
+            except Exception:
+                pass
+        for (dow, month), rets in hm_data.items():
+            trade_heatmap.append({
+                "dow": dow, "month": month,
+                "avg_return": round(float(np.mean(rets)) * 100, 2),
+                "count": len(rets),
+            })
+
     # MAE/MFE per trade (scan OHLC High/Low during open periods)
     trade_details = []
     for t in trades:
@@ -306,6 +412,14 @@ def _simulate_portfolio(signals, df, initial_capital=10000, risk_per_trade=0.02,
         rolling_sortino=rolling_sortino_data,
         rolling_volatility=rolling_vol_data,
         trade_details=trade_details,
+        var_95=var_95,
+        cvar_95=cvar_95,
+        omega_ratio=omega_val,
+        psr=psr_val,
+        kelly_full=kelly_full,
+        kelly_half=kelly_half,
+        monte_carlo=monte_carlo_data,
+        trade_heatmap=trade_heatmap,
     )
 
 
