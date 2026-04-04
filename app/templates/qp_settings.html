@@ -52,12 +52,12 @@
                 </div>
                 <!-- Edit mode (hidden) -->
                 <div class="api-edit hidden space-y-2">
-                    <input type="text" name="api_key"
+                    <input type="password" name="api_key"
                            class="w-full bg-dark-800 border border-accent-blue rounded-lg px-3 py-1.5 text-sm text-white font-mono focus:outline-none"
-                           placeholder="API Key" value="{{ cfg.api_key or '' }}">
-                    <input type="text" name="api_secret"
+                           placeholder="{{ '已配置，留空保持不变' if cfg.api_key else 'API Key' }}" value="">
+                    <input type="password" name="api_secret"
                            class="w-full bg-dark-800 border border-dark-500 rounded-lg px-3 py-1.5 text-sm text-white font-mono focus:outline-none"
-                           placeholder="API Secret (&#x53EF;&#x9009;)" value="{{ cfg.api_secret or '' }}">
+                           placeholder="{{ '已配置，留空保持不变' if cfg.api_secret else 'API Secret (可选)' }}" value="">
                 </div>
             </div>
             {% endfor %}

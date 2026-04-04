@@ -1391,11 +1391,15 @@ def save_api_config(
         cfg = ApiConfig(service_name=service_name, display_name=svc["display"] if svc else service_name)
         db.add(cfg)
 
-    cfg.api_key = api_key
-    cfg.api_secret = api_secret
-    cfg.extra_config = json.dumps({"extra_1": extra_1, "extra_2": extra_2}) if extra_1 or extra_2 else None
-    cfg.is_active = bool(api_key)
-    cfg.status = "已配置" if api_key else "未配置"
+    # Only overwrite if a new value was submitted; empty = keep existing
+    if api_key:
+        cfg.api_key = api_key
+    if api_secret:
+        cfg.api_secret = api_secret
+    if extra_1 or extra_2:
+        cfg.extra_config = json.dumps({"extra_1": extra_1, "extra_2": extra_2})
+    cfg.is_active = bool(cfg.api_key)
+    cfg.status = "已配置" if cfg.api_key else "未配置"
 
     # Write to environment for immediate use
     svc = next((s for s in API_SERVICES if s["name"] == service_name), None)

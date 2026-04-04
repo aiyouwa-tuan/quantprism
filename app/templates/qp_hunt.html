@@ -202,7 +202,7 @@
     {% endfor %}
     </div>
 
-{% else %}
+{% if not goals and not strategies %}
     <div class="text-center py-16">
         <div class="text-4xl mb-4">&#x1F50D;</div>
         <p class="text-gray-400 text-sm">点击「开始搜索」，系统将从多个来源寻找匹配策略</p>
