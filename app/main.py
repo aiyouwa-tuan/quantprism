@@ -1834,7 +1834,6 @@ def hunt_search(request: Request, db: Session = Depends(get_db)):
                 period="2y",
             )
             if port:
-                from strategy_hunter import compute_match_score
                 port["match_pct"] = round(compute_match_score(port, goals_dict))
                 results.insert(0, port)
                 qualified2 = [r for r in results if r["match_pct"] >= MIN_MATCH]
@@ -1872,7 +1871,6 @@ def hunt_portfolio_optimize(request: Request, db: Session = Depends(get_db)):
 
     try:
         from portfolio_optimizer import build_portfolio_strategy
-        from strategy_hunter import compute_match_score
 
         goals_dict = {
             "annual_return": goals.annual_return_target,
