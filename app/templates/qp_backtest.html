@@ -36,15 +36,9 @@
             </div>
             <div class="flex-1">
                 <label class="block text-xs text-gray-400 mb-1.5">标的</label>
-                <input type="text" name="symbol" id="inp-symbol" list="symbol-list"
-                       value="{{ preselect_symbol or 'SPY' }}"
-                       class="w-full bg-dark-800 border border-dark-500 rounded-lg px-3 py-2 text-sm text-white focus:border-accent-blue focus:outline-none"
-                       placeholder="输入代码">
-                <!-- 策略可选标的下拉（多标的时显示） -->
                 {% set syms = preselect_symbols or [preselect_symbol or 'SPY'] %}
-                <select id="symbol-select"
-                        onchange="document.getElementById('inp-symbol').value = this.value"
-                        class="w-full bg-dark-800 border border-dark-500 rounded-lg px-3 py-1.5 text-xs text-gray-400 mt-1.5 focus:border-accent-blue focus:outline-none {% if syms|length <= 1 %}hidden{% endif %}">
+                <select name="symbol" id="sel-symbol"
+                        class="w-full bg-dark-800 border border-dark-500 rounded-lg px-3 py-2 text-sm text-white focus:border-accent-blue focus:outline-none">
                     {% for sym in syms %}
                     <option value="{{ sym }}" {{ 'selected' if sym == (preselect_symbol or 'SPY') }}>{{ sym }}</option>
                     {% endfor %}
@@ -142,7 +136,7 @@ var SYMBOL_MAP = {{ symbol_map | tojson }};
 
 function updateSymbolSelect(strategyId) {
     var symbols = SYMBOL_MAP[strategyId] || ['SPY'];
-    var sel = document.getElementById('symbol-select');
+    var sel = document.getElementById('sel-symbol');
     sel.innerHTML = '';
     symbols.forEach(function(sym) {
         var opt = document.createElement('option');
@@ -150,14 +144,6 @@ function updateSymbolSelect(strategyId) {
         opt.textContent = sym;
         sel.appendChild(opt);
     });
-    // 多标的显示下拉，单标的隐藏
-    if (symbols.length > 1) {
-        sel.classList.remove('hidden');
-    } else {
-        sel.classList.add('hidden');
-    }
-    // 自动填入第一个标的
-    document.getElementById('inp-symbol').value = symbols[0];
 }
 
 document.getElementById('sel-strategy').addEventListener('change', function() {

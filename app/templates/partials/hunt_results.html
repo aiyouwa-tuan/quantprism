@@ -234,7 +234,7 @@
                 <input type="hidden" name="symbol_pool" value="{{ s.default_symbols | join(',') if s.default_symbols else 'SPY' }}">
                 <input type="hidden" name="instrument" value="{{ s.instrument or 'stock' }}">
                 <input type="hidden" name="direction" value="{{ s.direction or 'bullish' }}">
-                <input type="hidden" name="params_yaml" value="{{ s.params | tojson if s.params else '{}' }}">
+                <input type="hidden" name="params_yaml" value="{}">
                 <button type="submit" class="px-4 py-2 rounded-lg border border-accent-green/40 text-accent-green text-sm font-medium hover:bg-accent-green/10"
                         onclick="event.stopPropagation()">
                     + 加入回测
@@ -248,7 +248,7 @@
                 <input type="hidden" name="symbol_pool" value="{{ s.default_symbols | join(',') if s.default_symbols else 'SPY' }}">
                 <input type="hidden" name="instrument" value="{{ s.instrument or 'stock' }}">
                 <input type="hidden" name="direction" value="{{ s.direction or 'bullish' }}">
-                <input type="hidden" name="params_yaml" value="{{ s.params | tojson if s.params else '{}' }}">
+                <input type="hidden" name="params_yaml" value="{}">
                 <input type="hidden" name="redirect_to" value="backtest">
                 <button type="submit" class="px-4 py-2 rounded-lg bg-accent-blue text-white text-sm font-medium hover:brightness-110"
                         onclick="event.stopPropagation()">

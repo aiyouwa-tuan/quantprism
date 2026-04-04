@@ -502,7 +502,12 @@ def run_full_backtest(config: StrategyConfig, goals: UserGoals = None, db=None,
     if not strategy_cls:
         return {"error": f"Strategy '{config.strategy_name}' not found"}
 
-    params = yaml.safe_load(config.params_yaml) if config.params_yaml else {}
+    try:
+        params = yaml.safe_load(config.params_yaml) if config.params_yaml else {}
+        if not isinstance(params, dict):
+            params = {}
+    except Exception:
+        params = {}
     strategy = strategy_cls(params)
     cost_model = COST_MODELS.get(cost_model_name, COST_MODELS["default"])
 
@@ -602,7 +607,12 @@ def run_stress_test(config: StrategyConfig, db=None) -> list:
     if not strategy_cls:
         return [{"error": f"Strategy '{config.strategy_name}' not found"}]
 
-    params = yaml.safe_load(config.params_yaml) if config.params_yaml else {}
+    try:
+        params = yaml.safe_load(config.params_yaml) if config.params_yaml else {}
+        if not isinstance(params, dict):
+            params = {}
+    except Exception:
+        params = {}
     strategy = strategy_cls(params)
     cost_model = COST_MODELS["default"]
     results = []
