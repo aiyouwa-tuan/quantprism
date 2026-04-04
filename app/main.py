@@ -37,7 +37,7 @@ from sync import sync_positions_from_broker
 from stock_screener import SECTORS, diagnose_stock, screen_sector, build_combo
 from ibkr_options import fetch_ibkr_options_chain, filter_options_for_sell_put
 from strategy_library import get_library as get_strategy_library, filter_library, get_strategy_by_id
-from strategy_hunter import compute_match_score, search_github_strategies, ai_generate_strategy, ai_generate_strategies
+from strategy_hunter import compute_match_score, search_github_strategies, ai_generate_strategy, ai_generate_strategies, generate_strategy_code
 from ai_analysis import get_active_provider
 from scanner import scan_index, INDEX_MAP
 
@@ -2105,6 +2105,13 @@ def hunt_save_strategy(
 
     if redirect_to == "backtest":
         first_symbol = (symbol_pool.split(",")[0].strip() if symbol_pool else "SPY") or "SPY"
+        # Generate real Python trading code for this strategy so backtest runs for real
+        generate_strategy_code(
+            strategy_id=safe_name,
+            strategy_name=name,
+            description=description,
+            default_symbols=symbol_pool.split(",") if symbol_pool else ["SPY"],
+        )
         return RedirectResponse(
             url=f"/backtest?strategy={safe_name}&symbol={first_symbol}",
             status_code=303,

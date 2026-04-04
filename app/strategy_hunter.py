@@ -381,6 +381,123 @@ def _fallback_strategy(goals: dict) -> dict:
     }
 
 
+# ─── 3b. AI 代码生成 ──────────────────────────────────────────────────────────────
+
+def generate_strategy_code(strategy_id: str, strategy_name: str, description: str,
+                            style: str = "momentum", default_symbols: list = None) -> bool:
+    """
+    让 AI 为 autoresearch 生成的策略写出真实 Python 回测代码，
+    写入 strategies/<strategy_id>.py，动态注册到 STRATEGY_REGISTRY。
+    成功返回 True，失败返回 False。
+    """
+    import re
+    import importlib.util
+    import sys
+
+    from strategies.base import get_strategy
+    # 如果已经有实现就跳过
+    if get_strategy(strategy_id):
+        return True
+
+    safe_id = re.sub(r"[^a-z0-9_]", "_", strategy_id.lower())[:40]
+    # 类名：snake_case → CamelCase
+    class_name = "".join(w.capitalize() for w in safe_id.split("_"))
+
+    symbols_hint = ", ".join(default_symbols or ["SPY"])
+
+    prompt = f"""你是量化策略开发专家。请为以下策略生成完整可运行的 Python 代码。
+
+策略名称：{strategy_name}
+策略风格：{style}
+策略描述：{description}
+默认标的：{symbols_hint}
+
+严格按照以下模板生成，不要修改模板结构，只填充 generate_signals 方法内部逻辑：
+
+```python
+import pandas as pd
+from strategies.base import StrategyBase, Signal, register_strategy
+
+
+@register_strategy
+class {class_name}(StrategyBase):
+    name = "{safe_id}"
+    description = "{strategy_name}"
+    default_params = {{
+        # 在此填写策略参数，例如 "period": 14, "threshold": 0.5
+    }}
+
+    def generate_signals(self, df: pd.DataFrame) -> list[Signal]:
+        signals = []
+        # df 包含列：open, high, low, close, volume
+        # 可用指标列（已预计算）：sma_20, sma_50, sma_200, ema_12, ema_26,
+        #   rsi_14, macd, macd_signal, bb_upper, bb_lower, atr_14
+        # 用 df.get("col_name") 获取，可能为 None
+        #
+        # 在此编写信号生成逻辑：
+        # 买入信号：signals.append(Signal(timestamp=..., symbol="", direction="long", entry_price=..., stop_loss=..., strategy_name=self.name))
+        # 平仓信号：signals.append(Signal(timestamp=..., symbol="", direction="close", entry_price=..., strategy_name=self.name))
+
+        # ── 在此实现 {strategy_name} 的核心逻辑 ──
+
+        return signals
+```
+
+要求：
+1. 完全按照模板，不要更改类名 {class_name}、name="{safe_id}"
+2. generate_signals 必须遍历 df 行，生成 Signal 列表
+3. 只使用 pandas/numpy，不要 import 其他库（ta 库除外，用 ta.xxx 即可）
+4. 必须维护 position_open 变量，防止重复开仓
+5. 只输出 Python 代码，不要其他文字，不要 markdown 代码块标记
+"""
+
+    raw = _call_ai(prompt, max_tokens=2000)
+    if not raw:
+        logger.warning("generate_strategy_code: AI returned empty for %s", strategy_id)
+        return False
+
+    # Strip markdown code fences
+    code = raw.strip()
+    if code.startswith("```"):
+        lines = code.split("\n")
+        code = "\n".join(l for l in lines if not l.strip().startswith("```"))
+
+    # Validate syntax
+    try:
+        compile(code, f"<{safe_id}>", "exec")
+    except SyntaxError as e:
+        logger.warning("generate_strategy_code: syntax error for %s: %s", safe_id, e)
+        return False
+
+    # Write to strategies directory
+    strategies_dir = os.path.join(os.path.dirname(__file__), "strategies")
+    file_path = os.path.join(strategies_dir, f"{safe_id}.py")
+    try:
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(f'"""\nAI 生成策略: {strategy_name}\n自动生成，勿手动编辑\n"""\n')
+            f.write(code)
+    except Exception as e:
+        logger.warning("generate_strategy_code: write failed for %s: %s", safe_id, e)
+        return False
+
+    # Dynamically import and register
+    try:
+        spec = importlib.util.spec_from_file_location(f"strategies.{safe_id}", file_path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[f"strategies.{safe_id}"] = module
+        spec.loader.exec_module(module)
+        logger.info("generate_strategy_code: registered %s successfully", safe_id)
+        return True
+    except Exception as e:
+        logger.warning("generate_strategy_code: import failed for %s: %s", safe_id, e)
+        # Clean up bad file
+        try:
+            os.remove(file_path)
+        except Exception:
+            pass
+        return False
+
+
 # ─── 4. 匹配评分 ─────────────────────────────────────────────────────────────────
 
 def compute_match_score(strategy_info: dict, goals: dict) -> float:
