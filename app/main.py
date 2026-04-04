@@ -2045,6 +2045,29 @@ def backtest_run(
 
     metrics = result["metrics"]
 
+    # Save run to Task Center
+    try:
+        run_record = BacktestRun(
+            strategy_config_id=config.id,
+            run_type="full",
+            period_label=f"{symbol} | {start_date} ~ {end_date}",
+            start_date=start_date,
+            end_date=end_date,
+            total_return=round(metrics.total_return, 4),
+            annual_return=round(metrics.annual_return, 4),
+            max_drawdown=round(metrics.max_drawdown, 4),
+            sharpe_ratio=round(metrics.sharpe_ratio, 2),
+            sortino_ratio=round(metrics.sortino_ratio, 2),
+            win_rate=round(metrics.win_rate, 4),
+            total_trades=metrics.total_trades,
+            profit_factor=round(metrics.profit_factor, 2),
+            compatible_with_goals=True,
+        )
+        db.add(run_record)
+        db.commit()
+    except Exception:
+        db.rollback()
+
     # Prepare chart data
     chart_data = []
     heatmap_data = []
