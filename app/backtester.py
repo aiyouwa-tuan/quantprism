@@ -482,8 +482,21 @@ def run_full_backtest(config: StrategyConfig, goals: UserGoals = None, db=None,
     运行完整回测 + walk-forward 验证 + 成本模型
     """
     strategy_cls = get_strategy(config.strategy_name)
+    proxy_note = None
     if not strategy_cls:
-        return {"error": f"Strategy '{config.strategy_name}' not found"}
+        # AI-generated / custom strategies have no code implementation yet.
+        # Fall back to the most similar built-in strategy based on keywords.
+        desc = ((config.description or "") + " " + (config.strategy_name or "")).lower()
+        if any(k in desc for k in ("reversion", "mean", "bollinger", "均值", "回归")):
+            fallback_name = "bollinger_reversion"
+        elif any(k in desc for k in ("rsi", "momentum", "动量", "趋势")):
+            fallback_name = "rsi_momentum"
+        else:
+            fallback_name = "sma_crossover"
+        strategy_cls = get_strategy(fallback_name)
+        if not strategy_cls:
+            return {"error": f"Strategy '{config.strategy_name}' not found"}
+        proxy_note = f"AI 策略「{config.display_name or config.strategy_name}」尚无回测代码，以「{fallback_name}」作为参考代理回测"
 
     params = yaml.safe_load(config.params_yaml) if config.params_yaml else {}
     strategy = strategy_cls(params)
@@ -562,7 +575,7 @@ def run_full_backtest(config: StrategyConfig, goals: UserGoals = None, db=None,
         db.add(run)
         db.commit()
 
-    return {
+    result = {
         "metrics": metrics,
         "report": report,
         "walk_forward": {
@@ -574,6 +587,9 @@ def run_full_backtest(config: StrategyConfig, goals: UserGoals = None, db=None,
         "signals_count": len(signals),
         "cost_model": cost_model,
     }
+    if proxy_note:
+        result["proxy_note"] = proxy_note
+    return result
 
 
 def run_stress_test(config: StrategyConfig, db=None) -> list:

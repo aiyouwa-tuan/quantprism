@@ -2384,6 +2384,7 @@ def backtest_run(
         "metrics": template_metrics,
         "goals": goals,
         "symbol": symbol,
+        "proxy_note": result.get("proxy_note"),
         "chart_data": _json.dumps(chart_data),
         "heatmap_data": _json.dumps(heatmap_data),
         "trades": _json.dumps(trades_markers),
