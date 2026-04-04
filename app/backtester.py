@@ -28,7 +28,8 @@ def _resolve_strategy(config: StrategyConfig):
     else:
         fallback, label = "sma_crossover", "SMA双均线"
     fallback_cls = get_strategy(fallback)
-    note = f"AI策略「{config.display_name or config.strategy_name}」尚无实际交易代码，以「{label}」策略作参考代理回测，结果仅供参考"
+    strategy_display = config.display_name or config.strategy_name
+    note = f"「{strategy_display}」暂无对应回测实现，以「{label}」策略作参考代理回测，结果仅供参考"
     return fallback_cls, note
 
 
