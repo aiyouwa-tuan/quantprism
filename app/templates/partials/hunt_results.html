@@ -55,7 +55,7 @@
         <p class="text-xs text-gray-500 mb-3">适合: {{ s.best_market }}</p>
         {% endif %}
         <div class="flex items-center gap-3">
-            <a href="/backtest?strategy={{ s.id or s.name }}&symbol=SPY"
+            <a href="/backtest?strategy={{ s.id or s.name }}&symbol={{ s.default_symbols[0] if s.default_symbols else 'SPY' }}"
                class="px-4 py-2 rounded-lg bg-accent-blue text-white text-sm font-medium hover:brightness-110">
                 去回测验证 →
             </a>

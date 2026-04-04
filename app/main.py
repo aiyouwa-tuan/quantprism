@@ -5,6 +5,7 @@ Phase 1: 目标设定 + 仓位计算器 + 手动持仓 + 交易日志
 from datetime import datetime, timedelta
 from pathlib import Path
 import json
+import os
 import time
 import pandas as pd
 
@@ -35,6 +36,7 @@ from stock_screener import SECTORS, diagnose_stock, screen_sector, build_combo
 from ibkr_options import fetch_ibkr_options_chain, filter_options_for_sell_put
 from strategy_library import get_library as get_strategy_library, filter_library, get_strategy_by_id
 from strategy_hunter import compute_match_score, search_github_strategies, ai_generate_strategy
+from ai_analysis import get_active_provider
 from scanner import scan_index, INDEX_MAP
 
 app = FastAPI(title="Goal-Driven Trading OS", version="0.1.0")
@@ -1796,7 +1798,7 @@ def hunt_search(request: Request, db: Session = Depends(get_db)):
 
 @app.post("/hunt/ai-generate", response_class=HTMLResponse)
 def hunt_ai_generate(request: Request, db: Session = Depends(get_db)):
-    """Ask AI to generate a new strategy"""
+    """Ask AI to generate a new strategy (legacy sync endpoint)"""
     goals = db.query(UserGoals).order_by(UserGoals.updated_at.desc()).first()
     if not goals:
         return HTMLResponse('<div class="text-center text-gray-400 py-4">请先设定投资目标</div>')
@@ -1825,6 +1827,118 @@ def hunt_ai_generate(request: Request, db: Session = Depends(get_db)):
     return HTMLResponse('<div class="text-center text-gray-400 py-4">AI 暂时无法生成策略，请稍后再试</div>')
 
 
+# ── 后台 AI 研究端点 ─────────────────────────────────────────────────────────────
+
+@app.post("/hunt/research/start")
+def research_start(request: Request, db: Session = Depends(get_db)):
+    """启动后台研究任务，立即返回 job_id"""
+    import threading
+    from models import ResearchJob, SystemConfig
+    from strategy_hunter import run_research_job
+
+    goals = db.query(UserGoals).order_by(UserGoals.updated_at.desc()).first()
+    if not goals:
+        return JSONResponse({"error": "请先设定投资目标"}, status_code=400)
+
+    # 获取用户偏好模型
+    sys_cfg = db.query(SystemConfig).filter(SystemConfig.key == "preferred_ai_model").first()
+    preferred_model = (sys_cfg.value if sys_cfg and sys_cfg.value else None) or get_active_provider() or "deepseek"
+
+    goals_dict = {
+        "annual_return": goals.annual_return_target,
+        "max_drawdown": goals.max_drawdown,
+        "holding_period": goals.holding_period or "days_weeks",
+        "asset_classes": goals.asset_classes or "us_stocks,etf",
+    }
+
+    job = ResearchJob(
+        status="pending",
+        goals_snapshot=json.dumps(goals_dict, ensure_ascii=False),
+        steps_log="[]",
+        strategies_found="[]",
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    job_id = job.id
+
+    t = threading.Thread(target=run_research_job, args=(job_id, goals_dict, preferred_model), daemon=True)
+    t.start()
+
+    return JSONResponse({"job_id": job_id, "model": preferred_model})
+
+
+@app.get("/hunt/research/status/{job_id}")
+def research_status(job_id: int, db: Session = Depends(get_db)):
+    """轮询任务状态"""
+    from models import ResearchJob
+    job = db.query(ResearchJob).filter(ResearchJob.id == job_id).first()
+    if not job:
+        return JSONResponse({"error": "not found"}, status_code=404)
+
+    elapsed = int((datetime.now() - job.started_at).total_seconds())
+    steps = json.loads(job.steps_log or "[]")
+    return JSONResponse({
+        "job_id": job.id,
+        "status": job.status,
+        "total_found": job.total_found,
+        "steps": steps,
+        "elapsed_seconds": elapsed,
+        "model_used": job.model_used or "",
+    })
+
+
+@app.get("/hunt/research/results/{job_id}", response_class=HTMLResponse)
+def research_results(job_id: int, request: Request, db: Session = Depends(get_db)):
+    """返回已找到的策略 HTML（可在任务进行中调用）"""
+    from models import ResearchJob
+    job = db.query(ResearchJob).filter(ResearchJob.id == job_id).first()
+    if not job:
+        return HTMLResponse('<div class="text-gray-400 text-center py-4">任务不存在</div>')
+    goals = db.query(UserGoals).order_by(UserGoals.updated_at.desc()).first()
+    strategies = json.loads(job.strategies_found or "[]")
+    return templates.TemplateResponse("partials/hunt_results.html", {
+        "request": request,
+        "strategies": strategies,
+        "goals": goals,
+    })
+
+
+@app.get("/hunt/research/latest")
+def research_latest(db: Session = Depends(get_db)):
+    """返回最近一个研究任务的状态（用于页面加载时恢复状态）"""
+    from models import ResearchJob
+    job = db.query(ResearchJob).order_by(ResearchJob.started_at.desc()).first()
+    if not job:
+        return JSONResponse({"job_id": None})
+    elapsed = int((datetime.now() - job.started_at).total_seconds())
+    steps = json.loads(job.steps_log or "[]")
+    return JSONResponse({
+        "job_id": job.id,
+        "status": job.status,
+        "total_found": job.total_found,
+        "steps": steps,
+        "elapsed_seconds": elapsed,
+        "model_used": job.model_used or "",
+    })
+
+
+@app.post("/settings/system")
+def save_system_config(request: Request, db: Session = Depends(get_db), key: str = Form(...), value: str = Form(...)):
+    """保存系统配置（如首选 AI 模型）"""
+    from models import SystemConfig
+    cfg = db.query(SystemConfig).filter(SystemConfig.key == key).first()
+    if cfg:
+        cfg.value = value
+    else:
+        cfg = SystemConfig(key=key, value=value)
+        db.add(cfg)
+    if key == "preferred_ai_model":
+        os.environ["AI_PROVIDER"] = value
+    db.commit()
+    return JSONResponse({"ok": True})
+
+
 # ===== Page 3: 回测实验室 =====
 
 @app.get("/backtest", response_class=HTMLResponse)
@@ -1839,6 +1953,28 @@ def backtest_page(request: Request, strategy: str = "", symbol: str = "", db: Se
         from strategies import get_all_strategies
         strategy_names = sorted(get_all_strategies().keys())
 
+    # Resolve strategy hint → best matching config id
+    preselect_id = None
+    if strategy and configs:
+        # 1) Exact match on strategy_name or display_name
+        for c in configs:
+            if strategy == c.strategy_name or strategy == (c.display_name or ""):
+                preselect_id = c.id
+                break
+        # 2) Keyword match: split hint on _ and space, count common tokens
+        if preselect_id is None:
+            hint_tokens = set(strategy.lower().replace("_", " ").split())
+            best_score, best_id = 0, None
+            for c in configs:
+                name_tokens = set(
+                    (c.strategy_name + " " + (c.display_name or "")).lower().replace("_", " ").split()
+                )
+                score = len(hint_tokens & name_tokens)
+                if score > best_score:
+                    best_score, best_id = score, c.id
+            if best_score > 0:
+                preselect_id = best_id
+
     five_years_ago = (datetime.now() - timedelta(days=5*365)).strftime('%Y-%m-%d')
     today = datetime.now().strftime('%Y-%m-%d')
 
@@ -1848,6 +1984,7 @@ def backtest_page(request: Request, strategy: str = "", symbol: str = "", db: Se
         "strategies": strategy_names,
         "configs": configs,
         "preselect_strategy": strategy,
+        "preselect_id": preselect_id,
         "preselect_symbol": symbol or "SPY",
         "five_years_ago": five_years_ago,
         "today": today,
@@ -2279,10 +2416,24 @@ def watchlist_remove(item_id: int, db: Session = Depends(get_db)):
 
 @app.get("/settings", response_class=HTMLResponse)
 def settings_page_v4(request: Request, db: Session = Depends(get_db)):
+    from models import SystemConfig
+    from ai_analysis import AI_PROVIDERS
     api_configs = db.query(ApiConfig).all()
+    # Get preferred AI model
+    sys_cfg = db.query(SystemConfig).filter(SystemConfig.key == "preferred_ai_model").first()
+    preferred_model = sys_cfg.value if sys_cfg else get_active_provider() or "deepseek"
+    # Which providers have keys configured
+    configured_providers = [
+        {"id": pid, "name": pcfg["name"]}
+        for pid, pcfg in AI_PROVIDERS.items()
+        if os.getenv(pcfg["env_key"])
+    ]
     return templates.TemplateResponse("qp_settings.html", {
         "request": request,
         "api_configs": api_configs,
+        "preferred_model": preferred_model,
+        "ai_providers": AI_PROVIDERS,
+        "configured_providers": configured_providers,
     })
 
 

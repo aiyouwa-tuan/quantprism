@@ -15,7 +15,7 @@
             <select name="strategy_id" id="sel-strategy"
                     class="w-full bg-dark-800 border border-dark-500 rounded-lg px-3 py-2 text-sm text-white focus:border-accent-blue focus:outline-none">
                 {% for c in configs %}
-                <option value="{{ c.id }}" {{ 'selected' if preselect_strategy == c.strategy_name or preselect_strategy == (c.display_name or c.strategy_name) }}>{{ c.display_name or c.strategy_name }}</option>
+                <option value="{{ c.id }}" {{ 'selected' if preselect_id == c.id or (not preselect_id and preselect_strategy == c.strategy_name) }}>{{ c.display_name or c.strategy_name }}</option>
                 {% endfor %}
             </select>
         </div>

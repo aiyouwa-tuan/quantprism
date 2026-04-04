@@ -15,6 +15,7 @@ STRATEGY_LIBRARY = [
         "risk_level": "medium",
         "annual_return_range": [15, 30],
         "win_rate_pct": 72,
+        "default_symbols": ["SPY", "QQQ", "AAPL"],
         "params": {
             "delta_target": 0.3,
             "dte_min": 30,
@@ -38,6 +39,7 @@ STRATEGY_LIBRARY = [
         "risk_level": "high",
         "annual_return_range": [20, 40],
         "win_rate_pct": 70,
+        "default_symbols": ["SPY", "QQQ"],
         "params": {
             "delta_target": 0.25,
             "dte_min": 21,
@@ -62,6 +64,7 @@ STRATEGY_LIBRARY = [
         "risk_level": "low",
         "annual_return_range": [8, 18],
         "win_rate_pct": 72,
+        "default_symbols": ["SPY", "AAPL", "MSFT"],
         "params": {
             "delta_target": 0.2,
             "dte_min": 30,
@@ -85,6 +88,7 @@ STRATEGY_LIBRARY = [
         "risk_level": "low",
         "annual_return_range": [10, 20],
         "win_rate_pct": 65,
+        "default_symbols": ["AAPL", "MSFT", "SPY"],
         "params": {
             "delta_target": 0.3,
             "dte_min": 21,
@@ -108,6 +112,7 @@ STRATEGY_LIBRARY = [
         "risk_level": "medium",
         "annual_return_range": [15, 25],
         "win_rate_pct": 68,
+        "default_symbols": ["SPY", "QQQ"],
         "params": {
             "delta_target": 0.16,
             "dte_min": 30,
@@ -132,6 +137,7 @@ STRATEGY_LIBRARY = [
         "risk_level": "medium",
         "annual_return_range": [20, 35],
         "win_rate_pct": 65,
+        "default_symbols": ["SPY", "QQQ"],
         "params": {
             "delta_target": 0.3,
             "dte_min": 21,
@@ -155,6 +161,7 @@ STRATEGY_LIBRARY = [
         "risk_level": "medium",
         "annual_return_range": [15, 30],
         "win_rate_pct": 60,
+        "default_symbols": ["SPY", "QQQ"],
         "params": {
             "delta_target": 0.3,
             "dte_min": 21,
@@ -178,6 +185,7 @@ STRATEGY_LIBRARY = [
         "risk_level": "medium",
         "annual_return_range": [20, 60],
         "win_rate_pct": 55,
+        "default_symbols": ["QQQ", "SPY", "AAPL"],
         "params": {
             "delta_target": 0.7,
             "dte_min": 365,
@@ -203,6 +211,7 @@ STRATEGY_LIBRARY = [
         "risk_level": "medium",
         "annual_return_range": [25, 50],
         "win_rate_pct": 60,
+        "default_symbols": ["QQQ", "SPY"],
         "params": {
             "delta_target": 0.7,
             "dte_min": 30,
@@ -225,6 +234,7 @@ STRATEGY_LIBRARY = [
         "risk_level": "high",
         "annual_return_range": [20, 80],
         "win_rate_pct": 40,
+        "default_symbols": ["SPY", "AAPL", "NVDA"],
         "params": {
             "dte_min": 7,
             "dte_max": 21,
@@ -247,6 +257,7 @@ STRATEGY_LIBRARY = [
         "risk_level": "medium",
         "annual_return_range": [15, 30],
         "win_rate_pct": 45,
+        "default_symbols": ["SPY", "QQQ"],
         "params": {
             "lookback_days": 252,
             "sma_200_above_pct": 0.0,
@@ -270,6 +281,7 @@ STRATEGY_LIBRARY = [
         "risk_level": "medium",
         "annual_return_range": [12, 25],
         "win_rate_pct": 55,
+        "default_symbols": ["SPY", "QQQ"],
         "params": {
             "dip_threshold": -0.05,
             "sma_200_above_pct": 0.0,
@@ -293,6 +305,7 @@ STRATEGY_LIBRARY = [
         "risk_level": "low",
         "annual_return_range": [8, 15],
         "win_rate_pct": 40,
+        "default_symbols": ["SPY", "QQQ"],
         "params": {
             "sma_short": 20,
             "sma_long": 50,
@@ -316,6 +329,7 @@ STRATEGY_LIBRARY = [
         "risk_level": "medium",
         "annual_return_range": [15, 25],
         "win_rate_pct": 62,
+        "default_symbols": ["SPY", "QQQ"],
         "params": {
             "rsi_threshold": 30,
             "exit_at": "mid",
@@ -339,6 +353,7 @@ STRATEGY_LIBRARY = [
         "risk_level": "medium",
         "annual_return_range": [12, 22],
         "win_rate_pct": 60,
+        "default_symbols": ["SPY", "QQQ"],
         "params": {
             "bb_period": 20,
             "bb_std": 2.0,
@@ -362,6 +377,7 @@ STRATEGY_LIBRARY = [
         "risk_level": "high",
         "annual_return_range": [30, 80],
         "win_rate_pct": 55,
+        "default_symbols": ["TQQQ", "QQQ"],
         "params": {
             "dip_threshold": -0.05,
             "sma_200_above_pct": -0.10,
@@ -386,6 +402,7 @@ STRATEGY_LIBRARY = [
         "risk_level": "low",
         "annual_return_range": [8, 15],
         "win_rate_pct": 50,
+        "default_symbols": ["SPY", "QQQ"],
         "params": {
             "sma_200_above_pct": 0.0,
             "exit_below_sma200_pct": -0.02,
@@ -408,6 +425,7 @@ STRATEGY_LIBRARY = [
         "risk_level": "medium",
         "annual_return_range": [20, 50],
         "win_rate_pct": 58,
+        "default_symbols": ["QQQ"],
         "params": {
             "delta_target": 0.7,
             "dte_min": 365,
@@ -431,6 +449,7 @@ STRATEGY_LIBRARY = [
         "risk_level": "high",
         "annual_return_range": [25, 50],
         "win_rate_pct": 75,
+        "default_symbols": ["SPY", "QQQ"],
         "params": {
             "vix_min": 28,
             "vix_max": 60,
