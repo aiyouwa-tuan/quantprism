@@ -27,12 +27,12 @@
             <input type="number" name="annual_return_target" id="inp-return"
                    aria-label="年化收益目标百分比"
                    value="{{ '%.0f'|format(goals.annual_return_target * 100) if goals and goals.annual_return_target else '' }}"
-                   min="1" max="500" step="1" placeholder="如 15"
+                   min="1" step="1" placeholder="如 15"
                    class="w-24 bg-dark-800 border border-dark-500 rounded-lg px-3 py-2 text-white text-lg font-bold text-center focus:border-accent-blue focus:outline-none placeholder-gray-600"
                    oninput="updateReturnHelper()">
             <span class="text-lg text-gray-400">%</span>
         </div>
-        <p id="return-helper" class="text-xs text-gray-500 mt-2">{% if goals and goals.annual_return_target %}10 万投入，一年后变 <span class="text-accent-green font-medium">{{ '%.1f'|format(10 * (1 + goals.annual_return_target)) }} 万</span>{% else %}<span class="text-gray-600 italic">不设收益上限，匹配所有策略</span>{% endif %}</p>
+        <p id="return-helper" class="text-xs text-gray-500 mt-2">{% if goals and goals.annual_return_target %}10 万投入，一年后变 <span class="text-accent-green font-medium">{{ '%.1f'|format(10 * (1 + goals.annual_return_target)) }} 万</span>{% if goals.annual_return_target >= 1 %}（{{ '%.1f'|format(1 + goals.annual_return_target) }} 倍）{% endif %}{% else %}<span class="text-gray-600 italic">不设收益上限，匹配所有策略</span>{% endif %}</p>
     </div>
 
     <!-- 回撤目标 -->
@@ -189,8 +189,14 @@ function updateReturnHelper() {
     if (!val) {
         el.innerHTML = '<span class="text-gray-600 italic">不设收益上限，匹配所有策略</span>';
     } else {
-        const result = (10 * (1 + parseFloat(val) / 100)).toFixed(1);
-        el.innerHTML = '10 万投入，一年后变 <span class="text-accent-green font-medium">' + result + ' 万</span>';
+        const pct = parseFloat(val);
+        const multiplier = 1 + pct / 100;
+        const result = (10 * multiplier).toFixed(1);
+        if (pct >= 100) {
+            el.innerHTML = '10 万投入，一年后变 <span class="text-accent-green font-medium">' + result + ' 万</span>（' + multiplier.toFixed(1) + ' 倍）';
+        } else {
+            el.innerHTML = '10 万投入，一年后变 <span class="text-accent-green font-medium">' + result + ' 万</span>';
+        }
     }
 }
 

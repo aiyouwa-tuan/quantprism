@@ -1725,7 +1725,7 @@ def save_goals_v4(
     _dd = float(max_drawdown) if max_drawdown.strip() else None
     # Server-side validation: cap unrealistic targets
     if _ret is not None:
-        _ret = max(1.0, min(500.0, _ret))
+        _ret = max(1.0, _ret)
     if _dd is not None:
         _dd = max(1.0, min(50.0, _dd))
     new_return = (_ret / 100) if _ret is not None else None
