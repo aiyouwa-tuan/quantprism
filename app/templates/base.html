@@ -86,11 +86,6 @@
         <div class="qp-nav-divider"></div>
         <div class="qp-nav-group">TRADING</div>
 
-        <a href="/risk" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm {{ 'bg-dark-500 text-white' if request and request.url.path == '/risk' else 'text-gray-400 hover:text-white hover:bg-dark-700' }} transition">
-            <span class="text-base w-5 text-center">&#x1F4BC;</span>
-            当前持仓
-        </a>
-
         <a href="/watchlist" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm {{ 'bg-dark-500 text-white' if request and '/watchlist' in request.url.path else 'text-gray-400 hover:text-white hover:bg-dark-700' }} transition">
             <span class="text-base w-5 text-center">&#x1F441;</span>
             观察列表
