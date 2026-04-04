@@ -1,7 +1,7 @@
 {% if goals %}
 <div class="bg-dark-800 rounded-lg p-3 space-y-1.5 text-sm">
-    <div class="flex justify-between"><span class="text-gray-400">年化收益目标</span><span class="text-accent-green font-medium">{{ "%.1f"|format(goals.annual_return_target * 100) }}%</span></div>
-    <div class="flex justify-between"><span class="text-gray-400">最大回撤</span><span class="text-accent-red font-medium">{{ "%.1f"|format(goals.max_drawdown * 100) }}%</span></div>
+    <div class="flex justify-between"><span class="text-gray-400">年化收益目标</span><span class="text-accent-green font-medium">{% if goals.annual_return_target is not none %}{{ "%.1f"|format(goals.annual_return_target * 100) }}%{% else %}不限{% endif %}</span></div>
+    <div class="flex justify-between"><span class="text-gray-400">最大回撤</span><span class="text-accent-red font-medium">{% if goals.max_drawdown is not none %}{{ "%.1f"|format(goals.max_drawdown * 100) }}%{% else %}不限{% endif %}</span></div>
     <div class="flex justify-between"><span class="text-gray-400">单笔风险</span><span class="text-white">{{ "%.1f"|format(goals.risk_per_trade * 100) }}%</span></div>
     {% if constraints %}
     <div class="border-t border-dark-600 pt-1.5 mt-1.5">
