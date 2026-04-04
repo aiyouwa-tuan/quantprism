@@ -4,22 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QuantPrism</title>
-    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10/dist/htmx.min.js" integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="/static/tailwind.min.css">
     <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="stylesheet" href="/static/qp-animations.css">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        dark: { 900: '#0a0e1a', 800: '#111827', 700: '#1a2035', 600: '#232b3e', 500: '#2d3650' },
-                        accent: { green: '#22c55e', red: '#ef4444', blue: '#3b82f6', yellow: '#eab308' },
-                    }
-                }
-            }
-        }
-    </script>
     <style>
         body { background: #0a0e1a; }
         .htmx-indicator { display: none; }
@@ -38,7 +26,7 @@
 
     <div class="flex flex-1">
     <!-- 左侧导航 (Grouped) -->
-    <nav class="w-48 bg-dark-800 border-r border-dark-600 flex flex-col py-3 px-2 gap-0.5 fixed h-full z-10 overflow-y-auto">
+    <nav class="w-48 bg-dark-800 border-r border-dark-600 flex flex-col py-3 px-2 gap-0.5 fixed h-full z-10 overflow-y-auto hidden md:flex">
         <div class="flex items-center gap-2 px-3 mb-4">
             <div class="qp-logo w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-xs">QP</div>
             <span class="text-lg font-bold text-white">QuantPrism</span>
@@ -108,7 +96,7 @@
     </nav>
 
     <!-- 主内容区 -->
-    <main class="ml-48 flex-1 min-h-screen flex flex-col">
+    <main class="md:ml-48 flex-1 min-h-screen flex flex-col">
         <!-- 顶部栏：PAPER 模式 + VIX -->
         <div class="flex items-center justify-end gap-3 px-6 py-2 border-b border-dark-600 bg-dark-800/50">
             <div id="vix-indicator" class="text-xs text-gray-400">
@@ -130,13 +118,17 @@
     <script src="/static/qp-core.js"></script>
     <script>
     (function() {
-        fetch('/api/vix').then(function(r) { return r.json(); }).then(function(d) {
-            var el = document.querySelector('#vix-indicator span');
-            if (el && d.price) {
-                el.textContent = d.price.toFixed(2);
-                el.className = d.price > 30 ? 'text-red-400 font-mono' : d.price > 20 ? 'text-accent-yellow font-mono' : 'text-green-400 font-mono';
-            }
-        }).catch(function(){});
+        function refreshVix() {
+            fetch('/api/vix').then(function(r) { return r.json(); }).then(function(d) {
+                var el = document.querySelector('#vix-indicator span');
+                if (el && d.price) {
+                    el.textContent = d.price.toFixed(2);
+                    el.className = d.price > 30 ? 'text-red-400 font-mono' : d.price > 20 ? 'text-accent-yellow font-mono' : 'text-green-400 font-mono';
+                }
+            }).catch(function(){});
+        }
+        refreshVix();
+        setInterval(refreshVix, 60000);
     })();
     </script>
 </body>

@@ -1571,11 +1571,23 @@ def api_backtest_run(payload: dict, db: Session = Depends(get_db)):
         return JSONResponse({"error": "strategy_name is required"}, status_code=400)
 
     # 默认日期：5 年前到今天
+    from datetime import timedelta
     if not start_date:
-        from datetime import timedelta
         start_date = (datetime.now() - timedelta(days=5 * 365)).strftime("%Y-%m-%d")
     if not end_date:
         end_date = datetime.now().strftime("%Y-%m-%d")
+
+    # Validate dates
+    today = datetime.now().date()
+    try:
+        sd = datetime.strptime(start_date, "%Y-%m-%d").date()
+        ed = datetime.strptime(end_date, "%Y-%m-%d").date()
+    except ValueError:
+        return JSONResponse({"error": "日期格式错误，请使用 YYYY-MM-DD"}, status_code=400)
+    if sd >= ed:
+        return JSONResponse({"error": "开始日期必须早于结束日期"}, status_code=400)
+    if ed > today:
+        return JSONResponse({"error": "结束日期不能是未来日期"}, status_code=400)
 
     # Find or create StrategyConfig
     config = db.query(StrategyConfig).filter(
@@ -1711,6 +1723,11 @@ def save_goals_v4(
     # 空字符串 = 用户清空了字段 = 不设限 → 存 None
     _ret = float(annual_return_target) if annual_return_target.strip() else None
     _dd = float(max_drawdown) if max_drawdown.strip() else None
+    # Server-side validation: cap unrealistic targets
+    if _ret is not None:
+        _ret = max(1.0, min(500.0, _ret))
+    if _dd is not None:
+        _dd = max(1.0, min(50.0, _dd))
     new_return = (_ret / 100) if _ret is not None else None
     new_drawdown = (_dd / 100) if _dd is not None else None
     if goals:
@@ -2190,6 +2207,22 @@ def backtest_run(
     import json as _json
     from backtester import run_full_backtest
 
+    # Validate dates
+    if not end_date:
+        end_date = datetime.now().strftime('%Y-%m-%d')
+    today = datetime.now().date()
+    try:
+        sd = datetime.strptime(start_date, '%Y-%m-%d').date()
+        ed = datetime.strptime(end_date, '%Y-%m-%d').date()
+    except ValueError:
+        return HTMLResponse('<div class="text-center text-red-400 py-8">日期格式错误，请使用 YYYY-MM-DD 格式</div>')
+    if sd >= ed:
+        return HTMLResponse('<div class="text-center text-red-400 py-8">开始日期必须早于结束日期</div>')
+    if ed > today:
+        return HTMLResponse('<div class="text-center text-red-400 py-8">结束日期不能是未来日期</div>')
+    if sd > today:
+        return HTMLResponse('<div class="text-center text-red-400 py-8">开始日期不能是未来日期</div>')
+
     goals = db.query(UserGoals).order_by(UserGoals.updated_at.desc()).first()
 
     # Find or create a config for this backtest
@@ -2208,9 +2241,6 @@ def backtest_run(
     # Override symbol
     original_pool = config.symbol_pool
     config.symbol_pool = symbol
-
-    if not end_date:
-        end_date = datetime.now().strftime('%Y-%m-%d')
 
     result = run_full_backtest(config, goals, db=None, start_date=start_date, end_date=end_date, collect_daily=True)
     config.symbol_pool = original_pool  # restore

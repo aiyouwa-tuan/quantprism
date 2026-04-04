@@ -16,6 +16,10 @@ from ta.trend import SMAIndicator
 _cache: dict = {}
 _CACHE_TTL = 3600  # 1 hour
 
+# Short-lived price cache for current prices (avoid repeated yfinance calls)
+_price_cache: dict = {}
+_PRICE_CACHE_TTL = 60  # 60 seconds
+
 
 def fetch_stock_history(
     symbol: str,
@@ -58,7 +62,12 @@ def fetch_stock_history(
 
 
 def fetch_current_price(symbol: str) -> dict:
-    """获取当前价格"""
+    """获取当前价格（60秒内存缓存）"""
+    now = datetime.now().timestamp()
+    if symbol in _price_cache:
+        cached_time, cached_data = _price_cache[symbol]
+        if now - cached_time < _PRICE_CACHE_TTL:
+            return cached_data
     try:
         ticker = yf.Ticker(symbol)
         info = ticker.fast_info
@@ -76,11 +85,13 @@ def fetch_current_price(symbol: str) -> dict:
     except Exception:
         return {"symbol": symbol.upper(), "price": 0, "change_pct": 0, "error": "unavailable"}
 
-    return {
+    result = {
         "symbol": symbol.upper(),
         "price": round(float(price), 2),
         "change_pct": round(float(change_pct), 4),
     }
+    _price_cache[symbol] = (now, result)
+    return result
 
 
 def fetch_vix() -> dict:
