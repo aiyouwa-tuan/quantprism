@@ -63,6 +63,14 @@
 
     document.body.addEventListener('htmx:beforeRequest', function(e) {
         if (e.detail.pathInfo.requestPath === '/hunt/search') {
+            // Clear previous research banner and results
+            document.getElementById('research-banner').classList.add('hidden');
+            document.getElementById('research-steps').innerHTML = '';
+            document.getElementById('research-title').textContent = 'AI 后台研究中...';
+            document.getElementById('research-timer').textContent = '';
+            document.getElementById('research-spinner').classList.remove('hidden');
+            document.getElementById('hunt-results').innerHTML = '';
+
             const steps = document.querySelectorAll('#search-steps .step');
             steps.forEach(function(step) {
                 step.style.opacity = '0.3';
