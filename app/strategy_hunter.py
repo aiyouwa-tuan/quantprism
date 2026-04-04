@@ -872,6 +872,27 @@ def run_research_job(job_id: int, goals_dict: dict, preferred_model: str) -> Non
                     continue
 
                 strategy = json.loads(text[start:end])
+
+                # ── QuantEvolve 核心：用 backtesting.py 验证真实绩效 ──
+                # 用实际回测结果替代 AI 估算值，驱动下一轮进化提示词
+                try:
+                    from backtest_validator import validate_strategy, format_validation_summary
+                    test_symbol = (strategy.get("default_symbols") or ["SPY"])[0]
+                    validation = validate_strategy(strategy, symbol=test_symbol, period="2y")
+                    if validation:
+                        # 将真实结果写回策略，覆盖 AI 估算
+                        strategy["backtest_validation"] = validation
+                        strategy["annual_return_range"] = [
+                            max(0, int(validation["annual_return_pct"] * 0.85)),
+                            int(validation["annual_return_pct"] * 1.15),
+                        ]
+                        strategy["validated"] = True
+                        _log(job, f"  📊 回测验证：年化{validation['annual_return_pct']}%，回撤{validation['max_drawdown_pct']}%", "info")
+                        # 将验证摘要存入策略，供下一轮进化提示词使用
+                        strategy["_validation_summary"] = format_validation_summary(validation)
+                except Exception:
+                    pass
+
                 score = compute_match_score(strategy, goals_dict)
                 strategy["match_pct"] = round(score)
 
@@ -890,6 +911,77 @@ def run_research_job(job_id: int, goals_dict: dict, preferred_model: str) -> Non
                 _log(job, f"  ⚠️ 第{iteration}轮 JSON 格式错误", "warn")
             except Exception as e:
                 _log(job, f"  ❌ 第{iteration}轮异常: {e}", "error")
+
+        # ══ Phase Final：多资产组合构建（QuantEvolve 兜底）════════════
+        # 若单一策略均未达标，让 AI 设计股票+期权组合，并用 portfolio_optimizer 优化权重
+        if best_score_so_far < KEEP_THRESHOLD:
+            annual_ret = goals_dict.get("annual_return", 0.15)
+            max_dd = goals_dict.get("max_drawdown", 0.10)
+            _log(job, "🔬 [Phase Final] 单资产无法达标，切换多资产+期权组合模式...", "progress")
+
+            combo_prompt = f"""你是量化组合策略专家。单一资产策略无法同时达到年化{annual_ret*100:.0f}%且回撤≤{max_dd*100:.0f}%。
+
+请设计一个【多资产+期权组合策略】，通过组合协同效应达到目标：
+
+要求：
+1. 核心持股（占60-80%）：2-4只股票/ETF，分散风险
+2. 期权增益/保护层（占20-40%）：卖 Put 收权利金或保护性 Put
+3. 整体组合预期：年化{annual_ret*100:.0f}%，最大回撤≤{max_dd*100:.0f}%
+4. 每个成分需说明具体入场/出场规则
+
+输出 JSON：
+{{
+  "id": "multi_asset_combo",
+  "name": "多资产期权组合策略",
+  "description": "2-3句中文描述整体策略",
+  "components": [
+    {{"asset": "SPY", "weight_pct": 40, "role": "核心趋势仓", "logic": "入场出场逻辑"}},
+    {{"asset": "QQQ", "weight_pct": 30, "role": "成长增益仓", "logic": "入场出场逻辑"}},
+    {{"asset": "SPY Put", "weight_pct": 20, "role": "期权保护层", "logic": "每月卖Put收权利金"}}
+  ],
+  "source": "AI 多资产组合",
+  "instrument": "portfolio",
+  "direction": "bullish",
+  "style": "multi_asset_combo",
+  "risk_level": "medium",
+  "annual_return_range": [最小%, 最大%],
+  "win_rate_pct": 胜率数字,
+  "why_it_works": "组合协同原理",
+  "best_market": "适合环境",
+  "worst_market": "不适合环境",
+  "default_symbols": ["SPY", "QQQ"],
+  "tags": ["组合策略", "期权", "多资产"]
+}}
+只输出JSON。"""
+
+            try:
+                raw = _call_ai_with_provider(combo_prompt, preferred_model, max_tokens=1500)
+                if raw:
+                    text = raw.strip()
+                    start = text.find("{")
+                    end = text.rfind("}") + 1
+                    if start != -1 and end > 0:
+                        combo_strategy = json.loads(text[start:end])
+                        score = compute_match_score(combo_strategy, goals_dict)
+                        combo_strategy["match_pct"] = round(score)
+                        combo_strategy["is_portfolio"] = True
+                        _log(job, f"  ✅ 多资产组合策略生成，分数={round(score)}", "success")
+                        _push_strategy(job, combo_strategy, all_strategies)
+            except Exception as e:
+                _log(job, f"  ⚠️ 多资产组合生成失败: {e}", "warn")
+
+            # 用 portfolio_optimizer 构建科学权重的组合作为补充
+            try:
+                from portfolio_optimizer import build_portfolio_strategy
+                _log(job, "  📐 portfolio_optimizer 构建权重优化组合...", "progress")
+                port_strategy = build_portfolio_strategy(annual_ret, max_dd, period="2y")
+                if port_strategy:
+                    score = compute_match_score(port_strategy, goals_dict)
+                    port_strategy["match_pct"] = round(score)
+                    _log(job, f"  ✅ 权重优化组合：{port_strategy.get('method')}，分数={round(score)}", "success")
+                    _push_strategy(job, port_strategy, all_strategies)
+            except Exception as e:
+                _log(job, f"  ⚠️ portfolio_optimizer 失败: {e}", "warn")
 
         # ══ 完成 ═══════════════════════════════════════════════════════
         job.status = "completed"

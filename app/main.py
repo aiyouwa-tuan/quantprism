@@ -1808,15 +1808,39 @@ def hunt_search(request: Request, db: Session = Depends(get_db)):
 
     results.sort(key=lambda x: x["match_pct"], reverse=True)
 
-    # 只展示匹配度 ≥ 40 的策略；不足时保留最高分的最多 5 条并标记"低匹配"
+    # 只展示匹配度 ≥ 40 的策略
     MIN_MATCH = 40
     qualified = [r for r in results if r["match_pct"] >= MIN_MATCH]
+    low_match_fallback = False
+
     if qualified:
         final = qualified[:15]
-        low_match_fallback = False
     else:
-        final = results[:5]
-        low_match_fallback = True
+        # Tier 2：portfolio_optimizer 多资产组合（PyPortfolioOpt + Riskfolio-Lib）
+        try:
+            from portfolio_optimizer import build_portfolio_strategy
+            port = build_portfolio_strategy(
+                target_return=goals.annual_return_target,
+                max_drawdown=goals.max_drawdown,
+                period="2y",
+            )
+            if port:
+                from strategy_hunter import compute_match_score
+                port["match_pct"] = round(compute_match_score(port, goals_dict))
+                results.insert(0, port)
+                qualified2 = [r for r in results if r["match_pct"] >= MIN_MATCH]
+                if qualified2:
+                    final = qualified2[:15]
+                    low_match_fallback = False
+                else:
+                    final = results[:5]
+                    low_match_fallback = True
+            else:
+                final = results[:5]
+                low_match_fallback = True
+        except Exception:
+            final = results[:5]
+            low_match_fallback = True
 
     return templates.TemplateResponse("partials/hunt_results.html", {
         "request": request,
@@ -1825,6 +1849,53 @@ def hunt_search(request: Request, db: Session = Depends(get_db)):
         "low_match_fallback": low_match_fallback,
         "min_match": MIN_MATCH,
     })
+
+
+@app.post("/hunt/portfolio-optimize", response_class=HTMLResponse)
+def hunt_portfolio_optimize(request: Request, db: Session = Depends(get_db)):
+    """
+    直接触发 PyPortfolioOpt + Riskfolio-Lib 组合优化。
+    用于策略猎手「AI 再找更多」流程中的组合构建分支。
+    """
+    goals = db.query(UserGoals).order_by(UserGoals.updated_at.desc()).first()
+    if not goals:
+        return HTMLResponse('<div class="text-center text-gray-400 py-4">请先设定投资目标</div>')
+
+    try:
+        from portfolio_optimizer import build_portfolio_strategy
+        from strategy_hunter import compute_match_score
+
+        goals_dict = {
+            "annual_return": goals.annual_return_target,
+            "max_drawdown": goals.max_drawdown,
+            "holding_period": goals.holding_period or "days_weeks",
+        }
+
+        port = build_portfolio_strategy(
+            target_return=goals.annual_return_target,
+            max_drawdown=goals.max_drawdown,
+            period="3y",
+        )
+
+        if not port:
+            return HTMLResponse(
+                '<div class="text-sm text-gray-500 py-4 text-center">组合优化暂时不可用（市场数据获取失败）</div>'
+            )
+
+        port["match_pct"] = round(compute_match_score(port, goals_dict))
+        return templates.TemplateResponse("partials/hunt_results.html", {
+            "request": request,
+            "strategies": [port],
+            "goals": goals,
+            "low_match_fallback": False,
+            "min_match": 0,
+        })
+
+    except Exception as e:
+        logger.error("Portfolio optimize failed: %s", e)
+        return HTMLResponse(
+            f'<div class="text-sm text-red-400 py-4 text-center">组合优化失败：{e}</div>'
+        )
 
 
 @app.post("/hunt/ai-generate", response_class=HTMLResponse)

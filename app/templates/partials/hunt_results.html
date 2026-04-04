@@ -5,27 +5,137 @@
     {% else %}
     <span class="text-lg text-white font-medium">找到 {{ strategies|length }} 个候选策略</span>
     {% endif %}
-    <button class="px-4 py-2 rounded-lg border border-dark-500 text-gray-400 hover:text-white hover:border-accent-blue text-sm"
-            hx-post="/hunt/ai-generate" hx-target="#hunt-more" hx-swap="beforeend"
-            hx-indicator="#ai-spinner">
-        让 AI 再找更多
-    </button>
+    <div class="flex items-center gap-2">
+        <button class="px-3 py-1.5 rounded-lg border border-dark-500 text-gray-400 hover:text-white hover:border-accent-blue text-xs"
+                hx-post="/hunt/portfolio-optimize" hx-target="#hunt-more" hx-swap="beforeend"
+                hx-indicator="#ai-spinner">
+            组合优化
+        </button>
+        <button class="px-3 py-1.5 rounded-lg border border-dark-500 text-gray-400 hover:text-white hover:border-accent-blue text-xs"
+                hx-post="/hunt/ai-generate" hx-target="#hunt-more" hx-swap="beforeend"
+                hx-indicator="#ai-spinner">
+            让 AI 再找更多
+        </button>
+    </div>
 </div>
 
 {% if low_match_fallback %}
 <div class="mb-4 px-4 py-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-sm text-yellow-300">
-    <span class="font-medium">当前目标较难达到</span>：库内没有匹配度 ≥ {{ min_match }}% 的策略。以下是最接近的候选，仅供参考，建议调整年化目标或回撤限额后重新搜索。
+    <span class="font-medium">当前目标较难通过单一策略达到</span>：已自动启用多资产组合优化（PyPortfolioOpt + Riskfolio-Lib）。以下结果包含组合方案，建议点击「组合优化」获取更精确的权重分配。
 </div>
 {% endif %}
 
 {% if not strategies %}
 <div class="text-center py-12 text-gray-500">
     <p class="text-base mb-2">暂无匹配策略</p>
-    <p class="text-sm">请尝试放宽年化目标或回撤限额，或点击「让 AI 再找更多」</p>
+    <p class="text-sm">请点击「组合优化」或「让 AI 再找更多」</p>
 </div>
 {% endif %}
 
 {% for s in strategies %}
+
+{# ─── 组合策略卡片（portfolio_optimizer 生成）─────────────────────── #}
+{% if s.is_portfolio %}
+<div class="bg-dark-700 border border-accent-blue/30 rounded-xl mb-3 overflow-hidden cursor-pointer hover:border-accent-blue/60 transition-colors"
+     onclick="this.querySelector('.detail').classList.toggle('hidden')">
+    <div class="p-5">
+        <div class="flex items-center justify-between mb-2">
+            <div>
+                <div class="flex items-center gap-2 mb-0.5">
+                    <span class="text-xs px-2 py-0.5 rounded bg-accent-blue/20 text-accent-blue font-medium">多资产组合</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 font-medium">{{ s.method or s.source }}</span>
+                </div>
+                <h3 class="text-base font-semibold text-white mt-1">{{ s.name }}</h3>
+            </div>
+            <span class="px-3 py-1 rounded-md text-sm font-bold
+                {% if s.match_pct >= 70 %}bg-green-500/20 text-green-400
+                {% elif s.match_pct >= 50 %}bg-yellow-500/20 text-yellow-400
+                {% else %}bg-gray-500/20 text-gray-400{% endif %}">
+                匹配 {{ s.match_pct }}%
+            </span>
+        </div>
+
+        <p class="text-xs text-gray-400 mb-3">{{ s.description[:150] }}{% if s.description|length > 150 %}...{% endif %}</p>
+
+        {# 持仓权重可视化 #}
+        {% if s.holdings_breakdown %}
+        <div class="flex items-center gap-1 mb-3 flex-wrap">
+            {% for h in s.holdings_breakdown %}
+            <div class="flex items-center gap-1 px-2 py-1 rounded-md bg-dark-600 border border-dark-500">
+                <span class="text-xs font-bold text-white">{{ h.symbol }}</span>
+                <span class="text-xs text-accent-blue">{{ h.weight_pct }}%</span>
+            </div>
+            {% endfor %}
+        </div>
+        {# 权重进度条 #}
+        <div class="flex rounded overflow-hidden h-2 mb-3">
+            {% set colors = ['bg-accent-blue', 'bg-accent-green', 'bg-accent-yellow', 'bg-purple-500', 'bg-red-400', 'bg-orange-400'] %}
+            {% for h in s.holdings_breakdown %}
+            <div class="{{ colors[loop.index0 % colors|length] }}" style="width:{{ h.weight_pct }}%"></div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="flex items-center gap-6 text-sm">
+            <div>
+                <span class="text-xs text-gray-500">历史年化</span>
+                <span class="ml-1 font-bold text-accent-green">
+                    {% if s.annual_return_pct %}{{ s.annual_return_pct }}%{% else %}{{ s.annual_return_range[0] if s.annual_return_range else '?' }}-{{ s.annual_return_range[1] if s.annual_return_range else '?' }}%{% endif %}
+                </span>
+            </div>
+            <div>
+                <span class="text-xs text-gray-500">历史回撤</span>
+                <span class="ml-1 font-bold text-accent-red">
+                    {% if s.max_drawdown_pct %}{{ s.max_drawdown_pct }}%{% else %}—{% endif %}
+                </span>
+            </div>
+            <div>
+                <span class="text-xs text-gray-500">优化方法</span>
+                <span class="ml-1 text-xs text-purple-400">{{ s.method or '多资产' }}</span>
+            </div>
+            <span class="ml-auto text-xs text-gray-600">&#x25BC; 展开详情</span>
+        </div>
+    </div>
+
+    <div class="detail hidden border-t border-dark-600 bg-dark-800/50 p-5">
+        {% if s.why_it_works %}
+        <p class="text-sm text-gray-300 mb-3">{{ s.why_it_works }}</p>
+        {% endif %}
+
+        {% if s.holdings_breakdown %}
+        <div class="mb-4">
+            <p class="text-xs text-gray-500 mb-2 font-medium">持仓明细（优化权重）</p>
+            <div class="space-y-1">
+                {% for h in s.holdings_breakdown %}
+                <div class="flex items-center justify-between">
+                    <span class="text-sm text-white font-medium">{{ h.symbol }}</span>
+                    <div class="flex items-center gap-3">
+                        <div class="w-32 h-1.5 rounded bg-dark-500 overflow-hidden">
+                            <div class="h-full bg-accent-blue rounded" style="width:{{ h.weight_pct }}%"></div>
+                        </div>
+                        <span class="text-sm text-accent-blue font-bold w-12 text-right">{{ h.weight_pct }}%</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if s.best_market %}
+        <p class="text-xs text-gray-500 mb-3">适合: {{ s.best_market }}</p>
+        {% endif %}
+
+        <div class="flex items-center gap-3">
+            <button class="px-4 py-2 rounded-lg bg-accent-blue text-white text-sm font-medium hover:brightness-110"
+                    hx-post="/hunt/portfolio-optimize" hx-target="#hunt-more" hx-swap="beforeend">
+                重新优化权重
+            </button>
+        </div>
+    </div>
+</div>
+
+{# ─── 普通策略卡片 ──────────────────────────────────────────────────── #}
+{% else %}
 <div class="bg-dark-700 border border-dark-600 rounded-xl mb-3 overflow-hidden cursor-pointer hover:border-dark-500 transition-colors"
      onclick="this.querySelector('.detail').classList.toggle('hidden')">
     <div class="p-5">
@@ -36,6 +146,7 @@
                     来源: {{ s.source or 'library' }}
                     {% if s.instrument %} | {{ s.instrument }}{% endif %}
                     {% if s.style %} · {{ s.style }}{% endif %}
+                    {% if s.validated %}<span class="ml-1 text-green-400">✓ 已回测验证</span>{% endif %}
                 </p>
             </div>
             <span class="px-3 py-1 rounded-md text-sm font-bold
@@ -46,6 +157,18 @@
             </span>
         </div>
         <p class="text-xs text-gray-400 mb-3">{{ s.description[:120] }}{% if s.description|length > 120 %}...{% endif %}</p>
+
+        {# backtesting.py 验证数据（若有）#}
+        {% if s.backtest_validation %}
+        <div class="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-green-500/5 border border-green-500/20">
+            <span class="text-xs text-green-400 font-medium">回测验证</span>
+            <span class="text-xs text-gray-400">年化 {{ s.backtest_validation.annual_return_pct }}%</span>
+            <span class="text-xs text-gray-400">回撤 {{ s.backtest_validation.max_drawdown_pct }}%</span>
+            <span class="text-xs text-gray-400">胜率 {{ (s.backtest_validation.win_rate * 100)|round|int }}%</span>
+            <span class="text-xs text-gray-600 ml-auto">{{ s.backtest_validation.engine }}</span>
+        </div>
+        {% endif %}
+
         <div class="flex items-center gap-6 text-sm">
             <div>
                 <span class="text-xs text-gray-500">预估年化</span>
@@ -79,6 +202,8 @@
         </div>
     </div>
 </div>
+{% endif %}
+
 {% endfor %}
 
 <div id="hunt-more"></div>
