@@ -702,8 +702,8 @@ def run_research_job(job_id: int, goals_dict: dict, preferred_model: str) -> Non
     from models import SessionLocal, ResearchJob
     db = SessionLocal()
 
-    KEEP_THRESHOLD = 55   # 分数阈值：≥55 才 KEEP
-    MAX_ITERATIONS = 5    # autoresearch 轮数（可调）
+    KEEP_THRESHOLD = 40   # 分数阈值：≥40 才 KEEP（与 hunt_search 一致）
+    MAX_ITERATIONS = 10   # autoresearch 轮数（Karpathy 模式：迭代越多越好）
 
     def _save(job):
         job.updated_at = datetime.now()
@@ -734,6 +734,7 @@ def run_research_job(job_id: int, goals_dict: dict, preferred_model: str) -> Non
         all_strategies = []
         best_score_so_far = 0.0
         best_strategy_so_far = None
+        discard_history = []  # Karpathy 模式：记录失败方向，避免重蹈覆辙
 
         # ══ Phase 0: GitHub 种子搜索 ══════════════════════════════════
         _log(job, "🌐 [Phase 0] GitHub 量化策略库种子搜索...", "progress")
@@ -792,24 +793,38 @@ def run_research_job(job_id: int, goals_dict: dict, preferred_model: str) -> Non
 
             # 构造本轮 prompt：若有最优策略则让 AI 改进，否则换风格探索
             style = styles[(iteration - 1) % len(styles)]
+            # Karpathy 模式：处理 None 目标值（不设限 = 用保守默认值）
+            annual_ret = goals_dict.get("annual_return") or 0.15
+            max_dd = goals_dict.get("max_drawdown") or 0.20
+            goal_return_str = f"年化{annual_ret*100:.0f}%" if goals_dict.get("annual_return") is not None else "年化不设上限"
+            goal_dd_str = f"最大回撤≤{max_dd*100:.0f}%" if goals_dict.get("max_drawdown") is not None else "回撤不设下限"
+
+            # Karpathy 模式：构建失败历史文本，避免 AI 重蹈覆辙
+            discard_text = ""
+            if discard_history:
+                lines = [f"  - 第{d['iteration']}轮 {d['style']}风格: {d['name']}, 分数={d['score']}, 问题: {d['reason']}" for d in discard_history[-5:]]
+                discard_text = "\n\n⚠️ 之前被丢弃的方向（请避开这些方向或解决其问题）：\n" + "\n".join(lines)
+
             if best_strategy_so_far and iteration > 1:
-                # 改进模式：基于最优策略变体
-                annual_ret = goals_dict.get("annual_return", 0.15)
-                max_dd = goals_dict.get("max_drawdown", 0.10)
+                # 改进模式：基于最优策略变体 + 失败历史
                 best_name = best_strategy_so_far.get("name", "")
                 best_desc = best_strategy_so_far.get("description", "")
+                best_validation = best_strategy_so_far.get("_validation_summary", "")
                 prompt = f"""你是量化策略研究专家，进行第{iteration}轮 autoresearch 迭代。
 
 当前最优策略（分数={round(best_score_so_far)}）：
 名称：{best_name}
 描述：{best_desc}
+{f"回测验证: {best_validation}" if best_validation else ""}
 
-用户目标：年化{annual_ret*100:.0f}%，最大回撤≤{max_dd*100:.0f}%
+用户目标：{goal_return_str}，{goal_dd_str}
+{discard_text}
 
 请生成一个【改进版本或互补策略】，要求：
 1. 解决上述策略的主要缺点
 2. 或从不同角度（{style}风格）达到同样目标
 3. 必须比上述策略有更好的风险调整收益
+4. 简洁优先原则：同等效果下，策略逻辑越简洁越好。删除不必要的复杂度本身就是一种改进。
 
 严格输出 JSON：
 {{
@@ -832,14 +847,16 @@ def run_research_job(job_id: int, goals_dict: dict, preferred_model: str) -> Non
 }}
 只输出JSON。"""
             else:
-                # 探索模式：全新风格
-                annual_ret = goals_dict.get("annual_return", 0.15)
-                max_dd = goals_dict.get("max_drawdown", 0.10)
+                # 探索模式：全新风格 + 失败历史
                 prompt = f"""你是量化策略研究专家，进行第{iteration}轮探索，风格：{style}。
 
-用户目标：年化{annual_ret*100:.0f}%，最大回撤≤{max_dd*100:.0f}%
+用户目标：{goal_return_str}，{goal_dd_str}
+{discard_text}
 
-生成一个【{style}】风格策略，严格输出 JSON：
+请设计一个经过深思熟虑的【{style}】风格策略。
+简洁优先原则：同等效果下，策略逻辑越简洁越好。
+
+严格输出 JSON：
 {{
   "id": "唯一英文snake_case",
   "name": "中文名称",
@@ -908,7 +925,16 @@ def run_research_job(job_id: int, goals_dict: dict, preferred_model: str) -> Non
                         best_strategy_so_far = strategy
                         _log(job, f"  🏆 新最优！分数提升至 {round(score)}", "success")
                 else:
-                    _log(job, f"  DISCARD ✗ 分数={round(score)}<{KEEP_THRESHOLD}，重新探索", "warn")
+                    # Karpathy 模式：记录失败方向，传给下一轮 prompt 避免重复
+                    reason = "回撤过高" if score < 30 else "收益不达标" if score < 35 else "综合分数不足"
+                    discard_history.append({
+                        "iteration": iteration,
+                        "style": style,
+                        "name": strategy.get("name", "?"),
+                        "score": round(score),
+                        "reason": reason,
+                    })
+                    _log(job, f"  DISCARD ✗ 分数={round(score)}<{KEEP_THRESHOLD}，记录失败方向，下轮避开", "warn")
 
             except json.JSONDecodeError:
                 _log(job, f"  ⚠️ 第{iteration}轮 JSON 格式错误", "warn")
@@ -918,8 +944,8 @@ def run_research_job(job_id: int, goals_dict: dict, preferred_model: str) -> Non
         # ══ Phase Final：多资产组合构建（QuantEvolve 兜底）════════════
         # 若单一策略均未达标，让 AI 设计股票+期权组合，并用 portfolio_optimizer 优化权重
         if best_score_so_far < KEEP_THRESHOLD:
-            annual_ret = goals_dict.get("annual_return", 0.15)
-            max_dd = goals_dict.get("max_drawdown", 0.10)
+            annual_ret = goals_dict.get("annual_return") or 0.15
+            max_dd = goals_dict.get("max_drawdown") or 0.20
             _log(job, "🔬 [Phase Final] 单资产无法达标，切换多资产+期权组合模式...", "progress")
 
             combo_prompt = f"""你是量化组合策略专家。单一资产策略无法同时达到年化{annual_ret*100:.0f}%且回撤≤{max_dd*100:.0f}%。
