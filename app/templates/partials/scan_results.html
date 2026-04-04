@@ -5,6 +5,11 @@
 </div>
 {% else %}
 
+<!-- 智能组合推荐 (插入在结果列表之前) -->
+{% if combos %}
+{% include "partials/combo_recommend.html" %}
+{% endif %}
+
 <div class="space-y-4">
     <p class="text-sm text-gray-400">&#x627E;&#x5230; <span class="text-white font-semibold">{{ results|length }}</span> &#x4E2A;&#x7B26;&#x5408;&#x6761;&#x4EF6;&#x7684;&#x6807;&#x7684;</p>
 

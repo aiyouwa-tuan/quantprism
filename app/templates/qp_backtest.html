@@ -6,64 +6,140 @@
     <p class="text-sm text-gray-400 mt-1">验证策略历史表现，精确到每一天</p>
 </div>
 
-<!-- 配置栏 -->
-<div class="bg-dark-700 border border-dark-600 rounded-xl p-5 mb-6">
-    <div class="flex items-end gap-4" id="bt-form">
-        <!-- 策略 -->
-        <div class="flex-1">
-            <label class="block text-xs text-gray-400 mb-1.5">策略</label>
-            <select name="strategy_id" id="sel-strategy"
-                    class="w-full bg-dark-800 border border-dark-500 rounded-lg px-3 py-2 text-sm text-white focus:border-accent-blue focus:outline-none">
-                {% for c in configs %}
-                <option value="{{ c.id }}" {{ 'selected' if preselect_id == c.id or (not preselect_id and preselect_strategy == c.strategy_name) }}>{{ c.display_name or c.strategy_name }}</option>
-                {% endfor %}
-            </select>
+<!-- ═══ 顶层 Tab: 单次回测 | 策略对比 ═══ -->
+<div class="qp-tabs-container" id="backtest-mode-tabs">
+<div class="flex gap-2 mb-4">
+    <button class="qp-tab active px-4 py-2 text-sm rounded-lg" data-tab="mode-single" onclick="switchMode('single')">
+        &#x1F9EA; 单次回测
+    </button>
+    <button class="qp-tab px-4 py-2 text-sm rounded-lg" data-tab="mode-compare" onclick="switchMode('compare')">
+        &#x1F4CA; 策略��比
+    </button>
+</div>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- Mode 1: 单次回测                                 -->
+<!-- ═════════════════════════════════��══════════════ -->
+<div class="qp-tab-content active" id="mode-single">
+
+    <!-- 配置栏 -->
+    <div class="bg-dark-700 border border-dark-600 rounded-xl p-5 mb-6 qp-card">
+        <div class="flex items-end gap-4" id="bt-form">
+            <div class="flex-1">
+                <label class="block text-xs text-gray-400 mb-1.5">策略</label>
+                <select name="strategy_id" id="sel-strategy"
+                        class="w-full bg-dark-800 border border-dark-500 rounded-lg px-3 py-2 text-sm text-white focus:border-accent-blue focus:outline-none">
+                    {% for c in configs %}
+                    <option value="{{ c.id }}" {{ 'selected' if preselect_id == c.id or (not preselect_id and preselect_strategy == c.strategy_name) }}>{{ c.display_name or c.strategy_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex-1">
+                <label class="block text-xs text-gray-400 mb-1.5">标的</label>
+                <input type="text" name="symbol" id="inp-symbol" list="symbol-list"
+                       value="{{ preselect_symbol or 'SPY' }}"
+                       class="w-full bg-dark-800 border border-dark-500 rounded-lg px-3 py-2 text-sm text-white focus:border-accent-blue focus:outline-none"
+                       placeholder="输入代码">
+                <datalist id="symbol-list">
+                    {% for sym in ['SPY', 'QQQ', 'AAPL', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'IWM', 'DIA', 'TLT', 'GLD'] %}
+                    <option value="{{ sym }}">
+                    {% endfor %}
+                </datalist>
+            </div>
+            <div class="flex-1">
+                <label class="block text-xs text-gray-400 mb-1.5">开始日期</label>
+                <input type="date" name="start_date" id="inp-start" value="{{ five_years_ago or '2021-04-02' }}"
+                       class="w-full bg-dark-800 border border-dark-500 rounded-lg px-3 py-2 text-sm text-white focus:border-accent-blue focus:outline-none">
+            </div>
+            <div class="flex-1">
+                <label class="block text-xs text-gray-400 mb-1.5">结束���期</label>
+                <input type="date" name="end_date" id="inp-end" value="{{ today or '2026-04-02' }}"
+                       class="w-full bg-dark-800 border border-dark-500 rounded-lg px-3 py-2 text-sm text-white focus:border-accent-blue focus:outline-none">
+            </div>
+            <div>
+                <button type="button" onclick="runBacktest()"
+                        class="bg-accent-blue text-white px-6 py-2 rounded-lg text-sm font-bold hover:brightness-110 transition whitespace-nowrap">
+                    &#x25B6; 开始回测
+                </button>
+            </div>
         </div>
 
-        <!-- 标的 -->
-        <div class="flex-1">
-            <label class="block text-xs text-gray-400 mb-1.5">标的</label>
-            <input type="text" name="symbol" id="inp-symbol" list="symbol-list"
-                   value="{{ preselect_symbol or 'SPY' }}"
-                   class="w-full bg-dark-800 border border-dark-500 rounded-lg px-3 py-2 text-sm text-white focus:border-accent-blue focus:outline-none"
-                   placeholder="输入代码">
-            <datalist id="symbol-list">
-                {% for sym in ['SPY', 'QQQ', 'AAPL', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'IWM', 'DIA', 'TLT', 'GLD'] %}
-                <option value="{{ sym }}">
-                {% endfor %}
-            </datalist>
+        <div id="bt-spinner" class="hidden text-center py-3 mt-2">
+            <div class="space-y-3">
+                <div class="qp-skeleton h-16 rounded-lg"></div>
+                <div class="qp-skeleton h-6 w-1/2 rounded mx-auto"></div>
+            </div>
         </div>
+    </div>
 
-        <!-- 开始日期 -->
-        <div class="flex-1">
-            <label class="block text-xs text-gray-400 mb-1.5">开始日期</label>
-            <input type="date" name="start_date" id="inp-start" value="{{ five_years_ago or '2021-04-02' }}"
-                   class="w-full bg-dark-800 border border-dark-500 rounded-lg px-3 py-2 text-sm text-white focus:border-accent-blue focus:outline-none">
+    <!-- 回测结果区域 -->
+    <div id="backtest-results">
+        <div class="text-center py-20">
+            <div class="text-5xl mb-4">&#x1F9EA;</div>
+            <p class="text-gray-500 text-sm">选择策略和标的，点击「开始回测」查看历史表现</p>
+            {% if goals %}
+            <p class="text-xs text-gray-600 mt-2">
+                回测将对比你的目标：年化 {{ '%.0f'|format(goals.annual_return_target * 100) }}% / 回撤 &le; {{ '%.0f'|format(goals.max_drawdown * 100) }}%
+            </p>
+            {% endif %}
         </div>
+    </div>
+</div>
 
-        <!-- 结束日期 -->
-        <div class="flex-1">
-            <label class="block text-xs text-gray-400 mb-1.5">结束日期</label>
-            <input type="date" name="end_date" id="inp-end" value="{{ today or '2026-04-02' }}"
-                   class="w-full bg-dark-800 border border-dark-500 rounded-lg px-3 py-2 text-sm text-white focus:border-accent-blue focus:outline-none">
+<!-- ���════════════════════��══════════════════════════ -->
+<!-- Mode 2: ��略对比                                 -->
+<!-- ══════════════════════���═════════════════════════ -->
+<div class="qp-tab-content" id="mode-compare">
+    <div class="bg-dark-700 border border-dark-600 rounded-xl p-5 mb-6 qp-card">
+        <h3 class="text-sm font-semibold text-white mb-3">选择策略进行对比（至少2个）</h3>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 mb-4" id="compare-checkboxes">
+            {% for c in configs %}
+            <label class="flex items-center gap-2 bg-dark-800 rounded-lg px-3 py-2 cursor-pointer hover:bg-dark-600 transition">
+                <input type="checkbox" name="compare_configs" value="{{ c.id }}" class="accent-accent-blue">
+                <span class="text-sm text-white">{{ c.display_name or c.strategy_name }}</span>
+            </label>
+            {% endfor %}
         </div>
-
-        <!-- 开始回测 -->
-        <div>
-            <button type="button" onclick="runBacktest()"
-                    class="bg-accent-blue text-white px-6 py-2 rounded-lg text-sm font-bold hover:brightness-110 transition whitespace-nowrap">
-                &#x25B6; 开始回测
+        <div class="flex items-end gap-4">
+            <div class="flex-1">
+                <label class="block text-xs text-gray-400 mb-1.5">���的</label>
+                <input type="text" id="compare-symbol" value="SPY"
+                       class="w-full bg-dark-800 border border-dark-500 rounded-lg px-3 py-2 text-sm text-white focus:border-accent-blue focus:outline-none">
+            </div>
+            <div class="flex-1">
+                <label class="block text-xs text-gray-400 mb-1.5">开始</label>
+                <input type="date" id="compare-start" value="{{ five_years_ago or '2021-04-02' }}"
+                       class="w-full bg-dark-800 border border-dark-500 rounded-lg px-3 py-2 text-sm text-white">
+            </div>
+            <div class="flex-1">
+                <label class="block text-xs text-gray-400 mb-1.5">结束</label>
+                <input type="date" id="compare-end" value="{{ today or '2026-04-02' }}"
+                       class="w-full bg-dark-800 border border-dark-500 rounded-lg px-3 py-2 text-sm text-white">
+            </div>
+            <button onclick="runCompare()" class="bg-accent-blue text-white px-6 py-2 rounded-lg text-sm font-bold hover:brightness-110 transition whitespace-nowrap">
+                &#x1F4CA; 开始���比
             </button>
         </div>
     </div>
 
-    <div id="bt-spinner" class="hidden text-center py-3 mt-2">
-        <div class="inline-block w-6 h-6 border-2 border-accent-blue border-t-transparent rounded-full animate-spin"></div>
-        <span class="text-sm text-gray-400 ml-2">正在回测... 计算每一笔交易</span>
+    <div id="compare-results">
+        <div class="text-center py-20">
+            <div class="text-5xl mb-4">&#x1F4CA;</div>
+            <p class="text-gray-500 text-sm">选择至少2个策略，点击「开始对比」</p>
+        </div>
     </div>
 </div>
 
+</div><!-- end backtest-mode-tabs -->
+
 <script>
+function switchMode(mode) {
+    document.querySelectorAll('#backtest-mode-tabs > .flex > .qp-tab').forEach(function(t) { t.classList.remove('active'); });
+    document.querySelectorAll('#backtest-mode-tabs > .qp-tab-content').forEach(function(p) { p.classList.remove('active'); });
+    document.querySelector('[data-tab="mode-' + mode + '"]').classList.add('active');
+    document.getElementById('mode-' + mode).classList.add('active');
+}
+
 function runBacktest() {
     var fd = new FormData();
     fd.append('strategy_id', document.getElementById('sel-strategy').value);
@@ -79,19 +155,13 @@ function runBacktest() {
             var container = document.getElementById('backtest-results');
             container.innerHTML = html;
             if (typeof htmx !== 'undefined') htmx.process(container);
-            // innerHTML doesn't execute <script> tags — re-create them sequentially
             var scripts = Array.from(container.querySelectorAll('script'));
             function runNext(i) {
                 if (i >= scripts.length) return;
                 var old = scripts[i];
                 var s = document.createElement('script');
-                if (old.src) {
-                    s.src = old.src;
-                    s.onload = function() { runNext(i + 1); };
-                    s.onerror = function() { runNext(i + 1); };
-                } else {
-                    s.textContent = old.textContent;
-                }
+                if (old.src) { s.src = old.src; s.onload = function() { runNext(i + 1); }; s.onerror = function() { runNext(i + 1); };
+                } else { s.textContent = old.textContent; }
                 old.parentNode.replaceChild(s, old);
                 if (!old.src) runNext(i + 1);
             }
@@ -99,22 +169,37 @@ function runBacktest() {
         })
         .catch(function(e) {
             document.getElementById('bt-spinner').classList.add('hidden');
-            document.getElementById('backtest-results').innerHTML = '<div class="text-center text-red-400 py-8">回测失败: ' + e.message + '</div>';
+            document.getElementById('backtest-results').innerHTML = '<div class="text-center text-red-400 py-8">回测��败: ' + e.message + '</div>';
         });
 }
-</script>
 
-<!-- 回测结果区域 -->
-<div id="backtest-results">
-    <div class="text-center py-20">
-        <div class="text-5xl mb-4">&#x1F9EA;</div>
-        <p class="text-gray-500 text-sm">选择策略和标的，点击「开始回测」查看历史表现</p>
-        {% if goals %}
-        <p class="text-xs text-gray-600 mt-2">
-            回测将对比你的目标：年化 {{ '%.0f'|format(goals.annual_return_target * 100) }}% / 回撤 &le; {{ '%.0f'|format(goals.max_drawdown * 100) }}%
-        </p>
-        {% endif %}
-    </div>
-</div>
+function runCompare() {
+    var checked = document.querySelectorAll('#compare-checkboxes input:checked');
+    if (checked.length < 2) {
+        alert('请至少选择2个策略进���对比');
+        return;
+    }
+    var fd = new FormData();
+    checked.forEach(function(cb) { fd.append('config_ids', cb.value); });
+    fd.append('symbol', document.getElementById('compare-symbol').value);
+    fd.append('start_date', document.getElementById('compare-start').value);
+    fd.append('end_date', document.getElementById('compare-end').value);
+
+    var container = document.getElementById('compare-results');
+    container.innerHTML = '<div class="space-y-3"><div class="qp-skeleton h-80 rounded-xl"></div><div class="qp-skeleton h-40 rounded-lg"></div></div>';
+
+    fetch('/backtest/compare', { method: 'POST', body: fd })
+        .then(function(r) { return r.text(); })
+        .then(function(html) {
+            container.innerHTML = html;
+            var scripts = Array.from(container.querySelectorAll('script'));
+            function run(i) { if (i >= scripts.length) return; var o = scripts[i]; var s = document.createElement('script');
+                if (o.src) { s.src = o.src; s.onload = function() { run(i+1); }; } else { s.textContent = o.textContent; }
+                o.parentNode.replaceChild(s, o); if (!o.src) run(i+1); }
+            run(0);
+        })
+        .catch(function(e) { container.innerHTML = '<div class="text-center text-red-400 py-8">对比失败: ' + e.message + '</div>'; });
+}
+</script>
 
 {% endblock %}

@@ -211,6 +211,74 @@ def _simulate_portfolio(signals, df, initial_capital=10000, risk_per_trade=0.02,
             pass
     avg_holding_days = round(np.mean(holding_days), 1) if holding_days else 0
 
+    # ═══ Phase 1 Enhanced Metrics ═══
+
+    # Calmar Ratio = annual_return / |max_drawdown|
+    calmar = round(annual_return / abs(max_drawdown), 2) if max_drawdown != 0 else 0
+
+    # SQN = (mean_trade_return / std_trade_return) * sqrt(total_trades)
+    trade_returns = [t.get("return_pct", 0) for t in trades]
+    sqn = 0
+    sqn_grade = "N/A"
+    if len(trade_returns) > 1 and np.std(trade_returns) > 0:
+        sqn = round(float(np.mean(trade_returns) / np.std(trade_returns) * np.sqrt(len(trade_returns))), 2)
+    if sqn >= 5.0:
+        sqn_grade = "卓越"
+    elif sqn >= 3.0:
+        sqn_grade = "优"
+    elif sqn >= 2.0:
+        sqn_grade = "良"
+    elif sqn >= 1.6:
+        sqn_grade = "可"
+    else:
+        sqn_grade = "差"
+
+    # Best / Worst / Avg single trade return
+    best_trade = round(max(trade_returns) * 100, 2) if trade_returns else 0
+    worst_trade = round(min(trade_returns) * 100, 2) if trade_returns else 0
+    avg_trade_return = round(float(np.mean(trade_returns)) * 100, 2) if trade_returns else 0
+
+    # Rolling metrics (126-day / 6-month window)
+    rolling_sharpe_data = []
+    rolling_sortino_data = []
+    rolling_vol_data = []
+    window = 126
+    if len(returns) > window:
+        for i in range(window, len(returns)):
+            chunk = returns.iloc[i - window:i]
+            rs = float(chunk.mean() / chunk.std() * np.sqrt(252)) if chunk.std() > 0 else 0
+            neg_c = chunk[chunk < 0]
+            rso = float(chunk.mean() / neg_c.std() * np.sqrt(252)) if len(neg_c) > 0 and neg_c.std() > 0 else 0
+            rv = float(chunk.std() * np.sqrt(252) * 100)
+            # Approximate date from daily_details
+            date_str = daily_details[min(i, len(daily_details) - 1)]["date"] if daily_details and i < len(daily_details) else ""
+            rolling_sharpe_data.append({"date": date_str, "value": round(rs, 2)})
+            rolling_sortino_data.append({"date": date_str, "value": round(rso, 2)})
+            rolling_vol_data.append({"date": date_str, "value": round(rv, 1)})
+
+    # MAE/MFE per trade (scan OHLC High/Low during open periods)
+    trade_details = []
+    for t in trades:
+        entry_date = t.get("entry_date", "")
+        exit_date = t.get("exit_date", "")
+        entry_price = t.get("entry", 0)
+        if entry_price == 0 or not entry_date or not exit_date:
+            trade_details.append({**t, "mae": 0, "mfe": 0})
+            continue
+        try:
+            mask = (df.index >= pd.Timestamp(entry_date)) & (df.index <= pd.Timestamp(exit_date))
+            trade_df = df.loc[mask]
+            if trade_df.empty:
+                trade_details.append({**t, "mae": 0, "mfe": 0})
+                continue
+            lowest = float(trade_df["low"].min()) if "low" in trade_df.columns else entry_price
+            highest = float(trade_df["high"].max()) if "high" in trade_df.columns else entry_price
+            mae = round((lowest - entry_price) / entry_price * 100, 2)  # negative = adverse
+            mfe = round((highest - entry_price) / entry_price * 100, 2)  # positive = favorable
+            trade_details.append({**t, "mae": mae, "mfe": mfe})
+        except Exception:
+            trade_details.append({**t, "mae": 0, "mfe": 0})
+
     return BacktestMetrics(
         total_return=round(total_return, 4),
         annual_return=round(annual_return, 4),
@@ -228,6 +296,16 @@ def _simulate_portfolio(signals, df, initial_capital=10000, risk_per_trade=0.02,
         max_consecutive_losses=max_consecutive_losses,
         avg_holding_days=avg_holding_days,
         daily_details=daily_details if collect_daily else None,
+        calmar_ratio=calmar,
+        sqn_score=sqn,
+        sqn_grade=sqn_grade,
+        best_trade=best_trade,
+        worst_trade=worst_trade,
+        avg_trade_return=avg_trade_return,
+        rolling_sharpe=rolling_sharpe_data,
+        rolling_sortino=rolling_sortino_data,
+        rolling_volatility=rolling_vol_data,
+        trade_details=trade_details,
     )
 
 
@@ -284,7 +362,8 @@ def generate_backtest_report(metrics: BacktestMetrics, cost_model: CostModel = N
 def run_full_backtest(config: StrategyConfig, goals: UserGoals = None, db=None,
                       cost_model_name: str = "default",
                       start_date: str = None, end_date: str = None,
-                      collect_daily: bool = True) -> dict:
+                      collect_daily: bool = True,
+                      preloaded_df: pd.DataFrame = None) -> dict:
     """
     运行完整回测 + walk-forward 验证 + 成本模型
     """
@@ -302,8 +381,10 @@ def run_full_backtest(config: StrategyConfig, goals: UserGoals = None, db=None,
 
     symbol = config.symbol_pool.split(",")[0].strip() if config.symbol_pool else "SPY"
 
-    # Support custom date range (up to 20+ years via yfinance max)
-    if start_date and end_date:
+    # Use preloaded data if available (for parallel backtest optimization)
+    if preloaded_df is not None and not preloaded_df.empty:
+        df = preloaded_df.copy()
+    elif start_date and end_date:
         df = fetch_stock_history(symbol, start=start_date, end=end_date)
     elif start_date:
         df = fetch_stock_history(symbol, start=start_date, end=datetime.now().strftime('%Y-%m-%d'))
@@ -313,7 +394,8 @@ def run_full_backtest(config: StrategyConfig, goals: UserGoals = None, db=None,
     if df.empty:
         return {"error": f"No data for {symbol}"}
 
-    df = compute_technicals(df)
+    if preloaded_df is None:
+        df = compute_technicals(df)
     signals = strategy.generate_signals(df)
     for sig in signals:
         sig.symbol = symbol

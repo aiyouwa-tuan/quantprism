@@ -38,6 +38,17 @@ class BacktestMetrics:
     max_consecutive_losses: int = 0
     avg_holding_days: float = 0
     daily_details: list = None
+    # Phase 1 enhancements
+    calmar_ratio: float = 0
+    sqn_score: float = 0
+    sqn_grade: str = ""
+    best_trade: float = 0
+    worst_trade: float = 0
+    avg_trade_return: float = 0
+    rolling_sharpe: list = field(default_factory=list)
+    rolling_sortino: list = field(default_factory=list)
+    rolling_volatility: list = field(default_factory=list)
+    trade_details: list = field(default_factory=list)
 
 
 STRATEGY_REGISTRY: dict[str, type] = {}

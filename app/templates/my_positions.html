@@ -1,66 +1,107 @@
 {% extends "base.html" %}
 {% block content %}
 
-{% if show_journal_reminder %}
-<div class="bg-accent-yellow/10 border border-accent-yellow/30 rounded-lg p-3 mb-4 text-sm text-accent-yellow flex justify-between items-center">
-    <span>连续 {{ compliance.trades_without_journal }} 笔交易没写日志。记录理由和情绪，3 个月后出个人交易模式分析。</span>
-    <a href="/history" class="underline text-xs ml-4 whitespace-nowrap">去记录 &rarr;</a>
+<!-- ═══ Hero BNV ═══ -->
+<div class="bg-dark-700 rounded-xl border border-dark-600 p-6 mb-4 qp-card" id="hero-bnv">
+    <div class="flex items-end justify-between">
+        <div>
+            <div class="text-sm text-gray-500 mb-1">账面净值 (BNV)</div>
+            <div class="text-5xl font-bold text-white qp-number-up" data-target="{{ analytics.hero_bnv }}" data-format="currency">$0</div>
+            <div class="flex items-center gap-2 mt-1">
+                <span class="text-lg font-semibold {{ 'text-accent-green' if analytics.daily_change >= 0 else 'text-accent-red' }}">
+                    {{ '+' if analytics.daily_change >= 0 else '' }}${{ '{:,.0f}'.format(analytics.daily_change) }}
+                </span>
+                <span class="text-sm {{ 'text-accent-green' if analytics.daily_change_pct >= 0 else 'text-accent-red' }}">
+                    ({{ '+' if analytics.daily_change_pct >= 0 else '' }}{{ '%.2f'|format(analytics.daily_change_pct) }}%)
+                </span>
+                {% if analytics.daily_change >= 0 %}<span class="text-sm text-accent-green">&#x25B2;</span>{% else %}<span class="text-sm text-accent-red">&#x25BC;</span>{% endif %}
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <!-- 实时状态 badge -->
+            <div class="flex items-center gap-1.5">
+                {% if analytics.is_realtime %}
+                <div class="w-2 h-2 rounded-full bg-accent-green qp-pulse-glow"></div>
+                <span class="text-xs text-gray-500">实时 &middot; IBKR</span>
+                {% else %}
+                <div class="w-2 h-2 rounded-full bg-gray-600"></div>
+                <span class="text-xs text-gray-600">离线模式</span>
+                {% endif %}
+            </div>
+            <!-- 刷新按钮 -->
+            <button hx-get="/positions/refresh" hx-target="#hero-bnv" hx-swap="outerHTML"
+                    class="text-gray-600 hover:text-white text-xs flex items-center gap-1 transition">
+                <span class="refresh-icon">&#x21BB;</span> 刷新
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ 横向滚动持仓条 ═══ -->
+{% if analytics.scroll_strip %}
+<div class="qp-scroll-strip mb-4">
+    <div class="flex gap-2 pb-1">
+        {% for item in analytics.scroll_strip %}
+        <a href="/diagnose/{{ item.symbol }}" class="flex-shrink-0 min-w-[120px] bg-dark-700 rounded-xl border border-dark-600 px-3 py-2 hover:border-dark-500 transition">
+            <div class="text-sm font-bold text-white">{{ item.symbol }}</div>
+            <div class="text-xs font-semibold {{ 'text-accent-green' if item.pnl >= 0 else 'text-accent-red' }}">
+                {{ '+' if item.pnl >= 0 else '' }}${{ '{:,.0f}'.format(item.pnl) }}
+            </div>
+            <div class="w-full bg-dark-800 rounded-full h-0.5 mt-1">
+                <div class="h-0.5 rounded-full {{ 'bg-accent-green' if item.risk_pct < 0.02 else 'bg-accent-yellow' if item.risk_pct < 0.03 else 'bg-accent-red' }}"
+                     style="width: {{ [item.risk_pct * 100 * 20, 100]|min }}%"></div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
 </div>
 {% endif %}
 
-<div class="flex justify-between items-center mb-6">
-    <div>
-        <h1 class="text-xl font-bold text-white">我的持仓</h1>
-        <p class="text-sm text-gray-500 mt-0.5">实时跟踪所有持仓状态和风险</p>
+<!-- ═══ KPI Grid ═══ -->
+<div class="grid grid-cols-5 gap-3 mb-4 qp-card-stagger">
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600 text-center qp-card-enter">
+        <div class="text-xs text-gray-500 mb-1">净权益</div>
+        <div class="text-lg font-bold text-white">${{ '{:,.0f}'.format(account.get('net_equity', 0) if account else 0) }}</div>
     </div>
-    <div class="flex gap-2">
-        <button hx-post="/sync-positions" hx-target="#positions-area" hx-swap="innerHTML"
-                class="text-sm text-gray-400 hover:text-white px-4 py-2 rounded-lg bg-dark-700 border border-dark-600 hover:border-gray-500 transition">
-            <span class="refresh-icon">&#x21bb;</span> 同步 IBKR
-        </button>
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600 text-center qp-card-enter">
+        <div class="text-xs text-gray-500 mb-1">购买力</div>
+        <div class="text-lg font-bold text-white">${{ '{:,.0f}'.format(account.get('buying_power', 0) if account else 0) }}</div>
+    </div>
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600 text-center qp-card-enter">
+        <div class="text-xs text-gray-500 mb-1">持仓数</div>
+        <div class="text-lg font-bold text-white">{{ positions|length }}</div>
+    </div>
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600 text-center qp-card-enter">
+        <div class="text-xs text-gray-500 mb-1">未实现 P&L</div>
+        <div class="text-lg font-bold {{ 'text-accent-green' if total_unrealized >= 0 else 'text-accent-red' }}">
+            {{ '+' if total_unrealized >= 0 else '' }}${{ '{:,.0f}'.format(total_unrealized) }}
+        </div>
+    </div>
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600 text-center qp-card-enter">
+        <div class="text-xs text-gray-500 mb-1">总 Delta</div>
+        <div class="text-lg font-bold text-accent-blue">{{ '%.1f'|format(analytics.total_delta) }}</div>
     </div>
 </div>
 
-<!-- 顶部状态卡片 -->
-<div class="grid grid-cols-3 sm:grid-cols-5 gap-3 mb-6">
-    {% if account and account.get('equity') %}
-    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
-        <div class="text-xs text-gray-500">净资产</div>
-        <div class="text-xl font-bold text-white">${{ "{:,.0f}".format(account.equity) }}</div>
-    </div>
-    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
-        <div class="text-xs text-gray-500">购买力</div>
-        <div class="text-xl font-bold text-gray-300">${{ "{:,.0f}".format(account.buying_power) }}</div>
-    </div>
-    {% endif %}
-    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
-        <div class="text-xs text-gray-500">持仓数</div>
-        <div class="text-xl font-bold text-white">{{ positions|length }}{% if constraints %} <span class="text-sm text-gray-500">/ {{ constraints.max_positions }}</span>{% endif %}</div>
-    </div>
-    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
-        <div class="text-xs text-gray-500">未实现盈亏</div>
-        <div class="text-xl font-bold {{ 'text-accent-green' if total_unrealized >= 0 else 'text-accent-red' }}">
-            {{ '+' if total_unrealized >= 0 else '' }}${{ "{:,.0f}".format(total_unrealized) }}
-        </div>
-    </div>
-    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
-        <div class="text-xs text-gray-500">总风险</div>
-        <div class="flex items-center gap-2 mt-1">
-            {% set total_risk = positions|sum(attribute='risk_pct_of_account') if positions else 0 %}
-            <div class="flex-1 bg-dark-800 rounded-full h-2">
-                <div class="h-2 rounded-full {{ 'bg-accent-green' if total_risk < 0.05 else 'bg-accent-yellow' if total_risk < 0.08 else 'bg-accent-red' }}"
-                     style="width: {{ [total_risk * 100 * 10, 100]|min }}%"></div>
-            </div>
-            <span class="text-sm font-bold {{ 'text-accent-green' if total_risk < 0.05 else 'text-accent-yellow' if total_risk < 0.08 else 'text-accent-red' }}">{{ "%.1f"|format(total_risk * 100) }}%</span>
-        </div>
-    </div>
+<!-- ═══ 期权/正股 Tab 切换 ═══ -->
+<div class="flex gap-2 mb-3">
+    <button class="qp-pos-tab active bg-dark-500 text-white px-4 py-1.5 rounded-full text-sm border border-dark-600 transition" data-type="all">
+        全部 <span class="ml-1 text-xs bg-dark-600 text-gray-400 px-1.5 py-0.5 rounded-full">{{ positions|length }}</span>
+    </button>
+    <button class="qp-pos-tab bg-dark-700 text-gray-400 px-4 py-1.5 rounded-full text-sm border border-dark-600 hover:text-white transition" data-type="option">
+        期权 <span class="ml-1 text-xs bg-dark-600 text-gray-400 px-1.5 py-0.5 rounded-full">{{ analytics.option_count }}</span>
+    </button>
+    <button class="qp-pos-tab bg-dark-700 text-gray-400 px-4 py-1.5 rounded-full text-sm border border-dark-600 hover:text-white transition" data-type="stock">
+        正股 <span class="ml-1 text-xs bg-dark-600 text-gray-400 px-1.5 py-0.5 rounded-full">{{ analytics.stock_count }}</span>
+    </button>
 </div>
 
-<!-- 持仓卡片网格（新增：迷你卡片视图） -->
+<!-- ═══ 持仓卡片网格 ═══ -->
 {% if positions %}
 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-4">
     {% for p in positions[:12] %}
-    <a href="/diagnose/{{ p.symbol }}" class="bg-dark-700 rounded-xl border border-dark-600 p-3 hover:border-gray-500 transition block">
+    <a href="/diagnose/{{ p.symbol }}" class="qp-pos-row bg-dark-700 rounded-xl border border-dark-600 p-3 hover:border-gray-500 transition block qp-card-enter"
+       data-type="{{ p.market or 'stock' }}">
         <div class="flex justify-between items-center">
             <span class="text-white font-bold text-sm">{{ p.symbol }}</span>
             <span class="text-[10px] px-1.5 py-0.5 rounded {{ 'bg-accent-blue/20 text-accent-blue' if p.market == 'stock' else 'bg-accent-yellow/20 text-accent-yellow' if p.market == 'crypto' else 'bg-purple-500/20 text-purple-400' }}">{{ p.market }}</span>
@@ -70,6 +111,10 @@
         <div class="mt-1 text-sm font-bold {{ 'text-accent-green' if p.unrealized_pnl >= 0 else 'text-accent-red' }}">
             {{ '+' if p.unrealized_pnl >= 0 else '' }}${{ "{:,.0f}".format(p.unrealized_pnl) }}
         </div>
+        {% endif %}
+        <!-- Delta (期权) -->
+        {% if p.market == 'option' %}
+        <div class="text-xs text-accent-blue mt-0.5 font-mono">&#x0394; {{ '%.2f'|format(p.delta or 0) }}</div>
         {% endif %}
         <!-- 风险条 -->
         <div class="mt-1.5 w-full bg-dark-800 rounded-full h-1">
@@ -81,14 +126,14 @@
 </div>
 {% endif %}
 
-<!-- 持仓表格 -->
+<!-- ═══ 持仓表格 ═══ -->
 <div class="bg-dark-700 rounded-xl border border-dark-600">
     <div id="positions-area" class="p-5">
         {% include "partials/positions_list.html" %}
     </div>
 </div>
 
-<!-- 手动添加 + 计算器 -->
+<!-- ═══ 手动添加 + 计算器 ═══ -->
 <div class="grid grid-cols-2 gap-4 mt-4">
     <div class="bg-dark-700 rounded-xl border border-dark-600">
         <details>
@@ -114,7 +159,6 @@
         </details>
     </div>
 
-    <!-- 仓位计算器 -->
     <div class="bg-dark-700 rounded-xl border border-dark-600 p-5">
         <h3 class="text-sm font-semibold text-white mb-3">仓位计算器</h3>
         <form hx-post="/calculate" hx-target="#calc-result" hx-swap="innerHTML" class="flex gap-2 items-end flex-wrap">

@@ -1,288 +1,587 @@
-<!-- 回测结果 inline partial — loaded via HTMX into #backtest-results -->
+<!-- QuantPrism — Backtest Results (8-Tab Structure) -->
 
-<!-- ═══ 策略体检报告 ═══ -->
-<div class="bg-dark-700 border border-dark-600 rounded-xl p-5 mb-4">
-    <div class="flex items-center gap-2 mb-4">
-        <span class="text-base">&#x1FA7A;</span>
-        <h2 class="text-sm font-semibold text-white">策略体检报告</h2>
-        <span class="text-xs text-gray-500 ml-2">{{ symbol }}</span>
-    </div>
-    <div class="grid grid-cols-3 gap-3">
-        <!-- 总收益 -->
-        <div class="bg-dark-800 rounded-lg p-3 text-center">
+<!-- ═══ Tab Navigation ═══ -->
+<div class="qp-tabs-container" id="bt-tabs">
+<div class="qp-tab-bar">
+    <button class="qp-tab active" data-tab="tab-overview">总览</button>
+    <button class="qp-tab" data-tab="tab-equity">权益曲线</button>
+    <button class="qp-tab" data-tab="tab-distribution">收益分布</button>
+    <button class="qp-tab" data-tab="tab-kline">标的分析</button>
+    <button class="qp-tab" data-tab="tab-trades">逐笔分析</button>
+    <button class="qp-tab" data-tab="tab-rolling">滚动指标</button>
+    <button class="qp-tab" data-tab="tab-advanced">高阶统计 <span class="qp-badge qp-badge-purple ml-1">Phase 2</span></button>
+    <button class="qp-tab" data-tab="tab-parallel">平行时空</button>
+</div>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- Tab 1: 总览指标                                  -->
+<!-- ════════════════════════════════════════════════ -->
+<div class="qp-tab-content active" id="tab-overview">
+
+    <!-- 第1行：7列核心指标 -->
+    <div class="grid grid-cols-7 gap-3 mb-4 qp-card-stagger">
+        <div class="bg-dark-800 rounded-lg p-3 text-center qp-card-enter">
             <div class="text-xs text-gray-500 mb-1">总收益</div>
-            <div class="text-xl font-bold {{ 'text-accent-green' if metrics.total_return > 0 else 'text-accent-red' }}">
-                {{ '%.1f'|format(metrics.total_return * 100) }}%
-            </div>
+            <div class="text-xl font-bold qp-number-up {{ 'text-accent-green' if metrics.total_return >= 0 else 'text-accent-red' }}" data-target="{{ '%.1f'|format(metrics.total_return * 100) }}" data-format="percent">0</div>
         </div>
-        <!-- 年化收益 -->
-        <div class="bg-dark-800 rounded-lg p-3 text-center">
+        <div class="bg-dark-800 rounded-lg p-3 text-center qp-card-enter">
             <div class="text-xs text-gray-500 mb-1">年化收益</div>
-            <div class="flex items-center justify-center gap-1">
-                <span class="text-xl font-bold {{ 'text-accent-green' if metrics.annual_return >= (goals.annual_return_target if goals else 0) else 'text-accent-red' }}">
-                    {{ '%.1f'|format(metrics.annual_return * 100) }}%
-                </span>
-                {% if goals and metrics.annual_return < goals.annual_return_target %}
-                <span class="text-accent-red text-xs" title="未达到目标 {{ '%.0f'|format(goals.annual_return_target * 100) }}%">&#x274C;</span>
-                {% elif goals %}
-                <span class="text-accent-green text-xs">&#x2705;</span>
-                {% endif %}
-            </div>
+            <div class="text-xl font-bold qp-number-up {{ 'text-accent-green' if metrics.annual_return >= 0 else 'text-accent-red' }}" data-target="{{ '%.1f'|format(metrics.annual_return * 100) }}" data-format="percent">0</div>
         </div>
-        <!-- 最大回撤 -->
-        <div class="bg-dark-800 rounded-lg p-3 text-center">
-            <div class="text-xs text-gray-500 mb-1" title="从最高点到最低点的最大跌幅">最大回撤</div>
-            <div class="flex items-center justify-center gap-1">
-                <span class="text-xl font-bold {{ 'text-accent-green' if metrics.max_drawdown <= (goals.max_drawdown if goals else 1) else 'text-accent-red' }}">
-                    {{ '%.1f'|format(metrics.max_drawdown * 100) }}%
-                </span>
-                {% if goals and metrics.max_drawdown > goals.max_drawdown %}
-                <span class="text-accent-red text-xs" title="超过目标 {{ '%.0f'|format(goals.max_drawdown * 100) }}%">&#x274C;</span>
-                {% elif goals %}
-                <span class="text-accent-green text-xs">&#x2705;</span>
-                {% endif %}
-            </div>
+        <div class="bg-dark-800 rounded-lg p-3 text-center qp-card-enter">
+            <div class="text-xs text-gray-500 mb-1">最大回撤</div>
+            <div class="text-xl font-bold text-accent-red qp-number-up" data-target="{{ '%.1f'|format(metrics.max_drawdown * 100) }}" data-format="percent">0</div>
         </div>
-        <!-- Sharpe -->
-        <div class="bg-dark-800 rounded-lg p-3 text-center">
-            <div class="text-xs text-gray-500 mb-1" title="每承受 1 份风险获得多少收益，&gt;1 较好，&gt;2 优秀">Sharpe</div>
-            <div class="text-xl font-bold text-white">{{ '%.2f'|format(metrics.sharpe_ratio) }}</div>
+        <div class="bg-dark-800 rounded-lg p-3 text-center qp-card-enter">
+            <div class="text-xs text-gray-500 mb-1">Sharpe</div>
+            <div class="text-xl font-bold text-white qp-number-up" data-target="{{ metrics.sharpe_ratio }}" data-format="ratio">0</div>
         </div>
-        <!-- 胜率 -->
-        <div class="bg-dark-800 rounded-lg p-3 text-center">
+        <div class="bg-dark-800 rounded-lg p-3 text-center qp-card-enter">
+            <div class="text-xs text-gray-500 mb-1">Sortino</div>
+            <div class="text-xl font-bold text-white qp-number-up" data-target="{{ metrics.sortino_ratio }}" data-format="ratio">0</div>
+        </div>
+        <div class="bg-dark-800 rounded-lg p-3 text-center qp-card-enter">
             <div class="text-xs text-gray-500 mb-1">胜率</div>
-            <div class="text-xl font-bold text-white">{{ '%.0f'|format(metrics.win_rate * 100) }}%</div>
+            <div class="text-xl font-bold qp-number-up {{ 'text-accent-green' if metrics.win_rate >= 0.5 else 'text-accent-red' }}" data-target="{{ '%.1f'|format(metrics.win_rate * 100) }}" data-format="percent">0</div>
         </div>
-        <!-- 盈亏比 -->
-        <div class="bg-dark-800 rounded-lg p-3 text-center">
-            <div class="text-xs text-gray-500 mb-1" title="平均盈利 / 平均亏损，&gt;1 表示赚的比亏的多">盈亏比</div>
-            <div class="text-xl font-bold text-white">{{ '%.2f'|format(metrics.profit_factor) }}</div>
-        </div>
-        <!-- 交易次数 -->
-        <div class="bg-dark-800 rounded-lg p-3 text-center">
+        <div class="bg-dark-800 rounded-lg p-3 text-center qp-card-enter">
             <div class="text-xs text-gray-500 mb-1">交易次数</div>
             <div class="text-xl font-bold text-white">{{ metrics.total_trades }}</div>
         </div>
-        <!-- 平均持仓 -->
-        <div class="bg-dark-800 rounded-lg p-3 text-center">
-            <div class="text-xs text-gray-500 mb-1">平均持仓</div>
-            <div class="text-xl font-bold text-white">{{ '%.1f'|format(metrics.avg_hold_days) }} 天</div>
+    </div>
+
+    <!-- 第2行：扩展指标 -->
+    <div class="grid grid-cols-7 gap-3 mb-4 qp-card-stagger">
+        <div class="bg-dark-800 rounded-lg p-3 text-center qp-card-enter">
+            <div class="text-xs text-gray-500 mb-1">Calmar</div>
+            <div class="text-xl font-bold text-white qp-number-up" data-target="{{ metrics.calmar_ratio }}" data-format="ratio">0</div>
         </div>
-        <!-- 最大连败 -->
-        <div class="bg-dark-800 rounded-lg p-3 text-center">
-            <div class="text-xs text-gray-500 mb-1" title="连续亏损交易的最大次数">连败</div>
-            <div class="text-xl font-bold {{ 'text-accent-red' if metrics.max_consecutive_losses > 5 else 'text-white' }}">
-                {{ metrics.max_consecutive_losses }} 次
+        <div class="bg-dark-800 rounded-lg p-3 text-center qp-card-enter">
+            <div class="text-xs text-gray-500 mb-1">SQN</div>
+            <div class="text-xl font-bold text-white">
+                <span class="qp-number-up" data-target="{{ metrics.sqn_score }}" data-format="ratio">0</span>
+                <span class="qp-badge ml-1 {{ 'qp-badge-green' if metrics.sqn_score >= 2.0 else 'qp-badge-red' if metrics.sqn_score < 1.6 else 'qp-badge-yellow' }}">{{ metrics.sqn_grade }}</span>
+            </div>
+        </div>
+        <div class="bg-dark-800 rounded-lg p-3 text-center qp-card-enter">
+            <div class="text-xs text-gray-500 mb-1">最佳单笔</div>
+            <div class="text-xl font-bold text-accent-green qp-number-up" data-target="{{ metrics.best_trade }}" data-format="percent">0</div>
+        </div>
+        <div class="bg-dark-800 rounded-lg p-3 text-center qp-card-enter">
+            <div class="text-xs text-gray-500 mb-1">最差单笔</div>
+            <div class="text-xl font-bold text-accent-red qp-number-up" data-target="{{ metrics.worst_trade }}" data-format="percent">0</div>
+        </div>
+        <div class="bg-dark-800 rounded-lg p-3 text-center qp-card-enter">
+            <div class="text-xs text-gray-500 mb-1">均收益/笔</div>
+            <div class="text-xl font-bold qp-number-up {{ 'text-accent-green' if metrics.avg_trade_return >= 0 else 'text-accent-red' }}" data-target="{{ metrics.avg_trade_return }}" data-format="percent">0</div>
+        </div>
+        <div class="bg-dark-800 rounded-lg p-3 text-center qp-card-enter">
+            <div class="text-xs text-gray-500 mb-1">平均持仓</div>
+            <div class="text-xl font-bold text-white">{{ metrics.avg_holding_days }}天</div>
+        </div>
+        <div class="bg-dark-800 rounded-lg p-3 text-center qp-card-enter">
+            <div class="text-xs text-gray-500 mb-1">盈亏比</div>
+            <div class="text-xl font-bold text-white qp-number-up" data-target="{{ metrics.profit_factor }}" data-format="ratio">0</div>
+        </div>
+    </div>
+
+    <!-- AI 建议 -->
+    <div class="bg-accent-blue/10 border border-accent-blue/30 rounded-xl p-5 mb-4 qp-card">
+        <div class="flex items-center gap-2 mb-3">
+            <span class="text-base">&#x1F916;</span>
+            <h2 class="text-sm font-semibold text-white">AI 建议</h2>
+        </div>
+        <p class="text-sm text-gray-300 leading-relaxed mb-4">
+            {% if goals and metrics.annual_return >= goals.annual_return_target and metrics.max_drawdown <= goals.max_drawdown %}
+                该策略在 {{ symbol }} 上的历史表现 <span class="text-accent-green font-medium">达到了你的目标</span>。
+                年化 {{ '%.1f'|format(metrics.annual_return * 100) }}% 超过目标 {{ '%.0f'|format(goals.annual_return_target * 100) }}%，
+                回撤 {{ '%.1f'|format(metrics.max_drawdown * 100) }}% 低于限额 {{ '%.0f'|format(goals.max_drawdown * 100) }}%。
+                建议用不同标的进一步验证稳健性。
+            {% elif goals and metrics.max_drawdown > goals.max_drawdown %}
+                回撤 {{ '%.1f'|format(metrics.max_drawdown * 100) }}% <span class="text-accent-red font-medium">超过了你的目标 {{ '%.0f'|format(goals.max_drawdown * 100) }}%</span>。
+                建议加入止损或降低仓位来控制回撤。也可以尝试与低相关策略组合使用。
+            {% elif goals and metrics.annual_return < goals.annual_return_target %}
+                年化收益 {{ '%.1f'|format(metrics.annual_return * 100) }}% <span class="text-accent-red font-medium">未达到目标 {{ '%.0f'|format(goals.annual_return_target * 100) }}%</span>。
+                可以尝试优化参数或换一个波动更大的标的。
+            {% else %}
+                回测完成。Sharpe {{ '%.2f'|format(metrics.sharpe_ratio) }}，共 {{ metrics.total_trades }} 笔交易。
+                建议在多个标的和时间段上验证策略的稳健性。
+            {% endif %}
+        </p>
+        <div class="flex items-center gap-3">
+            <button class="bg-dark-600 text-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-dark-500 transition">&#x2699; 优化参数</button>
+            <button class="bg-dark-600 text-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-dark-500 transition">&#x1F6E1; 加止损重测</button>
+            <button class="bg-dark-600 text-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-dark-500 transition">&#x1F4CA; 组合使用</button>
+        </div>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- Tab 2: 权益曲线 + 回撤                          -->
+<!-- ════════════════════════════════════════════════ -->
+<div class="qp-tab-content" id="tab-equity">
+    <div class="bg-dark-700 border border-dark-600 rounded-xl p-5 mb-4 qp-card">
+        <h3 class="text-sm font-semibold text-white mb-3">权益曲线</h3>
+        <div id="ch-equity" style="height: 300px; width: 100%;"></div>
+    </div>
+    <div class="bg-dark-700 border border-dark-600 rounded-xl p-5 mb-4 qp-card">
+        <h3 class="text-sm font-semibold text-white mb-3">回撤曲线</h3>
+        <div id="ch-drawdown" style="height: 150px; width: 100%;"></div>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- Tab 3: 收益分布                                  -->
+<!-- ════════════════════════════════════════════════ -->
+<div class="qp-tab-content" id="tab-distribution">
+    <div class="grid grid-cols-3 gap-4 mb-4">
+        <div class="col-span-2 bg-dark-700 border border-dark-600 rounded-xl p-5 qp-card">
+            <h3 class="text-sm font-semibold text-white mb-3">收益分布直方图</h3>
+            <div id="ch-return-dist" style="height: 300px; width: 100%;"></div>
+        </div>
+        <div class="bg-dark-700 border border-dark-600 rounded-xl p-5 qp-card">
+            <h3 class="text-sm font-semibold text-white mb-3">统计特征</h3>
+            <div class="space-y-3">
+                {% set trade_returns = metrics.trade_details|map(attribute='return_pct')|list if metrics.trade_details else [] %}
+                <div class="bg-dark-800 rounded-lg p-3">
+                    <div class="text-xs text-gray-500">偏度 (Skewness)</div>
+                    <div class="text-lg font-bold text-white">--</div>
+                    <div class="text-xs text-gray-600">需要 >=10 笔交易计算</div>
+                </div>
+                <div class="bg-dark-800 rounded-lg p-3">
+                    <div class="text-xs text-gray-500">峰度 (Kurtosis)</div>
+                    <div class="text-lg font-bold text-white">--</div>
+                </div>
+                <div class="bg-dark-800 rounded-lg p-3">
+                    <div class="text-xs text-gray-500">最大单次盈利</div>
+                    <div class="text-lg font-bold text-accent-green">{{ '%.2f'|format(metrics.best_trade) }}%</div>
+                </div>
+                <div class="bg-dark-800 rounded-lg p-3">
+                    <div class="text-xs text-gray-500">最大单次亏损</div>
+                    <div class="text-lg font-bold text-accent-red">{{ '%.2f'|format(metrics.worst_trade) }}%</div>
+                </div>
             </div>
         </div>
     </div>
+    <!-- 月度热力图 -->
+    <div class="bg-dark-700 border border-dark-600 rounded-xl p-5 qp-card">
+        <h3 class="text-sm font-semibold text-white mb-3">月度收益热力图</h3>
+        <div id="ch-heatmap" style="height: 620px; width: 100%;"></div>
+    </div>
 </div>
 
-<!-- ═══ AI 建议 ═══ -->
-<div class="bg-accent-blue/10 border border-accent-blue/30 rounded-xl p-5 mb-4">
-    <div class="flex items-center gap-2 mb-3">
-        <span class="text-base">&#x1F916;</span>
-        <h2 class="text-sm font-semibold text-white">AI 建议</h2>
+<!-- ════════════════════════════════════════════════ -->
+<!-- Tab 4: 标的分析 (K线图)                          -->
+<!-- ════════════════════════════════════════════════ -->
+<div class="qp-tab-content" id="tab-kline">
+    <div class="bg-dark-700 border border-dark-600 rounded-xl p-5 mb-4 qp-card">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-semibold text-white">K 线图</h3>
+            <div class="flex gap-1" id="period-pills">
+                {% for val, label in [('D', '日线'), ('W', '周线'), ('M', '月线')] %}
+                <button data-period="{{ val }}" onclick="switchPeriod('{{ val }}')"
+                        class="px-3 py-1 rounded-full text-xs {{ 'bg-accent-blue text-white' if val == 'D' else 'bg-dark-600 text-gray-400 hover:text-white' }} transition">
+                    {{ label }}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+        <div id="kline-info" class="flex items-center gap-4 text-xs text-gray-500 mb-3 font-mono">
+            <span>开盘 <span id="ki-open" class="text-gray-300">--</span></span>
+            <span>收盘 <span id="ki-close" class="text-gray-300">--</span></span>
+            <span>最高 <span id="ki-high" class="text-accent-green">--</span></span>
+            <span>最低 <span id="ki-low" class="text-accent-red">--</span></span>
+            <span>涨跌幅 <span id="ki-chg" class="text-gray-300">--</span></span>
+        </div>
+        <div id="ch-kline" style="height: 500px; width: 100%;"></div>
     </div>
-    <p class="text-sm text-gray-300 leading-relaxed mb-4">
-        {% if goals and metrics.annual_return >= goals.annual_return_target and metrics.max_drawdown <= goals.max_drawdown %}
-            该策略在 {{ symbol }} 上的历史表现 <span class="text-accent-green font-medium">达到了你的目标</span>。
-            年化 {{ '%.1f'|format(metrics.annual_return * 100) }}% 超过目标 {{ '%.0f'|format(goals.annual_return_target * 100) }}%，
-            回撤 {{ '%.1f'|format(metrics.max_drawdown * 100) }}% 低于限额 {{ '%.0f'|format(goals.max_drawdown * 100) }}%。
-            建议用不同标的进一步验证稳健性。
-        {% elif goals and metrics.max_drawdown > goals.max_drawdown %}
-            回撤 {{ '%.1f'|format(metrics.max_drawdown * 100) }}% <span class="text-accent-red font-medium">超过了你的目标 {{ '%.0f'|format(goals.max_drawdown * 100) }}%</span>。
-            建议加入止损或降低仓位来控制回撤。也可以尝试与低相关策略组合使用。
-        {% elif goals and metrics.annual_return < goals.annual_return_target %}
-            年化收益 {{ '%.1f'|format(metrics.annual_return * 100) }}% <span class="text-accent-red font-medium">未达到目标 {{ '%.0f'|format(goals.annual_return_target * 100) }}%</span>。
-            可以尝试优化参数或换一个波动更大的标的。
-        {% else %}
-            回测完成。Sharpe {{ '%.2f'|format(metrics.sharpe_ratio) }}，共 {{ metrics.total_trades }} 笔交易。
-            建议在多个标的和时间段上验证策略的稳健性。
+</div>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- Tab 5: 逐笔交易深析                              -->
+<!-- ════════════════════════════════════════════════ -->
+<div class="qp-tab-content" id="tab-trades">
+    <!-- MAE/MFE 散点图 -->
+    <div class="bg-dark-700 border border-dark-600 rounded-xl p-5 mb-4 qp-card">
+        <h3 class="text-sm font-semibold text-white mb-3">MAE / MFE 散点分析</h3>
+        <div id="ch-mae-mfe" style="height: 320px; width: 100%;"></div>
+    </div>
+    <!-- 逐笔表格 -->
+    <div class="bg-dark-700 border border-dark-600 rounded-xl overflow-hidden qp-card">
+        <table class="w-full text-sm">
+            <thead class="bg-dark-800 text-xs text-gray-500 uppercase tracking-wide">
+                <tr>
+                    <th class="px-4 py-3 text-left">#</th>
+                    <th class="px-4 py-3 text-left">入场日</th>
+                    <th class="px-4 py-3 text-left">出场日</th>
+                    <th class="px-4 py-3 text-right">入价</th>
+                    <th class="px-4 py-3 text-right">出价</th>
+                    <th class="px-4 py-3 text-right">收益率</th>
+                    <th class="px-4 py-3 text-right">MAE</th>
+                    <th class="px-4 py-3 text-right">MFE</th>
+                    <th class="px-4 py-3 text-center">结果</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in metrics.trade_details %}
+                <tr class="{{ 'bg-dark-800/30' if loop.index is odd else '' }} hover:bg-dark-600/20">
+                    <td class="px-4 py-2 text-gray-400">{{ loop.index }}</td>
+                    <td class="px-4 py-2 text-white">{{ t.entry_date }}</td>
+                    <td class="px-4 py-2 text-white">{{ t.exit_date }}</td>
+                    <td class="px-4 py-2 text-right text-white">${{ '%.2f'|format(t.entry) }}</td>
+                    <td class="px-4 py-2 text-right text-white">${{ '%.2f'|format(t.exit) }}</td>
+                    <td class="px-4 py-2 text-right font-semibold {{ 'text-accent-green' if t.return_pct >= 0 else 'text-accent-red' }}">{{ '%.2f'|format(t.return_pct * 100) }}%</td>
+                    <td class="px-4 py-2 text-right text-accent-red">{{ '%.2f'|format(t.mae) }}%</td>
+                    <td class="px-4 py-2 text-right text-accent-green">{{ '%.2f'|format(t.mfe) }}%</td>
+                    <td class="px-4 py-2 text-center">
+                        {% if t.pnl > 0 %}
+                        <span class="qp-badge qp-badge-green">盈利</span>
+                        {% else %}
+                        <span class="qp-badge qp-badge-red">亏损</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not metrics.trade_details %}
+                <tr><td colspan="9" class="px-4 py-8 text-center text-gray-500">无交易记录</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- Tab 6: 滚动指标                                  -->
+<!-- ════════════════════════════════════════════════ -->
+<div class="qp-tab-content" id="tab-rolling">
+    <div class="bg-dark-700 border border-dark-600 rounded-xl p-5 qp-card">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold text-white">滚动 Sharpe / Sortino / 波动率 (126日窗口)</h3>
+        </div>
+        <div id="ch-rolling" style="height: 320px; width: 100%;"></div>
+        {% if not metrics.rolling_sharpe %}
+        <p class="text-center text-gray-500 text-sm mt-4">交易日不足126天，无法计算滚动指标</p>
         {% endif %}
-    </p>
-    <div class="flex items-center gap-3">
-        <button class="bg-dark-600 text-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-dark-500 transition">
-            &#x2699; 优化参数
-        </button>
-        <button class="bg-dark-600 text-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-dark-500 transition">
-            &#x1F6E1; 加止损重测
-        </button>
-        <button class="bg-dark-600 text-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-dark-500 transition">
-            &#x1F4CA; 组合使用
-        </button>
     </div>
 </div>
 
-<!-- ═══ K 线图 ═══ -->
-<div class="bg-dark-700 border border-dark-600 rounded-xl p-5 mb-4">
-    <div class="flex items-center justify-between mb-4">
-        <div class="flex items-center gap-2">
-            <span class="text-base">&#x1F4C8;</span>
-            <h2 class="text-sm font-semibold text-white">K 线图</h2>
+<!-- ════════════════════════════════════════════════ -->
+<!-- Tab 7: 高阶统计 (Phase 2 锁定)                   -->
+<!-- ════════════════════════════════════════════════ -->
+<div class="qp-tab-content" id="tab-advanced">
+    <div class="qp-phase2-lock">
+        <div class="grid grid-cols-2 gap-4">
+            <div class="bg-dark-700 border border-dark-600 rounded-xl p-5">
+                <h3 class="text-sm font-semibold text-white mb-3">VaR / CVaR 风险指标</h3>
+                <div class="qp-skeleton h-32 rounded-lg"></div>
+            </div>
+            <div class="bg-dark-700 border border-dark-600 rounded-xl p-5">
+                <h3 class="text-sm font-semibold text-white mb-3">Monte Carlo 模拟</h3>
+                <div class="qp-skeleton h-32 rounded-lg"></div>
+            </div>
+            <div class="bg-dark-700 border border-dark-600 rounded-xl p-5">
+                <h3 class="text-sm font-semibold text-white mb-3">Omega / PSR / Kelly</h3>
+                <div class="qp-skeleton h-32 rounded-lg"></div>
+            </div>
+            <div class="bg-dark-700 border border-dark-600 rounded-xl p-5">
+                <h3 class="text-sm font-semibold text-white mb-3">交易时机热力图</h3>
+                <div class="qp-skeleton h-32 rounded-lg"></div>
+            </div>
         </div>
-        <div class="flex gap-1" id="period-pills">
-            {% for val, label in [('D', '日线'), ('W', '周线'), ('M', '月线'), ('Q', '季线'), ('Y', '年线')] %}
-            <button data-period="{{ val }}" onclick="switchPeriod('{{ val }}')"
-                    class="px-3 py-1 rounded-full text-xs {{ 'bg-accent-blue text-white' if val == 'D' else 'bg-dark-600 text-gray-400 hover:text-white' }} transition">
-                {{ label }}
+        <div class="qp-lock-overlay">&#x1F512; Phase 2 功能 — 即将上线</div>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- Tab 8: 平行时空                                  -->
+<!-- ════════════════════════════════════════════════ -->
+<div class="qp-tab-content" id="tab-parallel">
+    <div class="bg-dark-700 border border-dark-600 rounded-xl p-5 mb-4 qp-card">
+        <h3 class="text-sm font-semibold text-white mb-4">平行时空回测</h3>
+        <p class="text-sm text-gray-400 mb-4">对同一策略，在历史上每个交易日模拟入场，观察不同时间入场的收益分布。</p>
+        <div class="flex items-end gap-4">
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">持仓周期</label>
+                <select id="parallel-holding" class="bg-dark-800 border border-dark-500 rounded-lg px-3 py-2 text-sm text-white">
+                    <option value="30">30天</option>
+                    <option value="60">60天</option>
+                    <option value="90">90天</option>
+                    <option value="180" selected>180天</option>
+                    <option value="365">1年</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">步长</label>
+                <select id="parallel-step" class="bg-dark-800 border border-dark-500 rounded-lg px-3 py-2 text-sm text-white">
+                    <option value="5" selected>5天</option>
+                    <option value="10">10天</option>
+                    <option value="20">20天</option>
+                </select>
+            </div>
+            <button onclick="runParallelBacktest()" class="bg-accent-blue text-white px-6 py-2 rounded-lg text-sm font-bold hover:brightness-110 transition">
+                开始扫描
             </button>
-            {% endfor %}
         </div>
     </div>
-    <!-- 信息栏 -->
-    <div id="kline-info" class="flex items-center gap-4 text-xs text-gray-500 mb-3 font-mono">
-        <span>开盘 <span id="ki-open" class="text-gray-300">--</span></span>
-        <span>收盘 <span id="ki-close" class="text-gray-300">--</span></span>
-        <span>最高 <span id="ki-high" class="text-accent-green">--</span></span>
-        <span>最低 <span id="ki-low" class="text-accent-red">--</span></span>
-        <span>成交量 <span id="ki-vol" class="text-gray-300">--</span></span>
-        <span>SMA20 <span id="ki-sma" class="text-accent-yellow">--</span></span>
-        <span>涨跌幅 <span id="ki-chg" class="text-gray-300">--</span></span>
+    <div id="parallel-results">
+        <div class="text-center py-12">
+            <p class="text-gray-500 text-sm">设置参数后点击「开始扫描」</p>
+        </div>
     </div>
-    <div id="ch-kline" style="height: 500px; width: 100%;"></div>
 </div>
 
-<!-- ═══ 月度收益热力图 ═══ -->
-<div class="bg-dark-700 border border-dark-600 rounded-xl p-5 mb-4">
-    <div class="flex items-center gap-2 mb-4">
-        <span class="text-base">&#x1F5D3;</span>
-        <h2 class="text-sm font-semibold text-white">月度收益热力图</h2>
-    </div>
-    <div id="ch-heatmap" style="height: 620px; width: 100%;"></div>
-</div>
+</div><!-- end qp-tabs-container -->
 
-<!-- ═══ 图表初始化脚本 ═══ -->
+<!-- ═══ Chart Init Scripts ═══ -->
 <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
 <script>
 (function() {
-    // ── K 线图 (TradingView Lightweight Charts) ──
-    const chartData = {{ chart_data|safe }};
-    const trades = {{ trades|safe if trades else '[]' }};
+    var chartData = {{ chart_data|safe }};
+    var trades = {{ trades|safe if trades else '[]' }};
+    var dailyDetails = {{ daily_details_json|safe if daily_details_json else '[]' }};
+    var rollingSharpe = {{ rolling_sharpe_json|safe if rolling_sharpe_json else '[]' }};
+    var rollingSortino = {{ rolling_sortino_json|safe if rolling_sortino_json else '[]' }};
+    var rollingVol = {{ rolling_vol_json|safe if rolling_vol_json else '[]' }};
+    var tradeDetails = {{ trade_details_json|safe if trade_details_json else '[]' }};
+    var heatmapData = {{ heatmap_data|safe }};
 
-    const chartEl = document.getElementById('ch-kline');
-    const chart = LightweightCharts.createChart(chartEl, {
-        layout: { background: { color: '#1a2035' }, textColor: '#9ca3af' },
-        grid: { vertLines: { color: '#232b3e' }, horzLines: { color: '#232b3e' } },
-        crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-        rightPriceScale: { borderColor: '#232b3e' },
-        timeScale: { borderColor: '#232b3e', timeVisible: true },
-    });
+    window.qpCharts = window.qpCharts || {};
 
-    const candleSeries = chart.addCandlestickSeries({
-        upColor: '#22c55e', downColor: '#ef4444',
-        borderUpColor: '#22c55e', borderDownColor: '#ef4444',
-        wickUpColor: '#22c55e', wickDownColor: '#ef4444',
-    });
-    candleSeries.setData(chartData);
+    // ═══ Tab 2: Equity Curve (LightweightCharts) ═══
+    document.addEventListener('qp:tab-activate', function(e) {
+        if (e.detail.tabId !== 'tab-equity') return;
+        var eqEl = document.getElementById('ch-equity');
+        if (!eqEl || !dailyDetails.length) return;
 
-    // SMA20 overlay
-    if (chartData.length > 20) {
-        const smaData = [];
-        for (let i = 19; i < chartData.length; i++) {
-            let sum = 0;
-            for (let j = i - 19; j <= i; j++) sum += chartData[j].close;
-            smaData.push({ time: chartData[i].time, value: sum / 20 });
+        var eqChart = LightweightCharts.createChart(eqEl, {
+            layout: { background: { color: 'transparent' }, textColor: '#9ca3af' },
+            grid: { vertLines: { color: '#232b3e' }, horzLines: { color: '#232b3e' } },
+            height: 300,
+            rightPriceScale: { borderColor: '#232b3e' },
+            timeScale: { borderColor: '#232b3e' },
+        });
+        var areaSeries = eqChart.addAreaSeries({
+            topColor: 'rgba(59,130,246,0.3)', bottomColor: 'rgba(59,130,246,0)',
+            lineColor: '#3b82f6', lineWidth: 2,
+        });
+        areaSeries.setData(dailyDetails.map(function(d) { return { time: d.date, value: d.equity }; }));
+        eqChart.timeScale().fitContent();
+
+        // Drawdown chart (ECharts)
+        var ddEl = document.getElementById('ch-drawdown');
+        if (ddEl) {
+            var ddChart = echarts.init(ddEl, null, { renderer: 'canvas' });
+            ddChart.setOption({
+                grid: { top: 10, right: 20, bottom: 30, left: 60 },
+                xAxis: { type: 'category', data: dailyDetails.map(function(d) { return d.date; }),
+                    axisLabel: { color: '#9ca3af', fontSize: 10 }, axisLine: { lineStyle: { color: '#232b3e' } } },
+                yAxis: { type: 'value', max: 0, axisLabel: { color: '#9ca3af', formatter: '{value}%' },
+                    axisLine: { lineStyle: { color: '#232b3e' } }, splitLine: { lineStyle: { color: '#232b3e' } } },
+                series: [{ type: 'line', data: dailyDetails.map(function(d) { return d.drawdown_pct; }),
+                    areaStyle: { color: 'rgba(239,68,68,0.15)' }, lineStyle: { color: '#ef4444', width: 1 },
+                    itemStyle: { color: '#ef4444' }, symbol: 'none' }],
+                tooltip: { trigger: 'axis', formatter: function(p) { return p[0].name + '<br>回撤: ' + p[0].value + '%'; } },
+                backgroundColor: 'transparent',
+            });
         }
-        const smaSeries = chart.addLineSeries({ color: '#eab308', lineWidth: 1 });
-        smaSeries.setData(smaData);
-    }
-
-    // 买卖标记
-    if (trades.length) {
-        const markers = trades.map(t => ({
-            time: t.time,
-            position: t.side === 'buy' ? 'belowBar' : 'aboveBar',
-            color: t.side === 'buy' ? '#22c55e' : '#ef4444',
-            shape: t.side === 'buy' ? 'arrowUp' : 'arrowDown',
-            text: t.side === 'buy' ? 'B' : 'S',
-        }));
-        candleSeries.setMarkers(markers);
-    }
-
-    // crosshair info
-    chart.subscribeCrosshairMove(param => {
-        if (!param || !param.time) return;
-        const d = param.seriesData.get(candleSeries);
-        if (!d) return;
-        document.getElementById('ki-open').textContent = d.open?.toFixed(2) ?? '--';
-        document.getElementById('ki-close').textContent = d.close?.toFixed(2) ?? '--';
-        document.getElementById('ki-high').textContent = d.high?.toFixed(2) ?? '--';
-        document.getElementById('ki-low').textContent = d.low?.toFixed(2) ?? '--';
-        const chg = d.open ? (((d.close - d.open) / d.open) * 100).toFixed(2) : '--';
-        const chgEl = document.getElementById('ki-chg');
-        chgEl.textContent = chg + '%';
-        chgEl.className = parseFloat(chg) >= 0 ? 'text-accent-green' : 'text-accent-red';
     });
 
-    chart.timeScale().fitContent();
+    // ═══ Tab 3: Distribution + Heatmap ═══
+    document.addEventListener('qp:tab-activate', function(e) {
+        if (e.detail.tabId !== 'tab-distribution') return;
 
-    window.switchPeriod = function(period) {
-        document.querySelectorAll('#period-pills button').forEach(btn => {
-            btn.className = btn.dataset.period === period
+        // Return distribution histogram
+        var distEl = document.getElementById('ch-return-dist');
+        if (distEl && tradeDetails.length) {
+            var rets = tradeDetails.map(function(t) { return Math.round(t.return_pct * 10000) / 100; });
+            var distChart = echarts.init(distEl, null, { renderer: 'canvas' });
+            // Simple histogram using bar chart
+            var bins = {};
+            rets.forEach(function(r) { var k = Math.floor(r / 2) * 2; bins[k] = (bins[k] || 0) + 1; });
+            var sorted = Object.keys(bins).sort(function(a,b) { return a-b; });
+            distChart.setOption({
+                grid: { top: 20, right: 20, bottom: 40, left: 50 },
+                xAxis: { type: 'category', data: sorted.map(function(k) { return k + '%'; }),
+                    axisLabel: { color: '#9ca3af', fontSize: 10 }, axisLine: { lineStyle: { color: '#232b3e' } } },
+                yAxis: { type: 'value', axisLabel: { color: '#9ca3af' },
+                    axisLine: { lineStyle: { color: '#232b3e' } }, splitLine: { lineStyle: { color: '#232b3e' } } },
+                series: [{ type: 'bar', data: sorted.map(function(k) {
+                    return { value: bins[k], itemStyle: { color: parseFloat(k) >= 0 ? '#22c55e' : '#ef4444' } };
+                }), barWidth: '60%' }],
+                tooltip: { trigger: 'axis' },
+                backgroundColor: 'transparent',
+            });
+        }
+
+        // Monthly heatmap
+        var hmEl = document.getElementById('ch-heatmap');
+        if (hmEl && heatmapData.length) {
+            var hmChart = echarts.init(hmEl, null, { renderer: 'canvas' });
+            var months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+            var years = []; var seen = {};
+            heatmapData.forEach(function(d) { if (!seen[d[1]]) { years.push(d[1]); seen[d[1]] = true; } });
+            years.sort();
+            var indexed = heatmapData.map(function(d) { return [d[0], years.indexOf(d[1]), d[2]]; });
+            hmChart.setOption({
+                tooltip: { formatter: function(p) { return years[p.value[1]] + '年 ' + months[p.value[0]] + ': ' + p.value[2].toFixed(2) + '%'; } },
+                xAxis: { type: 'category', data: months, axisLine: { lineStyle: { color: '#232b3e' } }, axisLabel: { color: '#9ca3af', fontSize: 11 }, splitLine: { show: false } },
+                yAxis: { type: 'category', data: years.map(String), axisLine: { lineStyle: { color: '#232b3e' } }, axisLabel: { color: '#9ca3af', fontSize: 11 }, splitLine: { show: false } },
+                visualMap: { min: -15, max: 15, calculable: true, orient: 'horizontal', left: 'center', bottom: 0,
+                    inRange: { color: ['#ef4444', '#1a2035', '#22c55e'] }, textStyle: { color: '#9ca3af' }, formatter: function(v) { return v.toFixed(0) + '%'; } },
+                series: [{ type: 'heatmap', data: indexed, label: { show: true, formatter: function(p) { return p.value[2].toFixed(1); }, color: '#e5e7eb', fontSize: 10 },
+                    itemStyle: { borderColor: '#1a2035', borderWidth: 2, borderRadius: 3 } }],
+                grid: { top: 10, right: 20, bottom: 60, left: 60 },
+                backgroundColor: 'transparent',
+            });
+        }
+    });
+
+    // ═══ Tab 4: K-line chart ═══
+    document.addEventListener('qp:tab-activate', function(e) {
+        if (e.detail.tabId !== 'tab-kline') return;
+        var kEl = document.getElementById('ch-kline');
+        if (!kEl || !chartData.length) return;
+
+        var chart = LightweightCharts.createChart(kEl, {
+            layout: { background: { color: '#1a2035' }, textColor: '#9ca3af' },
+            grid: { vertLines: { color: '#232b3e' }, horzLines: { color: '#232b3e' } },
+            crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+            rightPriceScale: { borderColor: '#232b3e' },
+            timeScale: { borderColor: '#232b3e', timeVisible: true },
+        });
+        var candleSeries = chart.addCandlestickSeries({
+            upColor: '#22c55e', downColor: '#ef4444',
+            borderUpColor: '#22c55e', borderDownColor: '#ef4444',
+            wickUpColor: '#22c55e', wickDownColor: '#ef4444',
+        });
+        candleSeries.setData(chartData);
+        if (chartData.length > 20) {
+            var sma = [];
+            for (var i = 19; i < chartData.length; i++) {
+                var sum = 0; for (var j = i - 19; j <= i; j++) sum += chartData[j].close;
+                sma.push({ time: chartData[i].time, value: sum / 20 });
+            }
+            chart.addLineSeries({ color: '#eab308', lineWidth: 1 }).setData(sma);
+        }
+        if (trades.length) {
+            candleSeries.setMarkers(trades.map(function(t) {
+                return { time: t.time, position: t.side === 'buy' ? 'belowBar' : 'aboveBar',
+                    color: t.side === 'buy' ? '#22c55e' : '#ef4444',
+                    shape: t.side === 'buy' ? 'arrowUp' : 'arrowDown', text: t.side === 'buy' ? 'B' : 'S' };
+            }));
+        }
+        chart.subscribeCrosshairMove(function(param) {
+            if (!param || !param.time) return;
+            var d = param.seriesData.get(candleSeries);
+            if (!d) return;
+            document.getElementById('ki-open').textContent = d.open ? d.open.toFixed(2) : '--';
+            document.getElementById('ki-close').textContent = d.close ? d.close.toFixed(2) : '--';
+            document.getElementById('ki-high').textContent = d.high ? d.high.toFixed(2) : '--';
+            document.getElementById('ki-low').textContent = d.low ? d.low.toFixed(2) : '--';
+            var chg = d.open ? (((d.close - d.open) / d.open) * 100).toFixed(2) : '--';
+            var chgEl = document.getElementById('ki-chg');
+            chgEl.textContent = chg + '%';
+            chgEl.className = parseFloat(chg) >= 0 ? 'text-accent-green' : 'text-accent-red';
+        });
+        chart.timeScale().fitContent();
+    });
+
+    // ═══ Tab 5: MAE/MFE scatter ═══
+    document.addEventListener('qp:tab-activate', function(e) {
+        if (e.detail.tabId !== 'tab-trades') return;
+        var el = document.getElementById('ch-mae-mfe');
+        if (!el || !tradeDetails.length) return;
+
+        var chart = echarts.init(el, null, { renderer: 'canvas' });
+        var data = tradeDetails.map(function(t) { return [t.mae, t.mfe, t.return_pct]; });
+        chart.setOption({
+            grid: { top: 30, right: 30, bottom: 50, left: 60 },
+            xAxis: { name: 'MAE (%)', type: 'value', axisLabel: { color: '#9ca3af', formatter: '{value}%' },
+                axisLine: { lineStyle: { color: '#232b3e' } }, splitLine: { lineStyle: { color: '#232b3e' } } },
+            yAxis: { name: 'MFE (%)', type: 'value', axisLabel: { color: '#9ca3af', formatter: '{value}%' },
+                axisLine: { lineStyle: { color: '#232b3e' } }, splitLine: { lineStyle: { color: '#232b3e' } } },
+            series: [{ type: 'scatter', data: data, symbolSize: 8,
+                itemStyle: { color: function(p) { return p.data[2] >= 0 ? 'rgba(34,197,94,0.7)' : 'rgba(239,68,68,0.7)'; } },
+                emphasis: { itemStyle: { borderWidth: 2, borderColor: '#fff' } } }],
+            tooltip: { formatter: function(p) { return 'MAE: ' + p.data[0] + '%<br>MFE: ' + p.data[1] + '%<br>收益: ' + (p.data[2] * 100).toFixed(2) + '%'; } },
+            backgroundColor: 'transparent',
+        });
+    });
+
+    // ═══ Tab 6: Rolling metrics ═══
+    document.addEventListener('qp:tab-activate', function(e) {
+        if (e.detail.tabId !== 'tab-rolling') return;
+        var el = document.getElementById('ch-rolling');
+        if (!el || !rollingSharpe.length) return;
+
+        var chart = echarts.init(el, null, { renderer: 'canvas' });
+        chart.setOption({
+            grid: { top: 40, right: 80, bottom: 40, left: 60 },
+            legend: { data: ['Sharpe', 'Sortino', '波动率'], textStyle: { color: '#9ca3af' }, top: 0 },
+            xAxis: { type: 'category', data: rollingSharpe.map(function(d) { return d.date; }),
+                axisLabel: { color: '#9ca3af', fontSize: 10 }, axisLine: { lineStyle: { color: '#232b3e' } } },
+            yAxis: [
+                { type: 'value', name: '比率', axisLabel: { color: '#9ca3af' }, axisLine: { lineStyle: { color: '#232b3e' } },
+                  splitLine: { lineStyle: { color: '#232b3e' } } },
+                { type: 'value', name: '波动率%', position: 'right', axisLabel: { color: '#9ca3af', formatter: '{value}%' },
+                  axisLine: { lineStyle: { color: '#232b3e' } }, splitLine: { show: false } }
+            ],
+            series: [
+                { name: 'Sharpe', type: 'line', data: rollingSharpe.map(function(d) { return d.value; }),
+                  lineStyle: { color: '#3b82f6', width: 2 }, itemStyle: { color: '#3b82f6' }, smooth: true, symbol: 'none' },
+                { name: 'Sortino', type: 'line', data: rollingSortino.map(function(d) { return d.value; }),
+                  lineStyle: { color: '#8b5cf6', width: 2 }, itemStyle: { color: '#8b5cf6' }, smooth: true, symbol: 'none' },
+                { name: '波动率', type: 'line', yAxisIndex: 1, data: rollingVol.map(function(d) { return d.value; }),
+                  lineStyle: { color: '#eab308', width: 1.5 }, itemStyle: { color: '#eab308' }, smooth: true, symbol: 'none' },
+            ],
+            tooltip: { trigger: 'axis' },
+            backgroundColor: 'transparent',
+        });
+    });
+
+    // ═══ Tab init: activate first tab's chart on load ═══
+    window.qpCore && window.qpCore.initTabs('#bt-tabs');
+
+    // ═══ Parallel backtest handler ═══
+    window.runParallelBacktest = function() {
+        var holding = document.getElementById('parallel-holding').value;
+        var step = document.getElementById('parallel-step').value;
+        var fd = new FormData();
+        fd.append('strategy_id', document.getElementById('sel-strategy').value);
+        fd.append('symbol', document.querySelector('#bt-form [name="symbol"]').value);
+        fd.append('start_date', document.querySelector('#bt-form [name="start_date"]').value);
+        fd.append('end_date', document.querySelector('#bt-form [name="end_date"]').value);
+        fd.append('holding_period', holding);
+        fd.append('step_days', step);
+        var container = document.getElementById('parallel-results');
+        container.innerHTML = '<div class="space-y-3"><div class="qp-skeleton h-16 rounded-lg"></div><div class="qp-skeleton h-80 rounded-xl"></div><div class="qp-skeleton h-40 rounded-lg"></div></div>';
+        fetch('/backtest/parallel', { method: 'POST', body: fd })
+            .then(function(r) { return r.text(); })
+            .then(function(html) {
+                container.innerHTML = html;
+                var scripts = Array.from(container.querySelectorAll('script'));
+                function run(i) { if (i >= scripts.length) return; var o = scripts[i]; var s = document.createElement('script');
+                    if (o.src) { s.src = o.src; s.onload = function() { run(i+1); }; } else { s.textContent = o.textContent; }
+                    o.parentNode.replaceChild(s, o); if (!o.src) run(i+1); }
+                run(0);
+            })
+            .catch(function(e) { container.innerHTML = '<div class="text-center text-red-400 py-8">平行回测失败: ' + e.message + '</div>'; });
+    };
+
+    window.switchPeriod = function(p) {
+        document.querySelectorAll('#period-pills button').forEach(function(b) {
+            b.className = b.dataset.period === p
                 ? 'px-3 py-1 rounded-full text-xs bg-accent-blue text-white transition'
                 : 'px-3 py-1 rounded-full text-xs bg-dark-600 text-gray-400 hover:text-white transition';
         });
-        // Period switching would require server-side data reload — placeholder
     };
 
-    // ── 月度收益热力图 (ECharts) ──
-    const heatmapData = {{ heatmap_data|safe }};
-    const heatmapEl = document.getElementById('ch-heatmap');
-    const heatmapChart = echarts.init(heatmapEl, null, { renderer: 'canvas' });
-
-    const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
-    const years = [...new Set(heatmapData.map(d => d[1]))].sort();
-
-    // Convert actual year → array index so ECharts category axis maps correctly
-    const heatmapDataIndexed = heatmapData.map(function(d) {
-        return [d[0], years.indexOf(d[1]), d[2]];
-    });
-
-    const hmOption = {
-        tooltip: {
-            formatter: function(p) {
-                return years[p.value[1]] + '年 ' + months[p.value[0]] + ': ' + p.value[2].toFixed(2) + '%';
-            }
-        },
-        xAxis: {
-            type: 'category', data: months,
-            axisLine: { lineStyle: { color: '#232b3e' } },
-            axisLabel: { color: '#9ca3af', fontSize: 11 },
-            splitLine: { show: false }
-        },
-        yAxis: {
-            type: 'category', data: years.map(String),
-            axisLine: { lineStyle: { color: '#232b3e' } },
-            axisLabel: { color: '#9ca3af', fontSize: 11 },
-            splitLine: { show: false }
-        },
-        visualMap: {
-            min: -15, max: 15, calculable: true,
-            orient: 'horizontal', left: 'center', bottom: 0,
-            inRange: { color: ['#ef4444', '#1a2035', '#22c55e'] },
-            textStyle: { color: '#9ca3af' },
-            formatter: function(v) { return v.toFixed(0) + '%'; }
-        },
-        series: [{
-            type: 'heatmap',
-            data: heatmapDataIndexed,
-            label: {
-                show: true,
-                formatter: function(p) { return p.value[2].toFixed(1); },
-                color: '#e5e7eb', fontSize: 10
-            },
-            itemStyle: { borderColor: '#1a2035', borderWidth: 2, borderRadius: 3 }
-        }],
-        grid: { top: 10, right: 20, bottom: 60, left: 60 },
-        backgroundColor: 'transparent'
-    };
-    heatmapChart.setOption(hmOption);
-
-    // 响应式
+    // Responsive
     window.addEventListener('resize', function() {
-        chart.applyOptions({ width: chartEl.clientWidth });
-        heatmapChart.resize();
+        document.querySelectorAll('[id^="ch-"]').forEach(function(el) {
+            var inst = echarts.getInstanceByDom(el);
+            if (inst) inst.resize();
+        });
     });
 })();
 </script>

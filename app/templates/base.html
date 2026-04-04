@@ -7,6 +7,7 @@
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
+    <link rel="stylesheet" href="/static/qp-animations.css">
     <script>
         tailwind.config = {
             theme: {
@@ -36,52 +37,77 @@
     <div style="height: 3px; background: linear-gradient(90deg, #f97316, #fb923c, #f97316); flex-shrink: 0;"></div>
 
     <div class="flex flex-1">
-    <!-- 左侧导航 -->
-    <nav class="w-48 bg-dark-800 border-r border-dark-600 flex flex-col py-4 px-3 gap-0.5 fixed h-full z-10">
-        <div class="flex items-center gap-2 px-3 mb-6">
+    <!-- 左侧导航 (Grouped) -->
+    <nav class="w-48 bg-dark-800 border-r border-dark-600 flex flex-col py-3 px-2 gap-0.5 fixed h-full z-10 overflow-y-auto">
+        <div class="flex items-center gap-2 px-3 mb-4">
             <div class="qp-logo w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-xs">QP</div>
             <span class="text-lg font-bold text-white">QuantPrism</span>
         </div>
 
-        <a href="/goals" class="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm {{ 'bg-dark-500 text-white' if request and (request.url.path == '/goals' or request.url.path == '/portfolio') else 'text-gray-400 hover:text-white hover:bg-dark-700' }}">
-            <span class="text-base">&#x1F3AF;</span>
-            设定目标
+        <!-- 概览 -->
+        <a href="/goals" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm {{ 'bg-dark-500 text-white' if request and (request.url.path == '/goals' or request.url.path == '/portfolio') else 'text-gray-400 hover:text-white hover:bg-dark-700' }} transition">
+            <span class="text-base w-5 text-center">&#x1F4CA;</span>
+            概览
         </a>
 
-        <a href="/hunt" class="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm {{ 'bg-dark-500 text-white' if request and '/hunt' in request.url.path else 'text-gray-400 hover:text-white hover:bg-dark-700' }}">
-            <span class="text-base">&#x1F50D;</span>
+        <!-- STRATEGY WORKSHOP -->
+        <div class="qp-nav-divider"></div>
+        <div class="qp-nav-group">STRATEGY</div>
+
+        <a href="/hunt" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm {{ 'bg-dark-500 text-white' if request and '/hunt' in request.url.path else 'text-gray-400 hover:text-white hover:bg-dark-700' }} transition">
+            <span class="text-base w-5 text-center">&#x1F50D;</span>
             策略猎手
         </a>
 
-        <a href="/backtest" class="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm {{ 'bg-dark-500 text-white' if request and request.url.path == '/backtest' else 'text-gray-400 hover:text-white hover:bg-dark-700' }}">
-            <span class="text-base">&#x1F9EA;</span>
+        <a href="/backtest" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm {{ 'bg-dark-500 text-white' if request and request.url.path == '/backtest' else 'text-gray-400 hover:text-white hover:bg-dark-700' }} transition">
+            <span class="text-base w-5 text-center">&#x1F9EA;</span>
             回测实验室
         </a>
 
-        <a href="/scan" class="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm {{ 'bg-dark-500 text-white' if request and '/scan' in request.url.path else 'text-gray-400 hover:text-white hover:bg-dark-700' }}">
-            <span class="text-base">&#x1F4E1;</span>
+        <a href="/backtest/tasks" class="flex items-center gap-2.5 pl-8 pr-3 py-1.5 rounded-lg text-xs {{ 'bg-dark-500 text-white' if request and '/backtest/tasks' in request.url.path else 'text-gray-400 hover:text-white hover:bg-dark-700' }} transition">
+            任务中心
+        </a>
+
+        <!-- MARKET SCAN -->
+        <div class="qp-nav-divider"></div>
+        <div class="qp-nav-group">MARKET</div>
+
+        <a href="/scan" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm {{ 'bg-dark-500 text-white' if request and '/scan' in request.url.path else 'text-gray-400 hover:text-white hover:bg-dark-700' }} transition">
+            <span class="text-base w-5 text-center">&#x1F4E1;</span>
             标的扫描
         </a>
 
-        <a href="/risk" class="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm {{ 'bg-dark-500 text-white' if request and '/risk' in request.url.path else 'text-gray-400 hover:text-white hover:bg-dark-700' }}">
-            <span class="text-base">&#x1F6E1;</span>
-            风控护盾
-        </a>
-
-        <a href="/watchlist" class="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm {{ 'bg-dark-500 text-white' if request and '/watchlist' in request.url.path else 'text-gray-400 hover:text-white hover:bg-dark-700' }}">
-            <span class="text-base">&#x1F441;</span>
-            观察列表
-        </a>
-
-        <a href="/macro" class="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm {{ 'bg-dark-500 text-white' if request and '/macro' in request.url.path else 'text-gray-400 hover:text-white hover:bg-dark-700' }}">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <a href="/macro" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm {{ 'bg-dark-500 text-white' if request and '/macro' in request.url.path else 'text-gray-400 hover:text-white hover:bg-dark-700' }} transition">
+            <span class="text-base w-5 text-center">&#x1F310;</span>
             宏观经济
         </a>
 
-        <div class="flex-1"></div>
+        <!-- TRADE MANAGEMENT -->
+        <div class="qp-nav-divider"></div>
+        <div class="qp-nav-group">TRADING</div>
 
-        <a href="/settings" class="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm {{ 'bg-dark-500 text-white' if request and '/settings' in request.url.path else 'text-gray-400 hover:text-white hover:bg-dark-700' }}">
-            <span class="text-base">&#x2699;</span>
+        <a href="/risk" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm {{ 'bg-dark-500 text-white' if request and '/risk' in request.url.path else 'text-gray-400 hover:text-white hover:bg-dark-700' }} transition">
+            <span class="text-base w-5 text-center">&#x1F4BC;</span>
+            当前持仓
+        </a>
+
+        <a href="/watchlist" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm {{ 'bg-dark-500 text-white' if request and '/watchlist' in request.url.path else 'text-gray-400 hover:text-white hover:bg-dark-700' }} transition">
+            <span class="text-base w-5 text-center">&#x1F441;</span>
+            观察列表
+        </a>
+
+        <a href="/risk/shield" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm {{ 'bg-dark-500 text-white' if request and '/risk/shield' in request.url.path else 'text-gray-400 hover:text-white hover:bg-dark-700' }} transition">
+            <span class="text-base w-5 text-center">&#x1F6E1;</span>
+            风控护盾
+        </a>
+
+        <!-- SYSTEM -->
+        <div class="flex-1"></div>
+        <div class="qp-nav-divider"></div>
+        <div class="qp-nav-group">SYSTEM</div>
+
+        <a href="/settings" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm {{ 'bg-dark-500 text-white' if request and '/settings' in request.url.path else 'text-gray-400 hover:text-white hover:bg-dark-700' }} transition">
+            <span class="text-base w-5 text-center">&#x2699;</span>
             系统配置
         </a>
     </nav>
@@ -97,14 +123,15 @@
         </div>
 
         <div class="flex-1 p-6">
-            <!-- 移动端提示（仅小屏显示） -->
+            <!-- 移动端提示 -->
             <div class="block md:hidden bg-dark-700 border border-dark-600 rounded-lg p-3 mb-4 text-xs text-gray-400 text-center">
-                QuantPrism 在桌面端体验最佳，当前屏幕宽度可能影响显示效果
+                QuantPrism 在桌面端体验最佳
             </div>
             {% block content %}{% endblock %}
         </div>
     </main>
     </div>
 
+    <script src="/static/qp-core.js"></script>
 </body>
 </html>

@@ -27,7 +27,8 @@ from sqlalchemy.orm import Session
 
 from models import (init_db, get_db, UserGoals, Position, TradeJournal, JournalCompliance,
                      StrategyConfig, BacktestRun, TradeSignal, StrategyLeaderboard,
-                     AlertConfig, AlertHistory, ExecutionLog, ApiConfig, WatchlistItem, Base, engine)
+                     AlertConfig, AlertHistory, ExecutionLog, ApiConfig, WatchlistItem,
+                     ParallelBacktestRun, Base, engine)
 from calculator import calculate_position_size, derive_constraints, check_can_open_position
 from schemas import GoalsCreate, PositionCreate, CalculateRequest, PositionClose
 from market_data import fetch_current_price, fetch_vix, detect_market_regime, fetch_stock_history, compute_technicals
@@ -39,7 +40,7 @@ from strategy_hunter import compute_match_score, search_github_strategies, ai_ge
 from ai_analysis import get_active_provider
 from scanner import scan_index, INDEX_MAP
 
-app = FastAPI(title="Goal-Driven Trading OS", version="2.1.0")
+app = FastAPI(title="Goal-Driven Trading OS", version="3.0.0")
 
 BASE_DIR = Path(__file__).resolve().parent
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
@@ -249,6 +250,10 @@ def positions_page(request: Request, db: Session = Depends(get_db)):
 
     regime = detect_market_regime()
 
+    # Enhanced position analytics
+    from position_analytics import compute_position_analytics
+    analytics = compute_position_analytics(positions, account_info=account)
+
     return templates.TemplateResponse("my_positions.html", {
         "request": request,
         "goals": goals,
@@ -262,6 +267,7 @@ def positions_page(request: Request, db: Session = Depends(get_db)):
         "show_journal_reminder": show_journal_reminder,
         "compliance": compliance,
         "recent_journals": recent_journals,
+        "analytics": analytics,
     })
 
 
@@ -2101,24 +2107,44 @@ def backtest_run(
             if "exit_date" in t:
                 trades_markers.append({"time": t["exit_date"], "type": "sell", "price": t.get("exit_price", 0)})
 
+    # Prepare enhanced metrics for 8-tab template
+    _m = metrics
+    template_metrics = type('M', (), {
+        "total_return": round(_m.total_return, 4),
+        "annual_return": round(_m.annual_return, 4),
+        "max_drawdown": round(_m.max_drawdown, 4),
+        "sharpe_ratio": round(_m.sharpe_ratio, 2),
+        "sortino_ratio": round(_m.sortino_ratio, 2),
+        "win_rate": round(_m.win_rate, 4),
+        "profit_factor": round(_m.profit_factor, 2),
+        "total_trades": _m.total_trades,
+        "avg_holding_days": _m.avg_holding_days,
+        "max_consecutive_losses": _m.max_consecutive_losses,
+        "calmar_ratio": getattr(_m, 'calmar_ratio', 0),
+        "sqn_score": getattr(_m, 'sqn_score', 0),
+        "sqn_grade": getattr(_m, 'sqn_grade', 'N/A'),
+        "best_trade": getattr(_m, 'best_trade', 0),
+        "worst_trade": getattr(_m, 'worst_trade', 0),
+        "avg_trade_return": getattr(_m, 'avg_trade_return', 0),
+        "rolling_sharpe": getattr(_m, 'rolling_sharpe', []),
+        "rolling_sortino": getattr(_m, 'rolling_sortino', []),
+        "rolling_volatility": getattr(_m, 'rolling_volatility', []),
+        "trade_details": getattr(_m, 'trade_details', []),
+    })()
+
     return templates.TemplateResponse("partials/backtest_inline.html", {
         "request": request,
-        "metrics": {
-            "total_return": round(metrics.total_return, 4) if hasattr(metrics, "total_return") else 0,
-            "annual_return": round(metrics.annual_return, 4) if hasattr(metrics, "annual_return") else 0,
-            "max_drawdown": round(metrics.max_drawdown, 4) if hasattr(metrics, "max_drawdown") else 0,
-            "sharpe_ratio": round(metrics.sharpe_ratio, 2) if hasattr(metrics, "sharpe_ratio") else 0,
-            "win_rate": round(metrics.win_rate, 4) if hasattr(metrics, "win_rate") else 0,
-            "profit_factor": round(metrics.profit_factor, 2) if hasattr(metrics, "profit_factor") else 0,
-            "total_trades": metrics.total_trades if hasattr(metrics, "total_trades") else 0,
-            "avg_hold_days": round(metrics.avg_hold_days, 1) if hasattr(metrics, "avg_hold_days") else 0,
-            "max_consecutive_losses": metrics.max_consecutive_losses if hasattr(metrics, "max_consecutive_losses") else 0,
-        },
+        "metrics": template_metrics,
         "goals": goals,
         "symbol": symbol,
         "chart_data": _json.dumps(chart_data),
         "heatmap_data": _json.dumps(heatmap_data),
-        "trades_markers": _json.dumps(trades_markers),
+        "trades": _json.dumps(trades_markers),
+        "daily_details_json": _json.dumps(_m.daily_details or []),
+        "rolling_sharpe_json": _json.dumps(getattr(_m, 'rolling_sharpe', [])),
+        "rolling_sortino_json": _json.dumps(getattr(_m, 'rolling_sortino', [])),
+        "rolling_vol_json": _json.dumps(getattr(_m, 'rolling_volatility', [])),
+        "trade_details_json": _json.dumps(getattr(_m, 'trade_details', [])),
     })
 
 
@@ -2218,12 +2244,178 @@ async def scan_run(
             "max_loss_pct": round(max_loss / account_balance * 100, 2) if account_balance else 0,
         })
 
+    # Smart combo recommendations
+    combos = []
+    if results:
+        try:
+            from combo_scorer import recommend_combos
+            combos = recommend_combos(results)
+        except Exception:
+            pass
+
     return templates.TemplateResponse("partials/scan_results.html", {
         "request": request,
         "results": results,
+        "combos": combos,
         "scan_count": result.get("symbols_scanned", 0),
         "scan_time": result.get("scan_time_sec", 0),
     })
+
+
+# ===== Parallel Backtest =====
+
+@app.post("/backtest/parallel", response_class=HTMLResponse)
+def backtest_parallel(
+    request: Request,
+    strategy_id: int = Form(0),
+    symbol: str = Form("SPY"),
+    start_date: str = Form(""),
+    end_date: str = Form(""),
+    holding_period: int = Form(180),
+    step_days: int = Form(5),
+    db: Session = Depends(get_db),
+):
+    import json as _json
+    from parallel_backtest import run_parallel_backtest
+
+    config = db.query(StrategyConfig).filter(StrategyConfig.id == strategy_id).first()
+    if not config:
+        config = db.query(StrategyConfig).filter(StrategyConfig.is_active == True).first()
+    if not config:
+        return HTMLResponse('<div class="text-center text-red-400 py-8">未找到策略配置</div>')
+
+    original_pool = config.symbol_pool
+    config.symbol_pool = symbol
+
+    goals = db.query(UserGoals).order_by(UserGoals.updated_at.desc()).first()
+
+    result = run_parallel_backtest(
+        config, goals=goals,
+        start_range=start_date or None, end_range=end_date or None,
+        holding_period_days=holding_period, step_days=step_days,
+    )
+    config.symbol_pool = original_pool
+
+    if "error" in result:
+        return HTMLResponse(f'<div class="text-center text-red-400 py-8">平行回测失败: {result["error"]}</div>')
+
+    # Save to DB
+    summary = result["summary"]
+    run = ParallelBacktestRun(
+        strategy_config_id=config.id,
+        symbol=symbol,
+        total_entries=summary["total_entries"],
+        win_rate=summary["win_rate"],
+        avg_return=summary["avg_return"],
+        avg_max_drawdown=summary["avg_drawdown"],
+        best_entry_date=summary["best_entry"],
+        best_return=summary["best_return"],
+        worst_entry_date=summary["worst_entry"],
+        worst_return=summary["worst_return"],
+        scatter_json=_json.dumps(result["scatter_data"][:200]),
+        holding_period_days=holding_period,
+        step_days=step_days,
+        elapsed_seconds=result.get("elapsed_seconds", 0),
+    )
+    db.add(run)
+    db.commit()
+
+    return templates.TemplateResponse("partials/parallel_result.html", {
+        "request": request,
+        "summary": summary,
+        "scatter_data_json": _json.dumps(result["scatter_data"]),
+        "distribution_json": _json.dumps(result["distribution"]),
+        "holding_period_days": holding_period,
+        "step_days": step_days,
+        "elapsed_seconds": result.get("elapsed_seconds", 0),
+        "symbol": symbol,
+    })
+
+
+# ===== Strategy Comparison =====
+
+@app.post("/backtest/compare", response_class=HTMLResponse)
+async def backtest_compare(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    import json as _json
+    from strategy_comparison import compare_strategies
+
+    form = await request.form()
+    config_ids = form.getlist("config_ids")
+    symbol = form.get("symbol", "SPY")
+    start_date = form.get("start_date", "")
+    end_date = form.get("end_date", "")
+
+    if len(config_ids) < 2:
+        return HTMLResponse('<div class="text-center text-red-400 py-8">请至少选择2个策略</div>')
+
+    goals = db.query(UserGoals).order_by(UserGoals.updated_at.desc()).first()
+    configs = []
+    for cid in config_ids:
+        c = db.query(StrategyConfig).filter(StrategyConfig.id == int(cid)).first()
+        if c:
+            original_pool = c.symbol_pool
+            c.symbol_pool = symbol
+            configs.append(c)
+
+    result = compare_strategies(configs, symbol=symbol,
+                                start_date=start_date or None,
+                                end_date=end_date or None,
+                                goals=goals)
+
+    # Restore symbol pools
+    for c in configs:
+        c.symbol_pool = c.symbol_pool  # already overridden, no-op
+
+    if "error" in result:
+        return HTMLResponse(f'<div class="text-center text-red-400 py-8">{result["error"]}</div>')
+
+    return templates.TemplateResponse("partials/compare_result.html", {
+        "request": request,
+        "strategies": result["strategies"],
+        "comparison": result["comparison"],
+        "symbol": result["symbol"],
+        "strategies_json": _json.dumps(result["strategies"]),
+        "error": None,
+    })
+
+
+# ===== Backtest Task Center =====
+
+@app.get("/backtest/tasks", response_class=HTMLResponse)
+def backtest_tasks_page(request: Request, db: Session = Depends(get_db)):
+    goals = db.query(UserGoals).order_by(UserGoals.updated_at.desc()).first()
+    tasks = db.query(BacktestRun).order_by(BacktestRun.created_at.desc()).limit(50).all()
+    # Also include parallel runs
+    parallel_tasks = db.query(ParallelBacktestRun).order_by(ParallelBacktestRun.created_at.desc()).limit(20).all()
+
+    return templates.TemplateResponse("qp_backtest_tasks.html", {
+        "request": request,
+        "goals": goals,
+        "tasks": tasks,
+        "parallel_tasks": parallel_tasks,
+    })
+
+
+# ===== Watchlist Add Combo =====
+
+@app.post("/watchlist/add-combo", response_class=HTMLResponse)
+def watchlist_add_combo(
+    request: Request,
+    combo_type: str = Form(""),
+    symbols: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    for sym in symbols.split(","):
+        sym = sym.strip()
+        if sym:
+            existing = db.query(WatchlistItem).filter(WatchlistItem.symbol == sym).first()
+            if not existing:
+                db.add(WatchlistItem(symbol=sym, added_from="combo_" + combo_type))
+    db.commit()
+    return HTMLResponse('<span class="text-accent-green text-sm">&#x2705; 已加入观察列表</span>')
 
 
 @app.post("/scan/paper-order", response_class=HTMLResponse)

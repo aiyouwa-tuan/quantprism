@@ -1,0 +1,66 @@
+<!-- QuantPrism — Smart Combo Recommendation -->
+
+{% if combos %}
+<div class="mb-6">
+    <div class="flex items-center gap-2 mb-3">
+        <span class="text-base">&#x1F9E0;</span>
+        <h2 class="text-base font-semibold text-white">智能组合推荐</h2>
+        <span class="text-xs text-gray-500">基于 AI 评分的最优组合</span>
+    </div>
+
+    <div class="grid grid-cols-{{ [combos|length, 3]|min }} gap-4 qp-card-stagger">
+        {% set icons = {'conservative': '&#x1F6E1;', 'aggressive': '&#x26A1;', 'balanced': '&#x2696;'} %}
+        {% for combo in combos %}
+        <div class="bg-dark-700 rounded-xl p-5 border {{ combo.border_color }} hover:{{ combo.hover_color }} transition qp-card qp-card-enter">
+            <!-- 标题 -->
+            <div class="flex items-center gap-2 mb-3">
+                <span class="text-lg">{{ icons.get(combo.type, '&#x1F4CA;') }}</span>
+                <span class="text-base font-semibold text-white">{{ combo.name }}</span>
+                <span class="qp-badge qp-badge-blue ml-auto">{{ combo.count }} 个标的</span>
+            </div>
+
+            <!-- 标的 mini 卡片 -->
+            <div class="flex flex-wrap gap-2 mb-3">
+                {% for ticker in combo.tickers %}
+                <div class="bg-dark-800 rounded-lg px-3 py-2 flex-1 min-w-[calc(50%-4px)]">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-bold text-white">{{ ticker.symbol }}</span>
+                        <span class="text-xs text-gray-400">AI {{ ticker.ai_score|int }}</span>
+                    </div>
+                    <!-- AI 评分条 -->
+                    <div class="w-full bg-dark-600 rounded-full h-1 mt-1">
+                        <div class="h-1 rounded-full" style="width: {{ ticker.ai_score }}%;
+                            background: {{ 'linear-gradient(90deg, #22c55e, #22c55e)' if ticker.ai_score >= 70 else 'linear-gradient(90deg, #eab308, #eab308)' if ticker.ai_score >= 40 else 'linear-gradient(90deg, #ef4444, #ef4444)' }};"></div>
+                    </div>
+                    {% if ticker.price %}
+                    <div class="text-xs text-gray-500 mt-1">${{ '%.2f'|format(ticker.price) }}</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- 底部统计 -->
+            <div class="flex justify-between text-sm mb-3">
+                <span class="text-gray-400">总资金: <span class="text-white">${{ '{:,.0f}'.format(combo.total_capital) }}</span></span>
+                <span class="text-accent-green">预期: {{ combo.expected_return }}</span>
+            </div>
+
+            <!-- 风险标签 -->
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-xs text-gray-500">风险等级</span>
+                <span class="qp-badge {{ 'qp-badge-green' if combo.risk_level == '低' else 'qp-badge-yellow' if combo.risk_level == '中' else 'qp-badge-red' }}">{{ combo.risk_level }}</span>
+            </div>
+
+            <!-- 加入观察 -->
+            <button class="w-full bg-dark-600 text-gray-300 py-2 rounded-lg text-sm hover:bg-dark-500 hover:text-white transition"
+                    hx-post="/watchlist/add-combo"
+                    hx-vals='{"combo_type": "{{ combo.type }}", "symbols": "{{ combo.tickers|map(attribute='symbol')|join(',') }}"}'
+                    hx-swap="none"
+                    onclick="this.innerText='&#x2705; 已加入观察'; this.disabled=true;">
+                加入观察列表
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}

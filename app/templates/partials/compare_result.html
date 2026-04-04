@@ -1,0 +1,126 @@
+<!-- QuantPrism — Multi-Strategy Comparison Results -->
+
+{% if error %}
+<div class="text-center py-8 text-red-400">{{ error }}</div>
+{% else %}
+
+<!-- 叠加权益曲线 -->
+<div class="bg-dark-700 border border-dark-600 rounded-xl p-5 mb-4 qp-card">
+    <h3 class="text-sm font-semibold text-white mb-3">权益曲线叠加 — {{ symbol }}</h3>
+    <div id="ch-compare-equity" style="height: 300px; width: 100%;"></div>
+</div>
+
+<!-- 策略卡片网格 -->
+<div class="grid grid-cols-{{ [strategies|length, 4]|min }} gap-3 mb-4 qp-card-stagger">
+    {% set color_classes = ['qp-color-bar-blue', 'qp-color-bar-green', 'qp-color-bar-yellow', 'qp-color-bar-purple', 'qp-color-bar-red', 'qp-color-bar-cyan'] %}
+    {% for s in strategies %}
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600 {{ color_classes[loop.index0 % 6] }} qp-card-enter flex justify-between">
+        <div>
+            <div class="text-sm font-semibold text-white mb-2">{{ s.name }}</div>
+            <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                <div><span class="text-gray-500">年化:</span> <span class="{{ 'text-accent-green' if s.annual_return >= 0 else 'text-accent-red' }} font-semibold">{{ s.annual_return }}%</span></div>
+                <div><span class="text-gray-500">回撤:</span> <span class="text-accent-red font-semibold">{{ s.max_drawdown }}%</span></div>
+                <div><span class="text-gray-500">Sharpe:</span> <span class="text-white font-semibold">{{ s.sharpe }}</span></div>
+                <div><span class="text-gray-500">胜率:</span> <span class="{{ 'text-accent-green' if s.win_rate >= 50 else 'text-accent-red' }} font-semibold">{{ s.win_rate }}%</span></div>
+            </div>
+        </div>
+        <div id="spark-{{ loop.index0 }}" style="width: 80px; height: 48px;"></div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- 对比表格 -->
+<div class="bg-dark-700 border border-dark-600 rounded-xl overflow-hidden qp-card">
+    <table class="w-full text-sm">
+        <thead class="bg-dark-800 text-xs text-gray-500 uppercase tracking-wide">
+            <tr>
+                <th class="px-4 py-3 text-left">指标</th>
+                {% for s in strategies %}
+                <th class="px-4 py-3 text-right">
+                    <span class="inline-block w-2.5 h-2.5 rounded-full mr-1" style="background: {{ s.color }};"></span>
+                    {{ s.name }}
+                </th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% set rows = [
+                ('总收益', 'total_return', '%'),
+                ('年化收益', 'annual_return', '%'),
+                ('最大回撤', 'max_drawdown', '%'),
+                ('Sharpe', 'sharpe', ''),
+                ('Sortino', 'sortino', ''),
+                ('胜率', 'win_rate', '%'),
+                ('交易次数', 'total_trades', ''),
+                ('盈亏比', 'profit_factor', '')
+            ] %}
+            {% for label, key, suffix in rows %}
+            <tr class="{{ 'bg-dark-800/30' if loop.index is odd else '' }}">
+                <td class="px-4 py-2 text-gray-400">{{ label }}</td>
+                {% for s in strategies %}
+                {% set val = s[key] %}
+                {% set vals = strategies|map(attribute=key)|list %}
+                {% set is_best = (val == vals|max) if key != 'max_drawdown' else (val == vals|max) %}
+                <td class="px-4 py-2 text-right {{ 'bg-accent-green/10 text-accent-green font-semibold' if is_best and strategies|length > 1 else 'text-white' }}">
+                    {{ val }}{{ suffix }}
+                </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+(function() {
+    var strategies = {{ strategies_json|safe }};
+
+    // ═══ Overlay Equity Curves ═══
+    var eqEl = document.getElementById('ch-compare-equity');
+    if (eqEl && strategies.length) {
+        var chart = echarts.init(eqEl, null, { renderer: 'canvas' });
+        var series = strategies.map(function(s) {
+            return {
+                name: s.name, type: 'line', smooth: false, symbol: 'none',
+                data: s.equity_curve.map(function(d) { return [d[0], d[1]]; }),
+                lineStyle: { color: s.color, width: 2 },
+                itemStyle: { color: s.color }
+            };
+        });
+        // Collect all dates
+        var allDates = [];
+        strategies.forEach(function(s) { s.equity_curve.forEach(function(d) { if (allDates.indexOf(d[0]) < 0) allDates.push(d[0]); }); });
+        allDates.sort();
+        chart.setOption({
+            grid: { top: 40, right: 20, bottom: 40, left: 60 },
+            legend: { data: strategies.map(function(s) { return s.name; }), textStyle: { color: '#9ca3af' }, top: 0 },
+            xAxis: { type: 'category', data: allDates,
+                axisLabel: { color: '#9ca3af', fontSize: 10 }, axisLine: { lineStyle: { color: '#232b3e' } } },
+            yAxis: { type: 'value', axisLabel: { color: '#9ca3af', formatter: '${value}' },
+                axisLine: { lineStyle: { color: '#232b3e' } }, splitLine: { lineStyle: { color: '#232b3e' } } },
+            series: series,
+            tooltip: { trigger: 'axis' },
+            backgroundColor: 'transparent',
+        });
+    }
+
+    // ═══ Sparklines ═══
+    strategies.forEach(function(s, i) {
+        var el = document.getElementById('spark-' + i);
+        if (!el || !s.sparkline || !s.sparkline.length) return;
+        var mini = echarts.init(el, null, { renderer: 'canvas' });
+        mini.setOption({
+            grid: { top: 0, right: 0, bottom: 0, left: 0 },
+            xAxis: { show: false, type: 'category' },
+            yAxis: { show: false, type: 'value' },
+            series: [{ type: 'line', data: s.sparkline.map(function(d) { return d[1]; }),
+                lineStyle: { color: s.color, width: 1.5 }, symbol: 'none', smooth: true,
+                areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+                    colorStops: [{ offset: 0, color: s.color + '33' }, { offset: 1, color: 'transparent' }] } } }],
+            backgroundColor: 'transparent',
+        });
+    });
+})();
+</script>
+
+{% endif %}

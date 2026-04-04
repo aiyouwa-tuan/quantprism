@@ -1,0 +1,254 @@
+/* QuantPrism — Global Animation System (qp-animations.css) */
+
+/* ═══ Keyframes ═══ */
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+    from { background-position: -200% center; }
+    to   { background-position: 200% center; }
+}
+
+@keyframes pulseGlow {
+    0%   { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
+    70%  { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+}
+
+@keyframes slideInRight {
+    from { transform: translateX(100%); }
+    to   { transform: translateX(0); }
+}
+
+@keyframes slideOutRight {
+    from { transform: translateX(0); }
+    to   { transform: translateX(100%); }
+}
+
+
+/* ═══ Glassmorphism Card ═══ */
+
+.qp-card {
+    background: rgba(26, 32, 53, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(59, 130, 246, 0.15);
+    border-radius: 12px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.qp-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    border-color: rgba(59, 130, 246, 0.35);
+}
+
+
+/* ═══ Staggered Card Entry ═══ */
+
+.qp-card-enter {
+    animation: fadeInUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.qp-card-enter:nth-child(1)  { animation-delay: 0.00s; }
+.qp-card-enter:nth-child(2)  { animation-delay: 0.06s; }
+.qp-card-enter:nth-child(3)  { animation-delay: 0.06s; }
+.qp-card-enter:nth-child(4)  { animation-delay: 0.12s; }
+.qp-card-enter:nth-child(5)  { animation-delay: 0.18s; }
+.qp-card-enter:nth-child(6)  { animation-delay: 0.24s; }
+.qp-card-enter:nth-child(7)  { animation-delay: 0.30s; }
+.qp-card-enter:nth-child(8)  { animation-delay: 0.30s; }
+.qp-card-enter:nth-child(n+9){ animation-delay: 0.36s; }
+
+
+/* ═══ Skeleton Loader ═══ */
+
+.qp-skeleton {
+    background: linear-gradient(90deg, #1a2035 25%, #232b3e 50%, #1a2035 75%);
+    background-size: 400% 100%;
+    animation: shimmer 1.5s linear infinite;
+    border-radius: 6px;
+}
+
+
+/* ═══ Number CountUp Host ═══ */
+
+.qp-number-up {
+    display: inline-block;
+    font-variant-numeric: tabular-nums;
+}
+
+
+/* ═══ Gradient Border ═══ */
+
+.qp-gradient-border {
+    position: relative;
+}
+
+.qp-gradient-border::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6, #22c55e);
+    z-index: -1;
+    opacity: 0.6;
+}
+
+
+/* ═══ Pulse Glow (live data) ═══ */
+
+.qp-pulse-glow {
+    animation: pulseGlow 2s ease-out infinite;
+}
+
+
+/* ═══ Side Panel (Parallel Detail) ═══ */
+
+.qp-side-panel {
+    position: fixed;
+    right: 0;
+    top: 0;
+    height: 100vh;
+    width: 360px;
+    background: rgba(17, 24, 39, 0.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-left: 1px solid #232b3e;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 50;
+    overflow-y: auto;
+}
+
+.qp-side-panel.open {
+    transform: translateX(0);
+}
+
+
+/* ═══ Tab System ═══ */
+
+.qp-tab-bar {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid #232b3e;
+    margin-bottom: 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.qp-tab-bar::-webkit-scrollbar { display: none; }
+
+.qp-tab {
+    padding: 12px 16px;
+    font-size: 14px;
+    color: #6b7280;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+    background: transparent;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+}
+
+.qp-tab:hover {
+    color: #9ca3af;
+}
+
+.qp-tab.active {
+    color: #ffffff;
+    border-bottom-color: #3b82f6;
+    font-weight: 500;
+}
+
+.qp-tab-content {
+    display: none;
+}
+
+.qp-tab-content.active {
+    display: block;
+    animation: fadeInUp 0.3s ease both;
+}
+
+
+/* ═══ Phase 2 Lock Overlay ═══ */
+
+.qp-phase2-lock {
+    position: relative;
+}
+
+.qp-phase2-lock > *:not(.qp-lock-overlay) {
+    opacity: 0.3;
+    pointer-events: none;
+}
+
+.qp-lock-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6b7280;
+    font-size: 14px;
+    z-index: 10;
+}
+
+
+/* ═══ Horizontal Scroll Strip ═══ */
+
+.qp-scroll-strip {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+
+.qp-scroll-strip::-webkit-scrollbar { display: none; }
+
+
+/* ═══ Strategy Color Bars ═══ */
+
+.qp-color-bar-blue   { border-left: 4px solid #3b82f6; }
+.qp-color-bar-green  { border-left: 4px solid #22c55e; }
+.qp-color-bar-yellow { border-left: 4px solid #eab308; }
+.qp-color-bar-purple { border-left: 4px solid #8b5cf6; }
+.qp-color-bar-red    { border-left: 4px solid #ef4444; }
+.qp-color-bar-cyan   { border-left: 4px solid #06b6d4; }
+
+
+/* ═══ Badge Variants ═══ */
+
+.qp-badge-green  { background: rgba(34,197,94,0.2);  color: #4ade80; }
+.qp-badge-red    { background: rgba(239,68,68,0.2);  color: #f87171; }
+.qp-badge-blue   { background: rgba(59,130,246,0.2); color: #60a5fa; }
+.qp-badge-yellow { background: rgba(234,179,8,0.2);  color: #facc15; }
+.qp-badge-purple { background: rgba(139,92,246,0.2); color: #a78bfa; }
+
+.qp-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 500;
+}
+
+
+/* ═══ Nav Group Labels ═══ */
+
+.qp-nav-group {
+    font-size: 10px;
+    color: #4b5563;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 0 12px;
+    margin-top: 12px;
+    margin-bottom: 4px;
+}
+
+.qp-nav-divider {
+    border-top: 1px solid rgba(35, 43, 62, 0.5);
+    margin: 4px 12px;
+}

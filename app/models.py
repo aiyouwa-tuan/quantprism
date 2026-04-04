@@ -311,6 +311,28 @@ class ResearchJob(Base):
     error = Column(Text, nullable=True)
 
 
+class ParallelBacktestRun(Base):
+    """平行时空回测运行记录"""
+    __tablename__ = "parallel_backtest_runs"
+
+    id = Column(Integer, primary_key=True)
+    strategy_config_id = Column(Integer, nullable=False)
+    symbol = Column(String(20), default="SPY")
+    total_entries = Column(Integer, default=0)
+    win_rate = Column(Float, default=0)
+    avg_return = Column(Float, default=0)
+    avg_max_drawdown = Column(Float, default=0)
+    best_entry_date = Column(String(20), nullable=True)
+    best_return = Column(Float, default=0)
+    worst_entry_date = Column(String(20), nullable=True)
+    worst_return = Column(Float, default=0)
+    scatter_json = Column(Text, nullable=True)     # JSON scatter data (truncated to 200)
+    holding_period_days = Column(Integer, default=180)
+    step_days = Column(Integer, default=5)
+    elapsed_seconds = Column(Float, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class SystemConfig(Base):
     """系统级配置键值对"""
     __tablename__ = "system_config"

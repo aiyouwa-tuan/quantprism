@@ -1,0 +1,137 @@
+<!-- QuantPrism — Parallel Universe Backtest Results -->
+
+<!-- 摘要卡片 -->
+<div class="grid grid-cols-4 gap-3 mb-4 qp-card-stagger">
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600 qp-card-enter">
+        <div class="text-xs text-gray-500 mb-1">总胜率</div>
+        <div class="text-2xl font-bold qp-number-up {{ 'text-accent-green' if summary.win_rate >= 50 else 'text-accent-red' }}"
+             data-target="{{ summary.win_rate }}" data-format="percent">0</div>
+    </div>
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600 qp-card-enter">
+        <div class="text-xs text-gray-500 mb-1">平均收益</div>
+        <div class="text-2xl font-bold qp-number-up {{ 'text-accent-green' if summary.avg_return >= 0 else 'text-accent-red' }}"
+             data-target="{{ summary.avg_return }}" data-format="percent">0</div>
+    </div>
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600 qp-card-enter">
+        <div class="text-xs text-gray-500 mb-1">收益标准差</div>
+        <div class="text-2xl font-bold text-white qp-number-up" data-target="{{ summary.std_return }}" data-format="percent">0</div>
+    </div>
+    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600 qp-card-enter">
+        <div class="text-xs text-gray-500 mb-1">入场次数</div>
+        <div class="text-2xl font-bold text-white">{{ summary.total_entries }}</div>
+    </div>
+</div>
+
+<!-- 最佳/最差入场 -->
+<div class="grid grid-cols-2 gap-3 mb-4">
+    <div class="bg-dark-700 rounded-xl p-4 border border-green-500/30 qp-card-enter">
+        <div class="text-xs text-gray-500 mb-1">最佳入场点</div>
+        <div class="text-lg font-bold text-accent-green">{{ summary.best_entry }}</div>
+        <div class="text-sm text-accent-green">+{{ summary.best_return }}%</div>
+    </div>
+    <div class="bg-dark-700 rounded-xl p-4 border border-red-500/30 qp-card-enter">
+        <div class="text-xs text-gray-500 mb-1">最差入场点</div>
+        <div class="text-lg font-bold text-accent-red">{{ summary.worst_entry }}</div>
+        <div class="text-sm text-accent-red">{{ summary.worst_return }}%</div>
+    </div>
+</div>
+
+<!-- 散点图 -->
+<div class="bg-dark-700 border border-dark-600 rounded-xl p-5 mb-4 qp-card">
+    <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-semibold text-white">入场日 vs 总收益率</h3>
+        <span class="text-xs text-gray-500">持仓 {{ holding_period_days }} 天 / 步长 {{ step_days }} 天 / 耗时 {{ elapsed_seconds }}s</span>
+    </div>
+    <div id="ch-parallel-scatter" style="height: 380px; width: 100%;"></div>
+</div>
+
+<!-- 收益分布直方图 -->
+<div class="bg-dark-700 border border-dark-600 rounded-xl p-5 qp-card">
+    <h3 class="text-sm font-semibold text-white mb-3">收益率分布</h3>
+    <div id="ch-parallel-dist" style="height: 200px; width: 100%;"></div>
+</div>
+
+<!-- 侧边详情面板 -->
+<div id="parallel-detail-panel" class="qp-side-panel">
+    <div class="flex justify-between items-center p-4 border-b border-dark-600">
+        <h3 class="text-sm font-semibold text-white">入场点详情</h3>
+        <button onclick="qpCore.closeSidePanel('parallel-detail-panel')" class="text-gray-500 hover:text-white text-lg">&times;</button>
+    </div>
+    <div id="parallel-detail-content" class="p-4">
+        <p class="text-gray-500 text-sm">点击散点查看详情</p>
+    </div>
+</div>
+
+<script>
+(function() {
+    var scatterData = {{ scatter_data_json|safe }};
+    var distribution = {{ distribution_json|safe }};
+
+    // ═══ Scatter Plot ═══
+    var scEl = document.getElementById('ch-parallel-scatter');
+    if (scEl && scatterData.length) {
+        var scChart = echarts.init(scEl, null, { renderer: 'canvas' });
+        var data = scatterData.map(function(d) {
+            return [d.entry_date, d.total_return, d.max_drawdown, d.sharpe, d.total_trades];
+        });
+        scChart.setOption({
+            grid: { top: 20, right: 30, bottom: 50, left: 60 },
+            xAxis: { type: 'category', data: scatterData.map(function(d) { return d.entry_date; }),
+                axisLabel: { color: '#9ca3af', fontSize: 10, rotate: 45, interval: Math.floor(data.length / 15) },
+                axisLine: { lineStyle: { color: '#232b3e' } } },
+            yAxis: { type: 'value', axisLabel: { color: '#9ca3af', formatter: '{value}%' },
+                axisLine: { lineStyle: { color: '#232b3e' } }, splitLine: { lineStyle: { color: '#232b3e' } } },
+            series: [{
+                type: 'scatter',
+                data: data.map(function(d) { return { value: d, symbolSize: Math.max(4, Math.min(20, Math.abs(d[1]) * 0.8)) }; }),
+                itemStyle: { color: function(p) { return p.value[1] >= 0 ? 'rgba(34,197,94,0.7)' : 'rgba(239,68,68,0.7)'; } },
+                emphasis: { itemStyle: { borderWidth: 2, borderColor: '#fff' } }
+            }],
+            tooltip: {
+                formatter: function(p) {
+                    return '入场: ' + p.value[0] + '<br>' +
+                        '收益: <b style="color:' + (p.value[1] >= 0 ? '#22c55e' : '#ef4444') + '">' + p.value[1] + '%</b><br>' +
+                        '回撤: ' + p.value[2] + '%<br>' +
+                        'Sharpe: ' + p.value[3] + '<br>' +
+                        '交易数: ' + p.value[4];
+                }
+            },
+            backgroundColor: 'transparent',
+        });
+
+        // Click to show detail
+        scChart.on('click', function(params) {
+            var d = scatterData[params.dataIndex];
+            var html = '<div class="space-y-3">' +
+                '<div class="bg-dark-800 rounded-lg p-3"><div class="text-xs text-gray-500">入场日期</div><div class="text-lg font-bold text-white">' + d.entry_date + '</div></div>' +
+                '<div class="grid grid-cols-2 gap-2">' +
+                '<div class="bg-dark-800 rounded-lg p-3 text-center"><div class="text-xs text-gray-500">总收益</div><div class="text-lg font-bold ' + (d.total_return >= 0 ? 'text-accent-green' : 'text-accent-red') + '">' + d.total_return + '%</div></div>' +
+                '<div class="bg-dark-800 rounded-lg p-3 text-center"><div class="text-xs text-gray-500">最大回撤</div><div class="text-lg font-bold text-accent-red">' + d.max_drawdown + '%</div></div>' +
+                '<div class="bg-dark-800 rounded-lg p-3 text-center"><div class="text-xs text-gray-500">Sharpe</div><div class="text-lg font-bold text-white">' + d.sharpe + '</div></div>' +
+                '<div class="bg-dark-800 rounded-lg p-3 text-center"><div class="text-xs text-gray-500">交易数</div><div class="text-lg font-bold text-white">' + d.total_trades + '</div></div>' +
+                '</div></div>';
+            document.getElementById('parallel-detail-content').innerHTML = html;
+            qpCore.openSidePanel('parallel-detail-panel');
+        });
+    }
+
+    // ═══ Distribution Histogram ═══
+    var distEl = document.getElementById('ch-parallel-dist');
+    if (distEl && distribution.length) {
+        var distChart = echarts.init(distEl, null, { renderer: 'canvas' });
+        distChart.setOption({
+            grid: { top: 10, right: 20, bottom: 30, left: 50 },
+            xAxis: { type: 'category',
+                data: distribution.map(function(d) { return d.bin_start + '%'; }),
+                axisLabel: { color: '#9ca3af', fontSize: 10 }, axisLine: { lineStyle: { color: '#232b3e' } } },
+            yAxis: { type: 'value', axisLabel: { color: '#9ca3af' },
+                axisLine: { lineStyle: { color: '#232b3e' } }, splitLine: { lineStyle: { color: '#232b3e' } } },
+            series: [{ type: 'bar', data: distribution.map(function(d) {
+                return { value: d.count, itemStyle: { color: d.bin_start >= 0 ? '#22c55e' : '#ef4444' } };
+            }), barWidth: '70%' }],
+            tooltip: { trigger: 'axis' },
+            backgroundColor: 'transparent',
+        });
+    }
+})();
+</script>
