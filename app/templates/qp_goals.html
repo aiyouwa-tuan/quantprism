@@ -24,13 +24,13 @@
         </div>
         <div class="flex items-center gap-3">
             <input type="number" name="annual_return_target" id="inp-return"
-                   value="{{ '%.0f'|format(goals.annual_return_target * 100) if goals else '15' }}"
-                   min="1" max="200" step="1"
-                   class="w-24 bg-dark-800 border border-dark-500 rounded-lg px-3 py-2 text-white text-lg font-bold text-center focus:border-accent-blue focus:outline-none"
+                   value="{{ '%.0f'|format(goals.annual_return_target * 100) if goals and goals.annual_return_target else '' }}"
+                   min="1" max="200" step="1" placeholder="如 15"
+                   class="w-24 bg-dark-800 border border-dark-500 rounded-lg px-3 py-2 text-white text-lg font-bold text-center focus:border-accent-blue focus:outline-none placeholder-gray-600"
                    oninput="updateReturnHelper()">
             <span class="text-lg text-gray-400">%</span>
         </div>
-        <p id="return-helper" class="text-xs text-gray-500 mt-2">10 万投入，一年后变 <span class="text-accent-green font-medium">{{ '%.1f'|format(10 * (1 + (goals.annual_return_target if goals else 0.15))) if goals else '11.5' }} 万</span></p>
+        <p id="return-helper" class="text-xs text-gray-500 mt-2">{% if goals and goals.annual_return_target %}10 万投入，一年后变 <span class="text-accent-green font-medium">{{ '%.1f'|format(10 * (1 + goals.annual_return_target)) }} 万</span>{% else %}输入目标收益率{% endif %}</p>
     </div>
 
     <!-- 回撤目标 -->
@@ -47,13 +47,13 @@
         </div>
         <div class="flex items-center gap-3">
             <input type="number" name="max_drawdown" id="inp-drawdown"
-                   value="{{ '%.0f'|format(goals.max_drawdown * 100) if goals else '10' }}"
-                   min="1" max="50" step="1"
-                   class="w-24 bg-dark-800 border border-dark-500 rounded-lg px-3 py-2 text-white text-lg font-bold text-center focus:border-accent-blue focus:outline-none"
+                   value="{{ '%.0f'|format(goals.max_drawdown * 100) if goals and goals.max_drawdown else '' }}"
+                   min="1" max="50" step="1" placeholder="如 10"
+                   class="w-24 bg-dark-800 border border-dark-500 rounded-lg px-3 py-2 text-white text-lg font-bold text-center focus:border-accent-blue focus:outline-none placeholder-gray-600"
                    oninput="updateDrawdownHelper()">
             <span class="text-lg text-gray-400">%</span>
         </div>
-        <p id="drawdown-helper" class="text-xs text-gray-500 mt-2">10 万账户最多跌到 <span class="text-accent-red font-medium">{{ '%.1f'|format(10 * (1 - (goals.max_drawdown if goals else 0.10))) if goals else '9.0' }} 万</span></p>
+        <p id="drawdown-helper" class="text-xs text-gray-500 mt-2">{% if goals and goals.max_drawdown %}10 万账户最多跌到 <span class="text-accent-red font-medium">{{ '%.1f'|format(10 * (1 - goals.max_drawdown)) }} 万</span>{% else %}输入最大可接受回撤{% endif %}</p>
     </div>
 </div>
 

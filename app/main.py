@@ -18,6 +18,7 @@ try:
 except ImportError:
     pass
 
+from typing import Optional
 from fastapi import FastAPI, Depends, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -1694,8 +1695,8 @@ def goals_page(request: Request, db: Session = Depends(get_db)):
 @app.post("/goals/save", response_class=HTMLResponse)
 def save_goals_v4(
     request: Request,
-    annual_return_target: float = Form(...),
-    max_drawdown: float = Form(...),
+    annual_return_target: Optional[float] = Form(None),
+    max_drawdown: Optional[float] = Form(None),
     risk_per_trade: float = Form(2.0),
     asset_classes: str = Form(""),
     holding_period: str = Form("days_weeks"),
@@ -1708,15 +1709,17 @@ def save_goals_v4(
     normalized_holding_period = _normalize_holding_period(holding_period, horizon)
     goals = db.query(UserGoals).first()
     if goals:
-        goals.annual_return_target = annual_return_target / 100
-        goals.max_drawdown = max_drawdown / 100
+        if annual_return_target is not None:
+            goals.annual_return_target = annual_return_target / 100
+        if max_drawdown is not None:
+            goals.max_drawdown = max_drawdown / 100
         goals.risk_per_trade = risk_per_trade / 100
         goals.asset_classes = normalized_asset_classes
         goals.holding_period = normalized_holding_period
     else:
         goals = UserGoals(
-            annual_return_target=annual_return_target / 100,
-            max_drawdown=max_drawdown / 100,
+            annual_return_target=(annual_return_target / 100) if annual_return_target is not None else 0.15,
+            max_drawdown=(max_drawdown / 100) if max_drawdown is not None else 0.10,
             risk_per_trade=risk_per_trade / 100,
             asset_classes=normalized_asset_classes,
             holding_period=normalized_holding_period,
