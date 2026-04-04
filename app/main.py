@@ -1965,6 +1965,8 @@ def hunt_ai_generate(request: Request, db: Session = Depends(get_db)):
                 "request": request,
                 "strategies": [strategy],
                 "goals": goals,
+                "low_match_fallback": False,
+                "min_match": 40,
             })
     except Exception:
         pass
@@ -2046,6 +2048,8 @@ def research_results(job_id: int, request: Request, db: Session = Depends(get_db
         "request": request,
         "strategies": strategies,
         "goals": goals,
+        "low_match_fallback": False,
+        "min_match": 40,
     })
 
 

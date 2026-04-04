@@ -277,7 +277,7 @@ def ai_generate_strategy(goals: dict) -> dict:
 
 用户目标：
 - 年化收益目标：{annual_ret * 100:.0f}%
-- 最大可接受回撤：{max_dd * 100:.0f}%
+- 最大可接受回撤：{f"{max_dd * 100:.0f}%" if max_dd is not None else "不设限制"}
 - 交易工具：{instruments}
 - 持仓周期：{holding_cn}
 
@@ -319,26 +319,24 @@ def ai_generate_strategy(goals: dict) -> dict:
         logger.warning("Failed to parse AI generated strategy")
         return _fallback_strategy(goals)
 
+    _name = parsed.get("strategy_name", "AI 生成策略")
+    _est_ret = parsed.get("estimated_annual_return", 0) or 0
+    _est_dd = parsed.get("estimated_max_drawdown", 0) or 0
     return {
-        "strategy_name": parsed.get("strategy_name", "AI 生成策略"),
-        "strategy_id": parsed.get("strategy_id", "ai_generated"),
+        "name": _name,
+        "id": parsed.get("strategy_id", "ai_generated"),
         "description": parsed.get("description", ""),
         "logic_explanation": parsed.get("logic_explanation", ""),
         "entry_rules": parsed.get("entry_rules", []),
         "exit_rules": parsed.get("exit_rules", []),
         "risk_management": parsed.get("risk_management", ""),
-        "estimated_performance": {
-            "annual_return": parsed.get("estimated_annual_return", 0),
-            "max_drawdown": parsed.get("estimated_max_drawdown", 0),
-            "win_rate": parsed.get("estimated_win_rate", 0),
-            "sharpe": parsed.get("estimated_sharpe", 0),
-        },
+        "annual_return_range": [int(_est_ret * 0.8), int(_est_ret * 1.2)] if _est_ret else [0, 0],
+        "max_drawdown_range": [int(_est_dd * 0.8), int(_est_dd * 1.2)] if _est_dd else None,
+        "win_rate_pct": parsed.get("estimated_win_rate", 0),
         "best_market": parsed.get("best_market", ""),
         "worst_market": parsed.get("worst_market", ""),
-        "python_signal_code": parsed.get("python_signal_code", ""),
         "source": "AI 生成",
-        "instruments": goals.get("instruments", ["stock"]),
-        "holding_period": holding,
+        "instrument": "stock",
     }
 
 
