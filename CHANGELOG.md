@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.1.1] - 2026-04-04
+
+### QA 全流程修复 — 4项用户体验 Bug 修复
+
+**Bug Fixes:**
+- ISSUE-001: 回测结果不保存到任务中心 — `/backtest/run` 完成后现在将 `BacktestRun` 写入数据库
+- ISSUE-002: 「风控护盾」导航链接 404 — 修复 `base.html` 中错误的 `/risk/shield` 路由，指向 `/risk`
+- ISSUE-003: 回测结果页「优化参数」等按钮无响应 — 标记为 `disabled` 并加 tooltip「即将上线」
+- ISSUE-004: VIX 指标头部始终显示「--」— 添加 JS fetch 从 `/api/vix` 实时获取并渲染数值
+
 ## [2.1.0] - 2026-04-04
 
 ### AI 后台研究引擎 + 多模型支持 + UX Bug 修复
