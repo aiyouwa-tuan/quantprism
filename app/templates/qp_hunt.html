@@ -55,6 +55,12 @@
         </div>
     </div>
     <script>
+    document.body.addEventListener('htmx:afterSwap', function(e) {
+        if (e.detail.target && e.detail.target.id === 'hunt-results') {
+            e.detail.target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    });
+
     document.body.addEventListener('htmx:beforeRequest', function(e) {
         if (e.detail.pathInfo.requestPath === '/hunt/search') {
             const steps = document.querySelectorAll('#search-steps .step');

@@ -285,19 +285,25 @@ def ai_generate_strategies(goals: dict, count: int = None) -> list:
 
     raw = _call_ai(prompt, max_tokens=4000)
     if not raw:
+        logger.warning("ai_generate_strategies: AI returned empty response")
         return []
 
     try:
         text = raw.strip()
+        # Strip markdown code blocks if present
+        if text.startswith("```"):
+            lines = text.split("\n")
+            text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
         start = text.find("[")
         end = text.rfind("]") + 1
         if start == -1 or end == 0:
+            logger.warning("ai_generate_strategies: no JSON array found. Raw (first 300): %s", raw[:300])
             raise ValueError("No JSON array found")
         parsed_list = json.loads(text[start:end])
         if not isinstance(parsed_list, list):
             raise ValueError("Not a list")
-    except (json.JSONDecodeError, ValueError):
-        logger.warning("Failed to parse AI generated strategies batch")
+    except (json.JSONDecodeError, ValueError) as e:
+        logger.warning("Failed to parse AI generated strategies batch: %s | raw (first 300): %s", e, raw[:300])
         return []
 
     results = []
