@@ -58,6 +58,8 @@
     document.body.addEventListener('htmx:afterSwap', function(e) {
         if (e.detail.target && e.detail.target.id === 'hunt-results') {
             e.detail.target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // Auto-trigger background AI research after search results load
+            autoStartResearch();
         }
     });
 
@@ -231,25 +233,38 @@
 var _researchJobId = null;
 var _researchTimer = null;
 
-function startResearch() {
-    // Clear previous run before starting a new one
+function _launchResearch(clearResults) {
+    if (clearResults) {
+        document.getElementById('hunt-results').innerHTML = '';
+    }
     document.getElementById('research-steps').innerHTML = '';
     document.getElementById('research-title').textContent = 'AI 后台研究中...';
     document.getElementById('research-timer').textContent = '';
     document.getElementById('research-model').textContent = '';
     document.getElementById('research-spinner').classList.remove('hidden');
-    document.getElementById('hunt-results').innerHTML = '';
 
     fetch('/hunt/research/start', { method: 'POST' })
         .then(function(r) { return r.json(); })
         .then(function(data) {
-            if (data.error) { alert(data.error); return; }
+            if (data.error) { return; }
             _researchJobId = data.job_id;
             localStorage.setItem('research_job_id', data.job_id);
             showBanner(true);
             document.getElementById('research-model').textContent = data.model || '';
             startPolling(data.job_id);
         });
+}
+
+// Manual button: clear everything and start fresh
+function startResearch() {
+    document.getElementById('hunt-results').innerHTML = '';
+    _launchResearch(false);
+}
+
+// Auto-triggered after HTMX search: keep existing results, add research banner
+function autoStartResearch() {
+    if (_researchTimer) return; // already running
+    _launchResearch(false);
 }
 
 function startPolling(jobId) {
