@@ -48,7 +48,7 @@ def compare_strategies(configs: list, symbol: str = "SPY",
         strategy = strategy_cls(params)
 
         cost_model = COST_MODELS["default"]
-        if config.instrument in ("sell_put", "covered_call", "call", "put"):
+        if config.instrument in ("sell_put", "covered_call"):
             cost_model = COST_MODELS["option"]
 
         signals = strategy.generate_signals(df.copy())

@@ -38,7 +38,7 @@ def run_parallel_backtest(config: StrategyConfig, goals: UserGoals = None,
     strategy = strategy_cls(params)
     cost_model = COST_MODELS.get(cost_model_name, COST_MODELS["default"])
 
-    if config.instrument in ("sell_put", "covered_call", "call", "put"):
+    if config.instrument in ("sell_put", "covered_call"):
         cost_model = COST_MODELS["option"]
 
     symbol = config.symbol_pool.split(",")[0].strip() if config.symbol_pool else "SPY"

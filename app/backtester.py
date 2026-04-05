@@ -513,7 +513,9 @@ def run_full_backtest(config: StrategyConfig, goals: UserGoals = None, db=None,
     cost_model = COST_MODELS.get(cost_model_name, COST_MODELS["default"])
 
     # 根据 instrument 选择成本模型
-    if config.instrument in ("sell_put", "covered_call", "call", "put"):
+    # 只有真实期权交易（sell_put/covered_call）用期权佣金模型
+    # call/put 标记的策略通常是用股价模拟期权逻辑，仍用股票模型
+    if config.instrument in ("sell_put", "covered_call"):
         cost_model = COST_MODELS["option"]
 
     symbol = config.symbol_pool.split(",")[0].strip() if config.symbol_pool else "SPY"

@@ -101,7 +101,13 @@
         <p class="text-sm text-gray-300 leading-relaxed mb-4">
             {% set ret_ok = (not goals or goals.annual_return_target is none or metrics.annual_return >= goals.annual_return_target) %}
             {% set dd_ok  = (not goals or goals.max_drawdown is none or metrics.max_drawdown >= -goals.max_drawdown) %}
-            {% if goals and ret_ok and dd_ok %}
+            {% if metrics.total_trades <= 1 and metrics.total_return < -0.5 %}
+                <span class="text-yellow-400 font-medium">⚠ 回测异常</span>：共 {{ metrics.total_trades }} 笔交易，总亏损 {{ '%.1f'|format(metrics.total_return * 100) }}%，可能是策略信号条件过于苛刻或该标的在所选时间段内数据不足。
+                建议缩短回测时间区间（如近 5 年），或换一个流动性更好的标的（如 SPY）。
+            {% elif metrics.total_trades == 0 %}
+                <span class="text-yellow-400 font-medium">⚠ 未产生任何交易信号</span>：该策略在 {{ symbol }} 的所选时间段内没有触发入场条件。
+                建议缩短回测时间、放宽策略参数，或换一个更适合该策略风格的标的。
+            {% elif goals and ret_ok and dd_ok %}
                 该策略在 {{ symbol }} 上的历史表现 <span class="text-accent-green font-medium">达到了你的目标</span>。
                 {% if goals.annual_return_target is not none %}年化 {{ '%.1f'|format(metrics.annual_return * 100) }}% 超过目标 {{ '%.0f'|format(goals.annual_return_target * 100) }}%。{% endif %}
                 {% if goals.max_drawdown is not none %}回撤 {{ '%.1f'|format(metrics.max_drawdown * 100) }}% 低于限额 {{ '%.0f'|format(goals.max_drawdown * 100) }}%。{% endif %}
