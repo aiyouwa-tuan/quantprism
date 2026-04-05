@@ -374,6 +374,7 @@ function loadResearchResults() {
                 _researchJobId = data.job_id;
                 if (data.status === 'running' || data.status === 'pending') {
                     showBanner(true);
+                    document.getElementById('research-stop-btn').classList.remove('hidden');
                     if (data.model_used) document.getElementById('research-model').textContent = data.model_used;
                     updateBanner(data);
                     startPolling(data.job_id);
@@ -394,6 +395,7 @@ function loadResearchResults() {
             if (data.error) { localStorage.removeItem('research_job_id'); return; }
             if (data.status === 'running' || data.status === 'pending') {
                 showBanner(true);
+                document.getElementById('research-stop-btn').classList.remove('hidden');
                 if (data.model_used) document.getElementById('research-model').textContent = data.model_used;
                 updateBanner(data);
                 startPolling(savedJobId);
