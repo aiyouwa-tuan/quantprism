@@ -500,9 +500,9 @@ class {class_name}(StrategyBase):
 
 # ─── 3c. 快速回测 + 真实评分 ────────────────────────────────────────────────────────
 
-def quick_backtest_strategy(safe_id: str, symbol: str = "SPY", lookback_years: int = 2) -> dict | None:
+def quick_backtest_strategy(safe_id: str, symbol: str = "SPY", lookback_years: int = 5) -> dict | None:
     """
-    用注册的 StrategyBase 类跑 2 年真实回测，返回实测指标。
+    用注册的 StrategyBase 类跑 5 年真实回测，返回实测指标。
     这是 Karpathy autoresearch 范式的"eval"步骤。
     """
     from datetime import datetime, timedelta
@@ -889,7 +889,7 @@ def run_research_job(job_id: int, goals_dict: dict, preferred_model: str) -> Non
     与原版对应关系：
       train.py          → strategies/<id>.py（StrategyBase 子类）
       val_bpb（越低越好）→ score_vs_goals（越高越好，目标≥KEEP_THRESHOLD）
-      5min 时间预算     → quick_backtest_strategy（2年回测）
+      5min 时间预算     → quick_backtest_strategy（5年回测）
       results.tsv       → discard_history（失败记录）
       git reset back     → 换风格重探索
     """
@@ -1128,8 +1128,8 @@ def run_research_job(job_id: int, goals_dict: dict, preferred_model: str) -> Non
 
                 bt_metrics = None
                 if code_ok:
-                    _log(job, f"  📊 [回测] {safe_id} × {test_symbol} (2年)...", "info")
-                    bt_metrics = quick_backtest_strategy(safe_id, test_symbol)
+                    _log(job, f"  📊 [回测] {safe_id} × {test_symbol} (过去5年)...", "info")
+                    bt_metrics = quick_backtest_strategy(safe_id, test_symbol, lookback_years=5)
                     if bt_metrics:
                         strategy["backtest_metrics"] = bt_metrics
                         strategy["validated"] = True

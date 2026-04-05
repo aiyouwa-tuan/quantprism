@@ -105,6 +105,10 @@
         </div>
     </div>
     <div id="research-steps" class="space-y-1 text-xs text-gray-400 max-h-28 overflow-y-auto"></div>
+    <div class="mt-2 pt-2 border-t border-dark-600 text-xs text-gray-500 flex items-center gap-1.5">
+        <span>📅</span>
+        <span id="research-data-note">正在用过去 <strong class="text-gray-400">5年</strong> 真实历史数据逐一验证每条策略...</span>
+    </div>
 </div>
 
 <!-- 策略结果区域 -->
@@ -247,7 +251,8 @@ function stopResearch() {
         .then(function(data) {
             document.getElementById('research-stop-btn').classList.add('hidden');
             document.getElementById('research-spinner').classList.add('hidden');
-            document.getElementById('research-title').textContent = '🛑 研究已停止（第' + (_researchRetry + 1) + '轮）';
+            document.getElementById('research-title').textContent = '🛑 研究已手动停止';
+            document.getElementById('research-data-note').innerHTML = '📅 已用<strong class="text-gray-300">过去 5 年</strong>真实历史数据验证，手动停止时共找到以下策略（部分可能为 AI 估算，见 ⚠️ 标记）。';
             clearInterval(_researchTimer);
             _researchTimer = null;
             _researchRetry = 0;
@@ -316,8 +321,10 @@ function pollStatus(jobId) {
                         document.getElementById('research-stop-btn').classList.add('hidden');
                         if (data.total_found > 0) {
                             document.getElementById('research-title').textContent = '✅ AI 研究完成！找到 ' + data.total_found + ' 个策略';
+                            document.getElementById('research-data-note').innerHTML = '📅 以上策略均经过<strong class="text-gray-300">过去 5 年</strong>真实历史数据回测验证（带 ✅ 标记），或标注了 AI 估算说明（带 ⚠️ 标记）。';
                         } else {
                             document.getElementById('research-title').textContent = '⚠️ 经过' + _MAX_RESEARCH_RETRIES + '轮研究，目标条件严苛，已展示最接近策略';
+                            document.getElementById('research-data-note').innerHTML = '📅 已用<strong class="text-gray-300">过去 5 年</strong>真实历史数据反复验证，未找到完全符合你目标的策略，以下为最接近的候选，仅供参考。';
                         }
                         loadResearchResults();
                     }
