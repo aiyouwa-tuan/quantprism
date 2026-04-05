@@ -2272,7 +2272,13 @@ def backtest_run(
     original_pool = config.symbol_pool
     config.symbol_pool = symbol
 
-    result = run_full_backtest(config, goals, db=None, start_date=start_date, end_date=end_date, collect_daily=True)
+    try:
+        result = run_full_backtest(config, goals, db=None, start_date=start_date, end_date=end_date, collect_daily=True)
+    except Exception as exc:
+        config.symbol_pool = original_pool
+        import logging
+        logging.getLogger(__name__).exception("backtest_run failed for %s/%s", config.strategy_name, symbol)
+        return HTMLResponse(f'<div class="text-center text-red-400 py-8">回测异常: {exc}</div>')
     config.symbol_pool = original_pool  # restore
 
     if "error" in result:
