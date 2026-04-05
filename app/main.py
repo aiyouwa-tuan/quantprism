@@ -2070,6 +2070,20 @@ def research_latest(db: Session = Depends(get_db)):
     })
 
 
+@app.post("/hunt/research/stop/{job_id}")
+def research_stop(job_id: int, db: Session = Depends(get_db)):
+    """手动停止研究任务（Karpathy autoresearch: LOOP FOREVER until human interrupts）"""
+    from models import ResearchJob
+    job = db.query(ResearchJob).filter(ResearchJob.id == job_id).first()
+    if not job:
+        return JSONResponse({"error": "not found"}, status_code=404)
+    if job.status == "running":
+        job.status = "cancelled"
+        job.updated_at = datetime.now()
+        db.commit()
+    return JSONResponse({"job_id": job_id, "status": job.status})
+
+
 @app.post("/hunt/save-strategy")
 def hunt_save_strategy(
     request: Request,

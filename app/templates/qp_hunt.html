@@ -96,6 +96,11 @@
         <div class="flex items-center gap-3">
             <span id="research-timer" class="text-xs text-gray-500"></span>
             <span id="research-model" class="text-xs px-2 py-0.5 rounded bg-dark-600 text-gray-400"></span>
+            <button id="research-stop-btn"
+                    onclick="stopResearch()"
+                    class="hidden text-xs px-3 py-1 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition">
+                🛑 停止研究
+            </button>
             <span id="research-load-btn" class="hidden"></span>
         </div>
     </div>
@@ -232,16 +237,34 @@
 <script>
 var _researchJobId = null;
 var _researchTimer = null;
+var _researchRetry = 0;
+var _MAX_RESEARCH_RETRIES = 5;
+
+function stopResearch() {
+    if (!_researchJobId) return;
+    fetch('/hunt/research/stop/' + _researchJobId, { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            document.getElementById('research-stop-btn').classList.add('hidden');
+            document.getElementById('research-spinner').classList.add('hidden');
+            document.getElementById('research-title').textContent = '🛑 研究已停止（第' + (_researchRetry + 1) + '轮）';
+            clearInterval(_researchTimer);
+            _researchTimer = null;
+            _researchRetry = 0;
+            loadResearchResults();
+        });
+}
 
 function _launchResearch(clearResults) {
     if (clearResults) {
         document.getElementById('hunt-results').innerHTML = '';
     }
     document.getElementById('research-steps').innerHTML = '';
-    document.getElementById('research-title').textContent = 'AI 后台研究中...';
+    document.getElementById('research-title').textContent = 'AI 后台研究中... (Karpathy NEVER STOP 模式)';
     document.getElementById('research-timer').textContent = '';
     document.getElementById('research-model').textContent = '';
     document.getElementById('research-spinner').classList.remove('hidden');
+    document.getElementById('research-stop-btn').classList.remove('hidden');
 
     fetch('/hunt/research/start', { method: 'POST' })
         .then(function(r) { return r.json(); })
@@ -281,10 +304,23 @@ function pollStatus(jobId) {
                 clearInterval(_researchTimer);
                 _researchTimer = null;
                 if (data.status === 'completed') {
-                    document.getElementById('research-spinner').classList.add('hidden');
-                    document.getElementById('research-title').textContent = '✅ AI 研究完成！找到 ' + data.total_found + ' 个策略';
-                    // 自动载入结果
-                    loadResearchResults();
+                    if (data.total_found === 0 && _researchRetry < _MAX_RESEARCH_RETRIES) {
+                        _researchRetry++;
+                        document.getElementById('research-spinner').classList.remove('hidden');
+                        document.getElementById('research-title').textContent =
+                            '🔄 未找到符合目标的策略，自动继续研究（第' + _researchRetry + '/' + _MAX_RESEARCH_RETRIES + '轮）...';
+                        setTimeout(function() { _launchResearch(false); }, 2000);
+                    } else {
+                        _researchRetry = 0;
+                        document.getElementById('research-spinner').classList.add('hidden');
+                        document.getElementById('research-stop-btn').classList.add('hidden');
+                        if (data.total_found > 0) {
+                            document.getElementById('research-title').textContent = '✅ AI 研究完成！找到 ' + data.total_found + ' 个策略';
+                        } else {
+                            document.getElementById('research-title').textContent = '⚠️ 经过' + _MAX_RESEARCH_RETRIES + '轮研究，目标条件严苛，已展示最接近策略';
+                        }
+                        loadResearchResults();
+                    }
                 } else {
                     document.getElementById('research-title').textContent = '❌ 研究失败，请重试';
                     document.getElementById('research-spinner').classList.add('hidden');

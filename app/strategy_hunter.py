@@ -873,24 +873,34 @@ def _ai_generate_with_provider(goals: dict, provider: str, iteration: int = 1):
 
 def run_research_job(job_id: int, goals_dict: dict, preferred_model: str) -> None:
     """
-    后台研究主函数 — 基于 Karpathy autoresearch 范式。
+    后台研究主函数 — 完整实现 Karpathy autoresearch 范式（program.md）。
 
-    核心循环（autoresearch loop）：
-      LOOP N 次：
-        1. 生成假设（新策略）
-        2. 评分（compute_match_score = 量化指标）
-        3. 分数 ≥ KEEP_THRESHOLD → KEEP（加入结果集）
-           否则 → DISCARD，并记录原因
-        4. 若本轮有留下的策略 → 下轮让 AI 在最优结果基础上改进
-           否则 → 换风格重新探索
+    核心设计（来自 karpathy/autoresearch program.md）：
+      LOOP FOREVER（无限循环，直到人手动停止）：
+        1. 修改 train.py（=生成新策略代码）
+        2. 运行实验（=快速回测，固定时间窗口）
+        3. 评估 val_bpb（=score_vs_goals：Sharpe/收益/回撤）
+        4. 若指标改善 → KEEP，推进最优基准
+           否则 → DISCARD，记录失败方向，换风格
 
-    结合 GitHub 搜索作为初始化种子，AI 迭代研究不断优化。
+      **NEVER STOP**: 不自问"该继续吗"，不设硬性轮次上限。
+      人睡着时可跑 100+ 轮，直到被手动中断（job.status='cancelled'）。
+
+    与原版对应关系：
+      train.py          → strategies/<id>.py（StrategyBase 子类）
+      val_bpb（越低越好）→ score_vs_goals（越高越好，目标≥KEEP_THRESHOLD）
+      5min 时间预算     → quick_backtest_strategy（2年回测）
+      results.tsv       → discard_history（失败记录）
+      git reset back     → 换风格重探索
     """
     from models import SessionLocal, ResearchJob
     db = SessionLocal()
 
     KEEP_THRESHOLD = 40   # 分数阈值：≥40 才 KEEP（与 hunt_search 一致）
-    MAX_ITERATIONS = 10   # autoresearch 轮数（Karpathy 模式：迭代越多越好）
+    # ── NEVER STOP：不再有 MAX_ITERATIONS 硬上限 ──
+    # 循环仅在以下情况退出：
+    #   1. job.status 被设为 'cancelled'（用户手动停止）
+    #   2. 程序异常崩溃
 
     def _save(job):
         job.updated_at = datetime.now()
@@ -922,6 +932,7 @@ def run_research_job(job_id: int, goals_dict: dict, preferred_model: str) -> Non
         best_score_so_far = 0.0
         best_strategy_so_far = None
         discard_history = []  # Karpathy 模式：记录失败方向，避免重蹈覆辙
+        near_misses = []  # 记录最接近目标但未达标的策略（兜底展示用）
 
         # ══ Phase 0: GitHub 种子搜索 ══════════════════════════════════
         _log(job, "🌐 [Phase 0] GitHub 量化策略库种子搜索...", "progress")
@@ -972,11 +983,30 @@ def run_research_job(job_id: int, goals_dict: dict, preferred_model: str) -> Non
         except Exception as e:
             _log(job, f"⚠️ GitHub 阶段异常: {e}", "warn")
 
-        # ══ Phase 1+: Autoresearch 迭代循环 ═══════════════════════════
-        styles = ["momentum", "mean_reversion", "volatility_breakout", "options_selling", "trend_following"]
+        # ══ Phase 1+: Autoresearch NEVER STOP 无限循环 ════════════════
+        # 完全遵循 karpathy/autoresearch program.md：
+        #   "NEVER STOP: The loop runs until the human interrupts you, period."
+        #   "If you run out of ideas, think harder — try combining previous near-misses,
+        #    try more radical architectural changes."
+        all_styles = [
+            "momentum", "mean_reversion", "volatility_breakout", "options_selling",
+            "trend_following", "crypto_momentum", "leveraged_etf_rotation",
+            "covered_call_income", "global_macro", "vol_targeting",
+            "pairs_trading", "sector_rotation", "merger_arb",
+            "commodity_trend", "systematic_macro",
+        ]
+        iteration = 0
 
-        for iteration in range(1, MAX_ITERATIONS + 1):
-            _log(job, f"─── [迭代 {iteration}/{MAX_ITERATIONS}] autoresearch 循环开始 ───", "progress")
+        while True:
+            # ── 检查是否被用户手动停止（Karpathy: loop until human interrupts）──
+            db.refresh(job)
+            if job.status == "cancelled":
+                _log(job, "🛑 用户手动停止研究", "warn")
+                break
+
+            iteration += 1
+            style = all_styles[(iteration - 1) % len(all_styles)]
+            _log(job, f"─── [迭代 #{iteration}] autoresearch 循环开始 | 风格：{style} ───", "progress")
 
             # 构造本轮 prompt：若有最优策略则让 AI 改进，否则换风格探索
             style = styles[(iteration - 1) % len(styles)]
@@ -1155,46 +1185,43 @@ def run_research_job(job_id: int, goals_dict: dict, preferred_model: str) -> Non
                         "reason": reason,
                     })
                     _log(job, f"  DISCARD ✗ 分数={round(score)}<{KEEP_THRESHOLD}，记录失败方向", "warn")
+                    # 记录近似匹配（score≥25）作为兜底候选
+                    if score >= 25:
+                        near_misses.append(strategy)
+                        near_misses.sort(key=lambda x: x.get("match_pct", 0), reverse=True)
+                        near_misses = near_misses[:5]
 
             except json.JSONDecodeError:
                 _log(job, f"  ⚠️ 第{iteration}轮 JSON 格式错误", "warn")
             except Exception as e:
                 _log(job, f"  ❌ 第{iteration}轮异常: {e}", "error")
 
-        # ══ Phase Final：多资产组合构建（QuantEvolve 兜底）════════════
-        # 若单一策略均未达标，让 AI 设计股票+期权组合，并用 portfolio_optimizer 优化权重
-        if best_score_so_far < KEEP_THRESHOLD:
-            annual_ret = goals_dict.get("annual_return") or 0.15
-            max_dd = goals_dict.get("max_drawdown") or 0.20
-            _log(job, "🔬 [Phase Final] 单资产无法达标，切换多资产+期权组合模式...", "progress")
+            # ── 每10轮触发一次多资产组合兜底（Phase Final 集成进主循环）──
+            if iteration % 10 == 0 and not all_strategies:
+                annual_ret_f = goals_dict.get("annual_return") or 0.15
+                max_dd_f = goals_dict.get("max_drawdown") or 0.20
+                _log(job, f"🔬 [第{iteration}轮触发组合兜底] 单资产未达标，尝试多资产+期权组合...", "progress")
+                try:
+                    combo_prompt = f"""你是量化组合策略专家。单一资产策略无法同时达到年化{annual_ret_f*100:.0f}%且回撤≤{max_dd_f*100:.0f}%。
 
-            combo_prompt = f"""你是量化组合策略专家。单一资产策略无法同时达到年化{annual_ret*100:.0f}%且回撤≤{max_dd*100:.0f}%。
-
-请设计一个【多资产+期权组合策略】，通过组合协同效应达到目标：
-
-要求：
-1. 核心持股（占60-80%）：2-4只股票/ETF，分散风险
-2. 期权增益/保护层（占20-40%）：卖 Put 收权利金或保护性 Put
-3. 整体组合预期：年化{annual_ret*100:.0f}%，最大回撤≤{max_dd*100:.0f}%
-4. 每个成分需说明具体入场/出场规则
+请设计一个【多资产+期权组合策略】：
+1. 核心持股（60-80%）：2-4只股票/ETF
+2. 期权增益层（20-40%）：卖Put收权利金或保护性Put
+3. 整体目标：年化{annual_ret_f*100:.0f}%，最大回撤≤{max_dd_f*100:.0f}%
 
 输出 JSON：
 {{
-  "id": "multi_asset_combo",
+  "id": "multi_asset_combo_{iteration}",
   "name": "多资产期权组合策略",
-  "description": "2-3句中文描述整体策略",
-  "components": [
-    {{"asset": "SPY", "weight_pct": 40, "role": "核心趋势仓", "logic": "入场出场逻辑"}},
-    {{"asset": "QQQ", "weight_pct": 30, "role": "成长增益仓", "logic": "入场出场逻辑"}},
-    {{"asset": "SPY Put", "weight_pct": 20, "role": "期权保护层", "logic": "每月卖Put收权利金"}}
-  ],
-  "source": "AI 多资产组合",
+  "description": "2-3句中文描述",
+  "source": "AI 多资产组合 R{iteration}",
   "instrument": "portfolio",
   "direction": "bullish",
   "style": "multi_asset_combo",
   "risk_level": "medium",
   "annual_return_range": [最小%, 最大%],
-  "win_rate_pct": 胜率数字,
+  "max_drawdown_range": [最小%, 最大%],
+  "win_rate_pct": 胜率,
   "why_it_works": "组合协同原理",
   "best_market": "适合环境",
   "worst_market": "不适合环境",
@@ -1202,56 +1229,77 @@ def run_research_job(job_id: int, goals_dict: dict, preferred_model: str) -> Non
   "tags": ["组合策略", "期权", "多资产"]
 }}
 只输出JSON。"""
+                    raw_c = _call_ai_with_provider(combo_prompt, preferred_model, max_tokens=1500)
+                    if raw_c:
+                        text_c = raw_c.strip()
+                        s, e = text_c.find("{"), text_c.rfind("}") + 1
+                        if s != -1 and e > 0:
+                            combo_s = json.loads(text_c[s:e])
+                            combo_dd_est = combo_s.get("max_drawdown_range", [0, 0])
+                            combo_dd_low = combo_dd_est[0] if isinstance(combo_dd_est, list) and len(combo_dd_est) == 2 else 0
+                            dd_limit_c = (goals_dict.get("max_drawdown") or 1.0) * 100
+                            if combo_dd_low > dd_limit_c:
+                                _log(job, f"  ✗ 组合回撤{combo_dd_low}%>{dd_limit_c}%，不符合目标", "warn")
+                                near_misses.append(combo_s)
+                                near_misses = sorted(near_misses, key=lambda x: x.get("match_pct", 0), reverse=True)[:5]
+                            else:
+                                sc = compute_match_score(combo_s, goals_dict)
+                                combo_s["match_pct"] = round(sc)
+                                combo_s["is_portfolio"] = True
+                                if sc >= KEEP_THRESHOLD:
+                                    _log(job, f"  ✅ 多资产组合 KEEP，分数={round(sc)}", "success")
+                                    _push_strategy(job, combo_s, all_strategies)
+                                    if sc > best_score_so_far:
+                                        best_score_so_far = sc
+                                        best_strategy_so_far = combo_s
+                                else:
+                                    _log(job, f"  ✗ 多资产组合分数={round(sc)}<{KEEP_THRESHOLD}，继续研究", "warn")
+                                    near_misses.append(combo_s)
+                                    near_misses = sorted(near_misses, key=lambda x: x.get("match_pct", 0), reverse=True)[:5]
+                except Exception as ce:
+                    _log(job, f"  ⚠️ 组合兜底异常: {ce}", "warn")
 
-            try:
-                raw = _call_ai_with_provider(combo_prompt, preferred_model, max_tokens=1500)
-                if raw:
-                    text = raw.strip()
-                    start = text.find("{")
-                    end = text.rfind("}") + 1
-                    if start != -1 and end > 0:
-                        combo_strategy = json.loads(text[start:end])
-                        combo_dd_range = combo_strategy.get("annual_return_range", [0, 100])  # fallback
-                        # 检查 AI 声称的回撤是否超标
-                        combo_dd_est = combo_strategy.get("max_drawdown_range", [0, 0])
-                        if isinstance(combo_dd_est, list) and len(combo_dd_est) == 2:
-                            combo_dd_low = combo_dd_est[0]
+                # portfolio_optimizer 科学权重
+                try:
+                    from portfolio_optimizer import build_portfolio_strategy
+                    annual_ret_f2 = goals_dict.get("annual_return") or 0.15
+                    max_dd_f2 = goals_dict.get("max_drawdown") or 0.20
+                    _log(job, "  📐 portfolio_optimizer 权重优化...", "progress")
+                    port_s = build_portfolio_strategy(annual_ret_f2, max_dd_f2, period="2y")
+                    if port_s:
+                        port_dd2 = port_s.get("max_drawdown_pct", 0)
+                        dd_limit2 = (goals_dict.get("max_drawdown") or 1.0) * 100
+                        if port_dd2 > dd_limit2:
+                            _log(job, f"  ✗ 权重组合回撤{port_dd2}%>{dd_limit2}%，丢弃", "warn")
+                            near_misses.append(port_s)
+                            near_misses = sorted(near_misses, key=lambda x: x.get("match_pct", 0), reverse=True)[:5]
                         else:
-                            combo_dd_low = 0
-                        dd_limit = (goals_dict.get("max_drawdown") or 1.0) * 100
-                        if combo_dd_low > dd_limit:
-                            _log(job, f"  ✗ 多资产组合回撤{combo_dd_low}%>{dd_limit}%，不符合目标", "warn")
-                        else:
-                            score = compute_match_score(combo_strategy, goals_dict)
-                            combo_strategy["match_pct"] = round(score)
-                            combo_strategy["is_portfolio"] = True
-                            _log(job, f"  ✅ 多资产组合策略生成，分数={round(score)}", "success")
-                            _push_strategy(job, combo_strategy, all_strategies)
-            except Exception as e:
-                _log(job, f"  ⚠️ 多资产组合生成失败: {e}", "warn")
+                            sc2 = compute_match_score(port_s, goals_dict)
+                            port_s["match_pct"] = round(sc2)
+                            if sc2 >= KEEP_THRESHOLD:
+                                _log(job, f"  ✅ 权重优化组合 KEEP，分数={round(sc2)}", "success")
+                                _push_strategy(job, port_s, all_strategies)
+                            else:
+                                _log(job, f"  ✗ 权重优化分数={round(sc2)}，记录近似", "warn")
+                                near_misses.append(port_s)
+                                near_misses = sorted(near_misses, key=lambda x: x.get("match_pct", 0), reverse=True)[:5]
+                except Exception as pe:
+                    _log(job, f"  ⚠️ portfolio_optimizer 异常: {pe}", "warn")
 
-            # 用 portfolio_optimizer 构建科学权重的组合作为补充
-            try:
-                from portfolio_optimizer import build_portfolio_strategy
-                _log(job, "  📐 portfolio_optimizer 构建权重优化组合...", "progress")
-                port_strategy = build_portfolio_strategy(annual_ret, max_dd, period="2y")
-                if port_strategy:
-                    port_dd = port_strategy.get("max_drawdown_pct", 0)
-                    dd_limit = (goals_dict.get("max_drawdown") or 1.0) * 100
-                    if port_dd > dd_limit:
-                        _log(job, f"  ✗ 权重优化组合回撤{port_dd}%>{dd_limit}%，不符合目标，丢弃", "warn")
-                    else:
-                        score = compute_match_score(port_strategy, goals_dict)
-                        port_strategy["match_pct"] = round(score)
-                        _log(job, f"  ✅ 权重优化组合：{port_strategy.get('method')}，回撤{port_dd}%，分数={round(score)}", "success")
-                        _push_strategy(job, port_strategy, all_strategies)
-            except Exception as e:
-                _log(job, f"  ⚠️ portfolio_optimizer 失败: {e}", "warn")
+        # ══ 用户取消时的收尾处理 ════════════════════════════════════════
+        # 若已取消但 0 结果，展示近似匹配（不能空手）
+        if not all_strategies and near_misses:
+            _log(job, f"🔄 研究被停止，展示最接近目标的 {len(near_misses)} 个策略供参考", "warn")
+            for nm in near_misses:
+                nm["near_miss"] = True
+                nm["near_miss_note"] = "此策略未完全达到你的目标，仅供参考"
+                _push_strategy(job, nm, all_strategies)
 
         # ══ 完成 ═══════════════════════════════════════════════════════
-        job.status = "completed"
+        if job.status != "cancelled":
+            job.status = "completed"
         job.completed_at = datetime.now()
-        _log(job, f"🎉 Autoresearch 完成！KEEP {len(all_strategies)} 个策略，最优分数={round(best_score_so_far)}", "done")
+        _log(job, f"🎉 Autoresearch 结束！共迭代 {iteration} 轮，KEEP {len(all_strategies)} 个策略，最优分数={round(best_score_so_far)}", "done")
 
     except Exception as e:
         try:
