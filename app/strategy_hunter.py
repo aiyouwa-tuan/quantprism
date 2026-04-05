@@ -1146,14 +1146,19 @@ def run_research_job(job_id: int, goals_dict: dict, preferred_model: str) -> Non
                 else:
                     _log(job, f"  ⚠️ 代码生成失败，跳过回测", "warn")
 
-                # 评分：有真实回测用 score_vs_goals，否则 fallback 到假评分
+                # 评分：有真实回测用 score_vs_goals，否则 fallback 到 AI 声称指标
                 if bt_metrics:
                     score = score_vs_goals(bt_metrics, goals_dict)
+                    strategy["validated"] = True
                 else:
                     score = compute_match_score(strategy, goals_dict)
+                    strategy["validated"] = False
+                    strategy["unvalidated_note"] = "⚠️ 回测未成功（信号不足），以下指标为 AI 估算，仅供参考"
                 strategy["match_pct"] = round(score)
 
-                # ── KEEP / DISCARD 决策（含回撤硬约束）──────────────
+                # ── KEEP / DISCARD 决策 ──────────────────────────────
+                # 分层门槛：有真实回测用严格门槛(40)；未回测用宽松门槛(25)
+                # 这与同事系统的区别：我们标注可信度，而不是直接丢弃
                 dd_target_pct = (goals_dict.get("max_drawdown") or 1.0) * 100
                 if bt_metrics:
                     strategy_dd = bt_metrics.get("max_drawdown")
@@ -1162,13 +1167,24 @@ def run_research_job(job_id: int, goals_dict: dict, preferred_model: str) -> Non
                 else:
                     strategy_dd = None
 
-                dd_exceeded = strategy_dd is not None and strategy_dd > dd_target_pct
+                dd_exceeded = (
+                    strategy_dd is not None
+                    and strategy_dd > dd_target_pct
+                    and bt_metrics  # 只有真实回测超标才硬拒绝，AI估算不做硬拒
+                )
+
+                # 未回测时的有效门槛更低（同事系统的逻辑：AI说什么就输出什么）
+                effective_threshold = KEEP_THRESHOLD if bt_metrics else 25
 
                 if dd_exceeded:
-                    _log(job, f"  DISCARD ✗ {strategy.get('name','?')} 回撤{strategy_dd}%>{dd_target_pct}% 超出目标", "warn")
-                    reason = f"回撤{strategy_dd}%超出目标{dd_target_pct}%"
-                elif score >= KEEP_THRESHOLD:
-                    _log(job, f"  KEEP ✅ {strategy.get('name','?')} 分数={round(score)}", "success")
+                    _log(job, f"  DISCARD ✗ {strategy.get('name','?')} 实测回撤{strategy_dd}%>{dd_target_pct}%", "warn")
+                    reason = f"实测回撤{strategy_dd}%超出目标{dd_target_pct}%"
+                    near_misses.append(strategy)
+                    near_misses.sort(key=lambda x: x.get("match_pct", 0), reverse=True)
+                    near_misses = near_misses[:5]
+                elif score >= effective_threshold:
+                    tag = "✅ 回测验证" if bt_metrics else "📋 AI估算(未回测)"
+                    _log(job, f"  KEEP {tag} {strategy.get('name','?')} 分数={round(score)}", "success")
                     _push_strategy(job, strategy, all_strategies)
                     if score > best_score_so_far:
                         best_score_so_far = score
@@ -1176,7 +1192,7 @@ def run_research_job(job_id: int, goals_dict: dict, preferred_model: str) -> Non
                         _log(job, f"  🏆 新最优！分数提升至 {round(score)}", "success")
                     continue
                 else:
-                    reason = "回撤超标" if (strategy_dd or 0) > dd_target_pct * 0.8 else "收益不达标" if score < 35 else "综合分数不足"
+                    reason = "收益/风险综合分数不足"
                     discard_history.append({
                         "iteration": iteration,
                         "style": style,
@@ -1184,9 +1200,8 @@ def run_research_job(job_id: int, goals_dict: dict, preferred_model: str) -> Non
                         "score": round(score),
                         "reason": reason,
                     })
-                    _log(job, f"  DISCARD ✗ 分数={round(score)}<{KEEP_THRESHOLD}，记录失败方向", "warn")
-                    # 记录近似匹配（score≥25）作为兜底候选
-                    if score >= 25:
+                    _log(job, f"  DISCARD ✗ 分数={round(score)}<{effective_threshold}，记录失败方向", "warn")
+                    if score >= 20:
                         near_misses.append(strategy)
                         near_misses.sort(key=lambda x: x.get("match_pct", 0), reverse=True)
                         near_misses = near_misses[:5]

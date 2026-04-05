@@ -31,14 +31,27 @@
                 </div>
                 <h3 class="text-base font-semibold text-white mt-1">{{ s.name }}</h3>
             </div>
-            <span class="px-3 py-1 rounded-md text-sm font-bold
-                {% if s.match_pct >= 70 %}bg-green-500/20 text-green-400
-                {% elif s.match_pct >= 50 %}bg-yellow-500/20 text-yellow-400
-                {% else %}bg-gray-500/20 text-gray-400{% endif %}">
-                匹配 {{ s.match_pct }}%
-            </span>
+            <div class="flex items-center gap-2">
+                <span class="px-3 py-1 rounded-md text-sm font-bold
+                    {% if s.match_pct >= 70 %}bg-green-500/20 text-green-400
+                    {% elif s.match_pct >= 50 %}bg-yellow-500/20 text-yellow-400
+                    {% else %}bg-gray-500/20 text-gray-400{% endif %}">
+                    匹配 {{ s.match_pct }}%
+                </span>
+                {% if s.validated %}
+                    <span class="px-2 py-0.5 rounded text-xs bg-blue-500/20 text-blue-400 border border-blue-500/30">✅ 回测验证</span>
+                {% else %}
+                    <span class="px-2 py-0.5 rounded text-xs bg-yellow-500/15 text-yellow-500 border border-yellow-500/30" title="此策略指标来自 AI 估算，未经真实历史数据回测验证">⚠️ AI估算</span>
+                {% endif %}
+                {% if s.near_miss %}
+                    <span class="px-2 py-0.5 rounded text-xs bg-orange-500/15 text-orange-400 border border-orange-500/30">参考</span>
+                {% endif %}
+            </div>
         </div>
 
+        {% if s.unvalidated_note %}
+        <div class="text-xs text-yellow-500/80 bg-yellow-500/5 border border-yellow-500/20 rounded px-3 py-1.5 mb-2">{{ s.unvalidated_note }}</div>
+        {% endif %}
         <p class="text-xs text-gray-400 mb-3">{{ s.description[:150] }}{% if s.description|length > 150 %}...{% endif %}</p>
 
         {# 持仓权重可视化 #}
