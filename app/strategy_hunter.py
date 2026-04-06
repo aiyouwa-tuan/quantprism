@@ -1009,7 +1009,7 @@ def run_research_job(job_id: int, goals_dict: dict, preferred_model: str) -> Non
             _log(job, f"─── [迭代 #{iteration}] autoresearch 循环开始 | 风格：{style} ───", "progress")
 
             # 构造本轮 prompt：若有最优策略则让 AI 改进，否则换风格探索
-            style = styles[(iteration - 1) % len(styles)]
+            style = all_styles[(iteration - 1) % len(all_styles)]
             # Karpathy 模式：处理 None 目标值（不设限 = 用保守默认值）
             annual_ret = goals_dict.get("annual_return") or 0.15
             max_dd = goals_dict.get("max_drawdown") or 0.20
