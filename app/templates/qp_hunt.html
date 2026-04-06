@@ -65,11 +65,22 @@
 
     document.body.addEventListener('htmx:beforeRequest', function(e) {
         if (e.detail.pathInfo.requestPath === '/hunt/search') {
+            // 停止旧研究轮询，重置状态，让新搜索后能启动新一轮研究
+            if (_researchTimer) { clearInterval(_researchTimer); _researchTimer = null; }
+            if (_researchJobId) {
+                fetch('/hunt/research/stop/' + _researchJobId, { method: 'POST' }).catch(function(){});
+            }
+            _researchJobId = null;
+            _researchRetry = 0;
+            localStorage.removeItem('research_job_id');
+
             // Clear previous research banner and results
             document.getElementById('research-banner').classList.add('hidden');
+            document.getElementById('research-stop-btn').classList.add('hidden');
             document.getElementById('research-steps').innerHTML = '';
             document.getElementById('research-title').textContent = 'AI 后台研究中...';
             document.getElementById('research-timer').textContent = '';
+            document.getElementById('research-model').textContent = '';
             document.getElementById('research-spinner').classList.remove('hidden');
             document.getElementById('hunt-results').innerHTML = '';
 
