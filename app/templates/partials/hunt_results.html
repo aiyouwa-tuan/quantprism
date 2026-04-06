@@ -176,6 +176,14 @@
                     {% if s.style %} · {{ s.style }}{% endif %}
                     {% if s.validated %}<span class="ml-1 text-green-400">✓ 已回测验证</span>{% endif %}
                 </p>
+                {% if s.default_symbols %}
+                <div class="flex items-center gap-1 mt-1 flex-wrap">
+                    <span class="text-xs text-gray-600">标的：</span>
+                    {% for sym in s.default_symbols %}
+                    <span class="px-1.5 py-0.5 rounded text-xs font-mono bg-dark-600 text-gray-300 border border-dark-500">{{ sym }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
             </div>
             <span class="px-3 py-1 rounded-md text-sm font-bold
                 {% if s.match_pct >= 70 %}bg-green-500/20 text-green-400
