@@ -192,7 +192,7 @@
                 scales: Object.assign({}, chartDefaults.scales, {
                     y: Object.assign({}, chartDefaults.scales.y, {
                         ticks: Object.assign({}, chartDefaults.scales.y.ticks, {
-                            callback: function(v) { return v + '%'; }
+                            callback: function(v) { return (+v).toFixed(1) + '%'; }
                         })
                     })
                 })
@@ -220,7 +220,7 @@
                 scales: Object.assign({}, chartDefaults.scales, {
                     y: Object.assign({}, chartDefaults.scales.y, {
                         ticks: Object.assign({}, chartDefaults.scales.y.ticks, {
-                            callback: function(v) { return v + '%'; }
+                            callback: function(v) { return (+v).toFixed(2) + '%'; }
                         })
                     })
                 })
@@ -250,7 +250,7 @@
                 scales: Object.assign({}, chartDefaults.scales, {
                     y: Object.assign({}, chartDefaults.scales.y, {
                         ticks: Object.assign({}, chartDefaults.scales.y.ticks, {
-                            callback: function(v) { return v + '%'; }
+                            callback: function(v) { return (+v).toFixed(2) + '%'; }
                         })
                     })
                 })
