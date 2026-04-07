@@ -8,107 +8,114 @@
     <link rel="stylesheet" href="/static/tailwind.min.css">
     <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="stylesheet" href="/static/qp-animations.css">
+    <link rel="stylesheet" href="/static/qp-linear.css">
     <style>
-        body { background: #0a0e1a; }
+        body { background: #08090a; }
         .htmx-indicator { display: none; }
         .htmx-request .htmx-indicator { display: block; }
         .htmx-indicator.htmx-request { display: block; }
         .htmx-request .htmx-hide-on-request { opacity: 0.4; pointer-events: none; }
         ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #111827; }
-        ::-webkit-scrollbar-thumb { background: #2d3650; border-radius: 3px; }
-        .qp-logo { background: linear-gradient(135deg, #3b82f6, #8b5cf6); }
+        ::-webkit-scrollbar-track { background: #0f1011; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+        .qp-logo { background: #5e6ad2; box-shadow: 0 0 0 1px rgba(94,106,210,0.3); }
+
+        /* Nav active state — indigo tint */
+        .qp-nav-active {
+            background-color: rgba(94,106,210,0.12) !important;
+            color: #f7f8f8 !important;
+        }
     </style>
 </head>
 <body class="text-gray-200 min-h-screen flex flex-col">
 
-    <!-- Paper mode 顶部指示条 -->
-    <div style="height: 3px; background: linear-gradient(90deg, #f97316, #fb923c, #f97316); flex-shrink: 0;"></div>
-
     <div class="flex flex-1">
-    <!-- 左侧导航 (Grouped) -->
-    <nav class="w-48 bg-dark-800 border-r border-dark-600 flex flex-col py-3 px-2 gap-0.5 fixed h-full z-10 overflow-y-auto hidden md:flex">
-        <div class="flex items-center gap-2 px-3 mb-4">
-            <div class="qp-logo w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-xs">QP</div>
-            <span class="text-lg font-bold text-white">QuantPrism</span>
+    <!-- 左侧导航 -->
+    <nav style="width:192px; background:#0f1011; border-right:1px solid rgba(255,255,255,0.08); position:fixed; height:100%; z-index:10; overflow-y:auto; display:flex; flex-direction:column; padding:12px 8px; gap:2px;" class="hidden md:flex">
+
+        <!-- Logo -->
+        <div style="display:flex; align-items:center; gap:8px; padding:4px 12px; margin-bottom:16px;">
+            <div class="qp-logo" style="width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:11px; flex-shrink:0;">QP</div>
+            <span style="font-size:15px; font-weight:590; color:#f7f8f8; letter-spacing:-0.3px;">QuantPrism</span>
         </div>
 
         <!-- 概览 -->
-        <a href="/goals" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm {{ 'bg-dark-500 text-white' if request and (request.url.path == '/goals' or request.url.path == '/portfolio') else 'text-gray-400 hover:text-white hover:bg-dark-700' }} transition">
-            <span class="text-base w-5 text-center">&#x1F4CA;</span>
+        <a href="/goals" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:6px; font-size:13px; text-decoration:none; transition:background 0.15s, color 0.15s; {{ 'background:rgba(94,106,210,0.12); color:#f7f8f8;' if request and (request.url.path == '/goals' or request.url.path == '/portfolio') else 'color:#8a8f98;' }}" onmouseover="if(!this.style.background||this.style.background==''){this.style.background='rgba(255,255,255,0.05)';this.style.color='#d0d6e0';}" onmouseout="if(this.style.background=='rgba(255,255,255,0.05)'){this.style.background='';this.style.color='#8a8f98';}">
+            <span style="width:16px; text-align:center; font-size:14px;">&#x1F4CA;</span>
             概览
         </a>
 
-        <!-- STRATEGY WORKSHOP -->
-        <div class="qp-nav-divider"></div>
-        <div class="qp-nav-group">STRATEGY</div>
+        <!-- STRATEGY -->
+        <div style="font-size:10px; color:#3e3e44; text-transform:uppercase; letter-spacing:0.1em; padding:0 12px; margin-top:16px; margin-bottom:4px; font-weight:510;">STRATEGY</div>
+        <div style="border-top:1px solid rgba(255,255,255,0.05); margin:0 12px 6px;"></div>
 
-        <a href="/hunt" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm {{ 'bg-dark-500 text-white' if request and '/hunt' in request.url.path else 'text-gray-400 hover:text-white hover:bg-dark-700' }} transition">
-            <span class="text-base w-5 text-center">&#x1F50D;</span>
+        <a href="/hunt" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:6px; font-size:13px; text-decoration:none; transition:background 0.15s, color 0.15s; {{ 'background:rgba(94,106,210,0.12); color:#f7f8f8;' if request and '/hunt' in request.url.path else 'color:#8a8f98;' }}" onmouseover="if(!this.style.background||this.style.background==''){this.style.background='rgba(255,255,255,0.05)';this.style.color='#d0d6e0';}" onmouseout="if(this.style.background=='rgba(255,255,255,0.05)'){this.style.background='';this.style.color='#8a8f98';}">
+            <span style="width:16px; text-align:center; font-size:14px;">&#x1F50D;</span>
             策略猎手
         </a>
 
-        <a href="/backtest" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm {{ 'bg-dark-500 text-white' if request and request.url.path == '/backtest' else 'text-gray-400 hover:text-white hover:bg-dark-700' }} transition">
-            <span class="text-base w-5 text-center">&#x1F9EA;</span>
+        <a href="/backtest" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:6px; font-size:13px; text-decoration:none; transition:background 0.15s, color 0.15s; {{ 'background:rgba(94,106,210,0.12); color:#f7f8f8;' if request and request.url.path == '/backtest' else 'color:#8a8f98;' }}" onmouseover="if(!this.style.background||this.style.background==''){this.style.background='rgba(255,255,255,0.05)';this.style.color='#d0d6e0';}" onmouseout="if(this.style.background=='rgba(255,255,255,0.05)'){this.style.background='';this.style.color='#8a8f98';}">
+            <span style="width:16px; text-align:center; font-size:14px;">&#x1F9EA;</span>
             回测实验室
         </a>
 
-        <a href="/backtest/tasks" class="flex items-center gap-2.5 pl-8 pr-3 py-1.5 rounded-lg text-xs {{ 'bg-dark-500 text-white' if request and '/backtest/tasks' in request.url.path else 'text-gray-400 hover:text-white hover:bg-dark-700' }} transition">
+        <a href="/backtest/tasks" style="display:flex; align-items:center; gap:10px; padding:6px 12px 6px 38px; border-radius:6px; font-size:12px; text-decoration:none; transition:background 0.15s, color 0.15s; {{ 'background:rgba(94,106,210,0.12); color:#f7f8f8;' if request and '/backtest/tasks' in request.url.path else 'color:#62666d;' }}" onmouseover="if(!this.style.background||this.style.background==''){this.style.background='rgba(255,255,255,0.04)';this.style.color='#8a8f98';}" onmouseout="if(this.style.background=='rgba(255,255,255,0.04)'){this.style.background='';this.style.color='#62666d';}">
             任务中心
         </a>
 
-        <!-- MARKET SCAN -->
-        <div class="qp-nav-divider"></div>
-        <div class="qp-nav-group">MARKET</div>
+        <!-- MARKET -->
+        <div style="font-size:10px; color:#3e3e44; text-transform:uppercase; letter-spacing:0.1em; padding:0 12px; margin-top:16px; margin-bottom:4px; font-weight:510;">MARKET</div>
+        <div style="border-top:1px solid rgba(255,255,255,0.05); margin:0 12px 6px;"></div>
 
-        <a href="/scan" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm {{ 'bg-dark-500 text-white' if request and '/scan' in request.url.path else 'text-gray-400 hover:text-white hover:bg-dark-700' }} transition">
-            <span class="text-base w-5 text-center">&#x1F4E1;</span>
+        <a href="/scan" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:6px; font-size:13px; text-decoration:none; transition:background 0.15s, color 0.15s; {{ 'background:rgba(94,106,210,0.12); color:#f7f8f8;' if request and '/scan' in request.url.path else 'color:#8a8f98;' }}" onmouseover="if(!this.style.background||this.style.background==''){this.style.background='rgba(255,255,255,0.05)';this.style.color='#d0d6e0';}" onmouseout="if(this.style.background=='rgba(255,255,255,0.05)'){this.style.background='';this.style.color='#8a8f98';}">
+            <span style="width:16px; text-align:center; font-size:14px;">&#x1F4E1;</span>
             标的扫描
         </a>
 
-        <a href="/macro" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm {{ 'bg-dark-500 text-white' if request and '/macro' in request.url.path else 'text-gray-400 hover:text-white hover:bg-dark-700' }} transition">
-            <span class="text-base w-5 text-center">&#x1F310;</span>
+        <a href="/macro" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:6px; font-size:13px; text-decoration:none; transition:background 0.15s, color 0.15s; {{ 'background:rgba(94,106,210,0.12); color:#f7f8f8;' if request and '/macro' in request.url.path else 'color:#8a8f98;' }}" onmouseover="if(!this.style.background||this.style.background==''){this.style.background='rgba(255,255,255,0.05)';this.style.color='#d0d6e0';}" onmouseout="if(this.style.background=='rgba(255,255,255,0.05)'){this.style.background='';this.style.color='#8a8f98';}">
+            <span style="width:16px; text-align:center; font-size:14px;">&#x1F310;</span>
             宏观经济
         </a>
 
-        <!-- TRADE MANAGEMENT -->
-        <div class="qp-nav-divider"></div>
-        <div class="qp-nav-group">TRADING</div>
+        <!-- TRADING -->
+        <div style="font-size:10px; color:#3e3e44; text-transform:uppercase; letter-spacing:0.1em; padding:0 12px; margin-top:16px; margin-bottom:4px; font-weight:510;">TRADING</div>
+        <div style="border-top:1px solid rgba(255,255,255,0.05); margin:0 12px 6px;"></div>
 
-        <a href="/watchlist" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm {{ 'bg-dark-500 text-white' if request and '/watchlist' in request.url.path else 'text-gray-400 hover:text-white hover:bg-dark-700' }} transition">
-            <span class="text-base w-5 text-center">&#x1F441;</span>
+        <a href="/watchlist" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:6px; font-size:13px; text-decoration:none; transition:background 0.15s, color 0.15s; {{ 'background:rgba(94,106,210,0.12); color:#f7f8f8;' if request and '/watchlist' in request.url.path else 'color:#8a8f98;' }}" onmouseover="if(!this.style.background||this.style.background==''){this.style.background='rgba(255,255,255,0.05)';this.style.color='#d0d6e0';}" onmouseout="if(this.style.background=='rgba(255,255,255,0.05)'){this.style.background='';this.style.color='#8a8f98';}">
+            <span style="width:16px; text-align:center; font-size:14px;">&#x1F441;</span>
             观察列表
         </a>
 
-        <a href="/risk" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm {{ 'bg-dark-500 text-white' if request and request.url.path == '/risk' else 'text-gray-400 hover:text-white hover:bg-dark-700' }} transition">
-            <span class="text-base w-5 text-center">&#x1F6E1;</span>
+        <a href="/risk" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:6px; font-size:13px; text-decoration:none; transition:background 0.15s, color 0.15s; {{ 'background:rgba(94,106,210,0.12); color:#f7f8f8;' if request and request.url.path == '/risk' else 'color:#8a8f98;' }}" onmouseover="if(!this.style.background||this.style.background==''){this.style.background='rgba(255,255,255,0.05)';this.style.color='#d0d6e0';}" onmouseout="if(this.style.background=='rgba(255,255,255,0.05)'){this.style.background='';this.style.color='#8a8f98';}">
+            <span style="width:16px; text-align:center; font-size:14px;">&#x1F6E1;</span>
             风控护盾
         </a>
 
-        <!-- SYSTEM -->
-        <div class="flex-1"></div>
-        <div class="qp-nav-divider"></div>
-        <div class="qp-nav-group">SYSTEM</div>
+        <!-- SYSTEM (pushed to bottom) -->
+        <div style="flex:1;"></div>
+        <div style="border-top:1px solid rgba(255,255,255,0.05); margin:0 12px 6px;"></div>
+        <div style="font-size:10px; color:#3e3e44; text-transform:uppercase; letter-spacing:0.1em; padding:0 12px; margin-bottom:4px; font-weight:510;">SYSTEM</div>
 
-        <a href="/settings" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm {{ 'bg-dark-500 text-white' if request and '/settings' in request.url.path else 'text-gray-400 hover:text-white hover:bg-dark-700' }} transition">
-            <span class="text-base w-5 text-center">&#x2699;</span>
+        <a href="/settings" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:6px; font-size:13px; text-decoration:none; transition:background 0.15s, color 0.15s; {{ 'background:rgba(94,106,210,0.12); color:#f7f8f8;' if request and '/settings' in request.url.path else 'color:#8a8f98;' }}" onmouseover="if(!this.style.background||this.style.background==''){this.style.background='rgba(255,255,255,0.05)';this.style.color='#d0d6e0';}" onmouseout="if(this.style.background=='rgba(255,255,255,0.05)'){this.style.background='';this.style.color='#8a8f98';}">
+            <span style="width:16px; text-align:center; font-size:14px;">&#x2699;</span>
             系统配置
         </a>
     </nav>
 
     <!-- 主内容区 -->
     <main class="md:ml-48 flex-1 min-h-screen flex flex-col">
-        <!-- 顶部栏：PAPER 模式 + VIX -->
-        <div class="flex items-center justify-end gap-3 px-6 py-2 border-b border-dark-600 bg-dark-800/50">
-            <div id="vix-indicator" class="text-xs text-gray-400">
-                VIX: <span class="text-accent-yellow font-mono">--</span>
+        <!-- 顶部状态栏 -->
+        <div style="display:flex; align-items:center; justify-content:flex-end; gap:12px; padding:7px 24px; border-bottom:1px solid rgba(255,255,255,0.05); background:rgba(15,16,17,0.8); backdrop-filter:blur(8px); flex-shrink:0;">
+            <div id="vix-indicator" style="font-size:12px; color:#8a8f98; font-feature-settings:'cv01','ss03';">
+                VIX: <span style="font-family:'Berkeley Mono',ui-monospace,monospace; font-feature-settings:normal;" class="font-mono">--</span>
             </div>
-            <span class="px-2 py-0.5 rounded text-xs font-semibold bg-orange-500/20 text-orange-400 border border-orange-500/30">PAPER</span>
+            <span style="padding:2px 8px; border-radius:4px; font-size:11px; font-weight:510; background:rgba(94,106,210,0.15); color:#7170ff; border:1px solid rgba(113,112,255,0.25); letter-spacing:0.05em;">PAPER</span>
         </div>
 
         <div class="flex-1 p-6">
             <!-- 移动端提示 -->
-            <div class="block md:hidden bg-dark-700 border border-dark-600 rounded-lg p-3 mb-4 text-xs text-gray-400 text-center">
+            <div class="block md:hidden" style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:12px; margin-bottom:16px; font-size:12px; color:#8a8f98; text-align:center;">
                 QuantPrism 在桌面端体验最佳
             </div>
             {% block content %}{% endblock %}
@@ -124,7 +131,7 @@
                 var el = document.querySelector('#vix-indicator span');
                 if (el && d.price) {
                     el.textContent = d.price.toFixed(2);
-                    el.className = d.price > 30 ? 'text-red-400 font-mono' : d.price > 20 ? 'text-accent-yellow font-mono' : 'text-green-400 font-mono';
+                    el.style.color = d.price > 30 ? '#f87171' : d.price > 20 ? '#facc15' : '#4ade80';
                 }
             }).catch(function(){});
         }

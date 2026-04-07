@@ -95,11 +95,28 @@ def _parse_asset_classes(asset_classes: str | None) -> list[str]:
 
 @app.on_event("startup")
 def startup():
+    import json as _json
     init_db()
     db = next(get_db())
     if not db.query(JournalCompliance).first():
         db.add(JournalCompliance())
         db.commit()
+    # Restore API keys from DB → os.environ (survives server restarts)
+    for svc in API_SERVICES:
+        cfg = db.query(ApiConfig).filter(ApiConfig.service_name == svc["name"]).first()
+        if cfg and cfg.api_key:
+            os.environ[svc["env_keys"][0]] = cfg.api_key
+        if cfg and cfg.api_secret and len(svc["env_keys"]) > 1:
+            os.environ[svc["env_keys"][1]] = cfg.api_secret
+        if cfg and cfg.extra_config and len(svc["env_keys"]) > 2:
+            try:
+                extra = _json.loads(cfg.extra_config)
+                if extra.get("extra_1") and len(svc["env_keys"]) > 2:
+                    os.environ[svc["env_keys"][2]] = extra["extra_1"]
+                if extra.get("extra_2") and len(svc["env_keys"]) > 3:
+                    os.environ[svc["env_keys"][3]] = extra["extra_2"]
+            except Exception:
+                pass
     # Seed default strategies
     from strategy_seeds import seed_strategies
     seed_strategies(db)

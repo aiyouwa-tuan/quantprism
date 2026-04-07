@@ -1,21 +1,22 @@
-/* QuantPrism — Global Animation System (qp-animations.css) */
+/* QuantPrism — Animation System (qp-animations.css)
+   Linear design language edition */
 
 /* ═══ Keyframes ═══ */
 
 @keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(20px); }
+    from { opacity: 0; transform: translateY(12px); }
     to   { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes shimmer {
     from { background-position: -200% center; }
-    to   { background-position: 200% center; }
+    to   { background-position:  200% center; }
 }
 
 @keyframes pulseGlow {
-    0%   { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
-    70%  { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+    0%   { box-shadow: 0 0 0 0   rgba(113, 112, 255, 0.35); }
+    70%  { box-shadow: 0 0 0 8px rgba(113, 112, 255, 0); }
+    100% { box-shadow: 0 0 0 0   rgba(113, 112, 255, 0); }
 }
 
 @keyframes slideInRight {
@@ -29,47 +30,49 @@
 }
 
 
-/* ═══ Glassmorphism Card ═══ */
+/* ═══ Card — Linear style ═══ */
 
 .qp-card {
-    background: rgba(26, 32, 53, 0.85);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(59, 130, 246, 0.15);
-    border-radius: 12px;
-    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .qp-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-    border-color: rgba(59, 130, 246, 0.35);
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.12);
 }
 
 
 /* ═══ Staggered Card Entry ═══ */
 
 .qp-card-enter {
-    animation: fadeInUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: fadeInUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .qp-card-enter:nth-child(1)  { animation-delay: 0.00s; }
-.qp-card-enter:nth-child(2)  { animation-delay: 0.06s; }
-.qp-card-enter:nth-child(3)  { animation-delay: 0.06s; }
-.qp-card-enter:nth-child(4)  { animation-delay: 0.12s; }
-.qp-card-enter:nth-child(5)  { animation-delay: 0.18s; }
-.qp-card-enter:nth-child(6)  { animation-delay: 0.24s; }
-.qp-card-enter:nth-child(7)  { animation-delay: 0.30s; }
-.qp-card-enter:nth-child(8)  { animation-delay: 0.30s; }
-.qp-card-enter:nth-child(n+9){ animation-delay: 0.36s; }
+.qp-card-enter:nth-child(2)  { animation-delay: 0.05s; }
+.qp-card-enter:nth-child(3)  { animation-delay: 0.05s; }
+.qp-card-enter:nth-child(4)  { animation-delay: 0.10s; }
+.qp-card-enter:nth-child(5)  { animation-delay: 0.15s; }
+.qp-card-enter:nth-child(6)  { animation-delay: 0.20s; }
+.qp-card-enter:nth-child(7)  { animation-delay: 0.25s; }
+.qp-card-enter:nth-child(8)  { animation-delay: 0.25s; }
+.qp-card-enter:nth-child(n+9){ animation-delay: 0.30s; }
 
 
 /* ═══ Skeleton Loader ═══ */
 
 .qp-skeleton {
-    background: linear-gradient(90deg, #1a2035 25%, #232b3e 50%, #1a2035 75%);
+    background: linear-gradient(
+        90deg,
+        rgba(255,255,255,0.03) 25%,
+        rgba(255,255,255,0.06) 50%,
+        rgba(255,255,255,0.03) 75%
+    );
     background-size: 400% 100%;
-    animation: shimmer 1.5s linear infinite;
+    animation: shimmer 1.6s linear infinite;
     border-radius: 6px;
 }
 
@@ -82,7 +85,7 @@
 }
 
 
-/* ═══ Gradient Border ═══ */
+/* ═══ Gradient Border (simplified to indigo) ═══ */
 
 .qp-gradient-border {
     position: relative;
@@ -93,20 +96,20 @@
     position: absolute;
     inset: -1px;
     border-radius: inherit;
-    background: linear-gradient(135deg, #3b82f6, #8b5cf6, #22c55e);
+    background: linear-gradient(135deg, #5e6ad2, #7170ff, #828fff);
     z-index: -1;
-    opacity: 0.6;
+    opacity: 0.5;
 }
 
 
-/* ═══ Pulse Glow (live data) ═══ */
+/* ═══ Pulse Glow (live data — indigo) ═══ */
 
 .qp-pulse-glow {
     animation: pulseGlow 2s ease-out infinite;
 }
 
 
-/* ═══ Side Panel (Parallel Detail) ═══ */
+/* ═══ Side Panel ═══ */
 
 .qp-side-panel {
     position: fixed;
@@ -114,12 +117,10 @@
     top: 0;
     height: 100vh;
     width: 360px;
-    background: rgba(17, 24, 39, 0.95);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border-left: 1px solid #232b3e;
+    background: #0f1011;
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
     transform: translateX(100%);
-    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
     z-index: 50;
     overflow-y: auto;
 }
@@ -134,7 +135,7 @@
 .qp-tab-bar {
     display: flex;
     gap: 0;
-    border-bottom: 1px solid #232b3e;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     margin-bottom: 16px;
     overflow-x: auto;
     scrollbar-width: none;
@@ -143,9 +144,10 @@
 .qp-tab-bar::-webkit-scrollbar { display: none; }
 
 .qp-tab {
-    padding: 12px 16px;
-    font-size: 14px;
-    color: #6b7280;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 400;
+    color: #62666d;
     border-bottom: 2px solid transparent;
     white-space: nowrap;
     cursor: pointer;
@@ -154,16 +156,17 @@
     border-top: none;
     border-left: none;
     border-right: none;
+    letter-spacing: -0.13px;
 }
 
 .qp-tab:hover {
-    color: #9ca3af;
+    color: #8a8f98;
 }
 
 .qp-tab.active {
-    color: #ffffff;
-    border-bottom-color: #3b82f6;
-    font-weight: 500;
+    color: #f7f8f8;
+    border-bottom-color: #7170ff;
+    font-weight: 510;
 }
 
 .qp-tab-content {
@@ -172,7 +175,7 @@
 
 .qp-tab-content.active {
     display: block;
-    animation: fadeInUp 0.3s ease both;
+    animation: fadeInUp 0.25s ease both;
 }
 
 
@@ -193,8 +196,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #6b7280;
-    font-size: 14px;
+    color: #62666d;
+    font-size: 13px;
     z-index: 10;
 }
 
@@ -212,43 +215,45 @@
 
 /* ═══ Strategy Color Bars ═══ */
 
-.qp-color-bar-blue   { border-left: 4px solid #3b82f6; }
-.qp-color-bar-green  { border-left: 4px solid #22c55e; }
-.qp-color-bar-yellow { border-left: 4px solid #eab308; }
-.qp-color-bar-purple { border-left: 4px solid #8b5cf6; }
-.qp-color-bar-red    { border-left: 4px solid #ef4444; }
-.qp-color-bar-cyan   { border-left: 4px solid #06b6d4; }
+.qp-color-bar-blue   { border-left: 3px solid #7170ff; }
+.qp-color-bar-green  { border-left: 3px solid #10b981; }
+.qp-color-bar-yellow { border-left: 3px solid #facc15; }
+.qp-color-bar-purple { border-left: 3px solid #828fff; }
+.qp-color-bar-red    { border-left: 3px solid #f87171; }
+.qp-color-bar-cyan   { border-left: 3px solid #67e8f9; }
 
 
 /* ═══ Badge Variants ═══ */
-
-.qp-badge-green  { background: rgba(34,197,94,0.2);  color: #4ade80; }
-.qp-badge-red    { background: rgba(239,68,68,0.2);  color: #f87171; }
-.qp-badge-blue   { background: rgba(59,130,246,0.2); color: #60a5fa; }
-.qp-badge-yellow { background: rgba(234,179,8,0.2);  color: #facc15; }
-.qp-badge-purple { background: rgba(139,92,246,0.2); color: #a78bfa; }
 
 .qp-badge {
     font-size: 11px;
     padding: 2px 8px;
     border-radius: 999px;
-    font-weight: 500;
+    font-weight: 510;
+    letter-spacing: 0.02em;
 }
+
+.qp-badge-green  { background: rgba(16,185,129,0.15);  color: #34d399; border: 1px solid rgba(16,185,129,0.2); }
+.qp-badge-red    { background: rgba(248,113,113,0.12); color: #f87171; border: 1px solid rgba(248,113,113,0.2); }
+.qp-badge-blue   { background: rgba(113,112,255,0.15); color: #828fff; border: 1px solid rgba(113,112,255,0.2); }
+.qp-badge-yellow { background: rgba(250,204,21,0.12);  color: #facc15; border: 1px solid rgba(250,204,21,0.2); }
+.qp-badge-purple { background: rgba(130,143,255,0.15); color: #a5b4fc; border: 1px solid rgba(130,143,255,0.2); }
 
 
 /* ═══ Nav Group Labels ═══ */
 
 .qp-nav-group {
     font-size: 10px;
-    color: #4b5563;
+    color: #3e3e44;
     text-transform: uppercase;
     letter-spacing: 0.1em;
     padding: 0 12px;
     margin-top: 12px;
     margin-bottom: 4px;
+    font-weight: 510;
 }
 
 .qp-nav-divider {
-    border-top: 1px solid rgba(35, 43, 62, 0.5);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
     margin: 4px 12px;
 }

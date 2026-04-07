@@ -7,18 +7,20 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        // Linear design palette
         dark: {
-          900: '#0a0e1a',
-          800: '#111827',
-          700: '#1a2035',
-          600: '#232b3e',
-          500: '#2d3650',
+          900: '#08090a',   // page background
+          800: '#0f1011',   // panel / sidebar
+          700: '#191a1b',   // surface / card
+          600: '#28282c',   // hover state
+          500: '#34343a',   // border solid
         },
         accent: {
-          green: '#22c55e',
-          red: '#ef4444',
-          blue: '#3b82f6',
-          yellow: '#eab308',
+          green:  '#10b981',  // success / positive P&L
+          red:    '#f87171',  // danger / negative P&L
+          blue:   '#7170ff',  // Linear indigo accent (active / links)
+          yellow: '#facc15',  // warning
+          indigo: '#5e6ad2',  // CTA button background
         },
       },
     },

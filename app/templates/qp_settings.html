@@ -64,7 +64,7 @@
 
             <!-- Placeholder rows for unconfigured services -->
             {% set configured = api_configs | map(attribute='service_name') | list %}
-            {% for svc in [('deepseek', 'DeepSeek', 'DEEPSEEK_API_KEY'), ('claude', 'Claude API', 'ANTHROPIC_API_KEY'), ('openai', 'ChatGPT (OpenAI)', 'OPENAI_API_KEY'), ('gemini', 'Google Gemini', 'GEMINI_API_KEY'), ('xai', 'XAI (Grok)', 'XAI_API_KEY')] %}
+            {% for svc in [('fred', 'FRED (美联储宏观数据)', 'FRED_API_KEY'), ('deepseek', 'DeepSeek', 'DEEPSEEK_API_KEY'), ('claude', 'Claude API', 'ANTHROPIC_API_KEY'), ('openai', 'ChatGPT (OpenAI)', 'OPENAI_API_KEY'), ('gemini', 'Google Gemini', 'GEMINI_API_KEY'), ('xai', 'XAI (Grok)', 'XAI_API_KEY')] %}
             {% if svc[0] not in configured %}
             <div class="bg-dark-600 rounded-lg p-4 space-y-3 opacity-80" data-service="{{ svc[0] }}">
                 <div class="flex items-center justify-between gap-4">
