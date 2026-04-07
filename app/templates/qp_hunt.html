@@ -115,8 +115,8 @@
 
     <div id="factor-panel" class="hidden mt-2 bg-dark-700 border border-dark-600 rounded-xl overflow-hidden">
         <div class="p-4">
-            <p class="text-xs text-gray-500 mb-3">开启因子并设置权重，搜索策略时系统会优先匹配对应类型的策略。</p>
-            <div class="grid grid-cols-2 md:grid-cols-3 gap-2.5" id="factor-cards">
+            <p class="text-xs text-gray-500 mb-3">开启因子并设置权重，系统将按因子偏好对策略排序，权重越高匹配加分越多。</p>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5" id="factor-cards">
                 <!-- 由 JS 渲染 -->
             </div>
         </div>
@@ -948,12 +948,24 @@ def entry_signal(df):
 <script>
 // ===== 策略因子 =====
 var FACTORS = [
-    {key:'momentum',     icon:'🚀', name:'动量因子',   desc:'追涨杀跌、RSI动量、52周高点突破类策略'},
-    {key:'mean_reversion',icon:'🔄',name:'均值回归',   desc:'超卖反弹、布林带回归、波动率收缩类策略'},
-    {key:'trend',        icon:'📈', name:'趋势跟踪',   desc:'均线交叉、MACD、价格通道突破类策略'},
-    {key:'value',        icon:'💎', name:'价值选股',   desc:'低估值、高股息、基本面驱动类策略'},
-    {key:'volatility',   icon:'⚡', name:'波动率套利', desc:'高IV卖方、期权时间价值、Theta收租类策略'},
-    {key:'arbitrage',    icon:'🌐', name:'统计套利',   desc:'配对交易、价差套利、跨市场中性类策略'},
+    // ── 技术因子 ──
+    {key:'momentum',      icon:'🚀', name:'动量',      cat:'技术因子', desc:'RSI动量、52周高点突破、短期追涨类策略'},
+    {key:'mean_reversion',icon:'🔄', name:'均值回归',  cat:'技术因子', desc:'超卖反弹、布林带回归、波动率收缩类策略'},
+    {key:'trend',         icon:'📈', name:'趋势跟踪',  cat:'技术因子', desc:'均线交叉、MACD、价格通道突破类策略'},
+    {key:'breakout',      icon:'⚡', name:'突破',      cat:'技术因子', desc:'成交量放大确认、阻力位突破、新高买入类策略'},
+    {key:'volume',        icon:'📦', name:'量价',      cat:'技术因子', desc:'OBV趋势、量价背离、缩量整理放量突破类策略'},
+    // ── 基本面因子 ──
+    {key:'value',         icon:'💎', name:'价值',      cat:'基本面因子', desc:'低P/E、低P/B、高股息率、自由现金流高'},
+    {key:'quality',       icon:'🏆', name:'质量',      cat:'基本面因子', desc:'高ROE、低负债率、稳定利润率、盈利质量优'},
+    {key:'growth',        icon:'🌱', name:'成长',      cat:'基本面因子', desc:'营收加速增长、盈利超预期、EPS持续上修'},
+    // ── 套利/事件 ──
+    {key:'volatility',    icon:'🎯', name:'波动率',    cat:'套利/事件', desc:'高IV卖方、期权时间价值Theta收租类策略'},
+    {key:'arbitrage',     icon:'🌐', name:'统计套利',  cat:'套利/事件', desc:'配对交易、价差套利、跨市场中性类策略'},
+    {key:'event_driven',  icon:'📰', name:'事件驱动',  cat:'套利/事件', desc:'财报超预期、并购、分拆、指数调整事件催化'},
+    // ── 宏观/风险 ──
+    {key:'low_vol',       icon:'🛡', name:'低波动',    cat:'宏观/风险', desc:'Beta<1、历史波动率低、防御性行业配置策略'},
+    {key:'macro',         icon:'🌍', name:'宏观对冲',  cat:'宏观/风险', desc:'VIX体制切换、利率敏感、商品/汇率驱动策略'},
+    {key:'size',          icon:'🎯', name:'规模因子',  cat:'宏观/风险', desc:'小盘股溢价、市值下沿筛选、流动性补偿策略'},
 ];
 var factorState = {};
 FACTORS.forEach(function(f){ factorState[f.key]={enabled:false,weight:1}; });
@@ -970,23 +982,29 @@ function toggleFactorPanel(){
 
 function renderFactorCards(){
     var c=document.getElementById('factor-cards');
-    c.innerHTML=FACTORS.map(function(f){
+    var html='', lastCat='';
+    FACTORS.forEach(function(f){
         var s=factorState[f.key]||{enabled:false,weight:1};
+        if(f.cat!==lastCat){
+            // span all columns for category label
+            html+='<div class="col-span-full pt-1 pb-0.5"><span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">'+f.cat+'</span></div>';
+            lastCat=f.cat;
+        }
         var dots=[1,2,3].map(function(w){
             var active=s.weight>=w&&s.enabled;
-            var half=s.weight>=w&&!s.enabled;
-            return '<button class="w-3.5 h-3.5 rounded-full border transition-colors '+(active?'bg-accent-blue border-accent-blue':half?'bg-gray-500 border-gray-500':'bg-transparent border-dark-400')+'" onclick="setFactorWeight(event,\''+f.key+'\','+w+')"></button>';
+            return '<button class="w-3.5 h-3.5 rounded-full border transition-colors '+(active?'bg-accent-blue border-accent-blue':'bg-transparent border-dark-400')+'" onclick="setFactorWeight(event,\''+f.key+'\','+w+')"></button>';
         }).join('');
-        return '<div class="factor-card p-3.5 rounded-xl border cursor-pointer transition-all '+(s.enabled?'bg-accent-blue/10 border-accent-blue/40':'bg-dark-800 border-dark-600')+'" onclick="toggleFactor(\''+f.key+'\')">'+
-            '<div class="flex items-start justify-between mb-2">'+
-            '<div class="flex items-center gap-1.5"><span class="text-xl">'+f.icon+'</span><span class="text-sm font-medium text-white">'+f.name+'</span></div>'+
-            '<div style="width:30px;height:17px;border-radius:999px;background:'+(s.enabled?'#3b82f6':'#374151')+';position:relative;flex-shrink:0;transition:background 0.2s">'+
-            '<div style="position:absolute;top:2px;'+(s.enabled?'left:15px':'left:2px')+';width:13px;height:13px;border-radius:50%;background:white;transition:left 0.2s"></div></div>'+
+        html+='<div class="factor-card p-3 rounded-xl border cursor-pointer transition-all '+(s.enabled?'bg-accent-blue/10 border-accent-blue/40':'bg-dark-800 border-dark-600')+'" onclick="toggleFactor(\''+f.key+'\')">'+
+            '<div class="flex items-start justify-between mb-1.5">'+
+            '<div class="flex items-center gap-1.5"><span class="text-lg leading-none">'+f.icon+'</span><span class="text-xs font-medium text-white">'+f.name+'</span></div>'+
+            '<div style="width:26px;height:15px;border-radius:999px;background:'+(s.enabled?'#3b82f6':'#374151')+';position:relative;flex-shrink:0;transition:background 0.2s">'+
+            '<div style="position:absolute;top:2px;'+(s.enabled?'left:13px':'left:2px')+';width:11px;height:11px;border-radius:50%;background:white;transition:left 0.2s"></div></div>'+
             '</div>'+
-            '<p class="text-[11px] text-gray-500 mb-2.5 leading-relaxed">'+f.desc+'</p>'+
-            '<div class="flex items-center gap-1.5"><span class="text-[10px] text-gray-500 mr-0.5">权重</span>'+dots+'</div>'+
+            '<p class="text-[10px] text-gray-500 mb-2 leading-snug line-clamp-2">'+f.desc+'</p>'+
+            '<div class="flex items-center gap-1"><span class="text-[9px] text-gray-600 mr-0.5">权重</span>'+dots+'</div>'+
             '</div>';
-    }).join('');
+    });
+    c.innerHTML=html;
 }
 
 function toggleFactor(key){

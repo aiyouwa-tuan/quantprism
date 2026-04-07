@@ -37,7 +37,7 @@ from sync import sync_positions_from_broker
 from stock_screener import SECTORS, diagnose_stock, screen_sector, build_combo
 from ibkr_options import fetch_ibkr_options_chain, filter_options_for_sell_put
 from strategy_library import get_library as get_strategy_library, filter_library, get_strategy_by_id
-from strategy_hunter import compute_match_score, search_github_strategies, ai_generate_strategy, ai_generate_strategies, generate_strategy_code
+from strategy_hunter import compute_match_score, compute_factor_bonus, search_github_strategies, ai_generate_strategy, ai_generate_strategies, generate_strategy_code
 from ai_analysis import get_active_provider
 from scanner import scan_index, INDEX_MAP
 
@@ -1813,8 +1813,9 @@ def hunt_page(request: Request, db: Session = Depends(get_db)):
                 dd_range = s.get("max_drawdown_range", [0, 100])
                 if dd_range[0] > dd_target * 100:
                     continue
-            score = compute_match_score(s, goals_dict)
-            scored.append({**s, "match_pct": round(score)})
+            base = compute_match_score(s, goals_dict)
+            bonus = compute_factor_bonus(s, factors)
+            scored.append({**s, "match_pct": round(min(100, base + bonus))})
         scored.sort(key=lambda x: x["match_pct"], reverse=True)
         qualified = [s for s in scored if s["match_pct"] >= MIN_MATCH]
         if qualified:
@@ -1827,8 +1828,9 @@ def hunt_page(request: Request, db: Session = Depends(get_db)):
         # Always prepend user's custom strategies regardless of match score
         custom_pinned = []
         for s in custom_strategies:
-            score = compute_match_score(s, goals_dict)
-            custom_pinned.append({**s, "match_pct": round(score)})
+            base = compute_match_score(s, goals_dict)
+            bonus = compute_factor_bonus(s, factors)
+            custom_pinned.append({**s, "match_pct": round(min(100, base + bonus))})
         strategies = custom_pinned + strategies
     else:
         # No goals set: still show custom strategies
@@ -2300,7 +2302,12 @@ async def hunt_add_strategy(request: Request, db: Session = Depends(get_db)):
 async def hunt_save_factors(request: Request, db: Session = Depends(get_db)):
     """保存用户的策略因子偏好"""
     form = await request.form()
-    factor_keys = ["momentum", "mean_reversion", "trend", "value", "volatility", "arbitrage"]
+    factor_keys = [
+        "momentum", "mean_reversion", "trend", "breakout", "volume",
+        "value", "quality", "growth",
+        "volatility", "arbitrage", "event_driven",
+        "low_vol", "macro", "size",
+    ]
     factors = {}
     for key in factor_keys:
         factors[key] = {

@@ -670,6 +670,51 @@ def compute_match_score(strategy_info: dict, goals: dict) -> float:
     return round(min(max(score, 0), 100), 1)
 
 
+def compute_factor_bonus(strategy_info: dict, factors: dict) -> float:
+    """
+    根据用户开启的因子偏好给策略加分（最多 +20 分）。
+
+    匹配逻辑：strategy style / tags 与因子 key 对应，
+    每个命中的因子按 weight(1-3) 给 3/6/9 分，总上限 20。
+    """
+    if not factors:
+        return 0.0
+
+    # 因子 key → 匹配的 style 或 tag 关键词
+    FACTOR_MAP = {
+        "momentum":      ["momentum", "动量"],
+        "mean_reversion":["mean_reversion", "均值回归"],
+        "trend":         ["trend", "趋势"],
+        "breakout":      ["breakout", "突破"],
+        "volume":        ["volume", "量价", "成交量"],
+        "value":         ["value", "价值"],
+        "quality":       ["quality", "质量", "roe"],
+        "growth":        ["growth", "成长"],
+        "volatility":    ["volatility", "income", "sell_put", "期权", "波动率"],
+        "arbitrage":     ["arbitrage", "套利", "statistical"],
+        "event_driven":  ["event", "事件", "earnings"],
+        "low_vol":       ["low_vol", "低波动", "defensive"],
+        "macro":         ["macro", "宏观", "vix"],
+        "size":          ["size", "small_cap", "规模", "小盘"],
+    }
+
+    style = (strategy_info.get("style") or "").lower()
+    tags = [str(t).lower() for t in strategy_info.get("tags", [])]
+    instrument = (strategy_info.get("instrument") or "").lower()
+    all_text = [style, instrument] + tags
+
+    bonus = 0.0
+    for key, state in factors.items():
+        if not state.get("enabled"):
+            continue
+        weight = max(1, min(3, int(state.get("weight", 1))))
+        keywords = FACTOR_MAP.get(key, [key])
+        if any(kw in txt for kw in keywords for txt in all_text):
+            bonus += weight * 3.0  # weight 1→+3, 2→+6, 3→+9
+
+    return min(20.0, bonus)
+
+
 def _holding_period_similarity(target: str, actual: str) -> float:
     """计算持仓周期相似度 0-1"""
     if actual == "unknown" or target == "unknown":
