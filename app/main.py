@@ -1795,6 +1795,7 @@ def hunt_page(request: Request, db: Session = Depends(get_db)):
     factors = json.loads(factor_cfg.value) if factor_cfg and factor_cfg.value else {}
 
     strategies = []
+    low_match_fallback = False
     if goals:
         goals_dict = {
             "annual_return": goals.annual_return_target,
@@ -1802,25 +1803,36 @@ def hunt_page(request: Request, db: Session = Depends(get_db)):
             "holding_period": goals.holding_period or "days_weeks",
         }
         MIN_MATCH = 40
-        # 硬筛选：回撤目标有值时，只保留预估回撤下限 ≤ 目标的策略
         dd_target = goals.max_drawdown
-        for s in library:
+
+        # Score built-in library (exclude custom strategies — handled separately)
+        builtin_library = get_strategy_library()
+        scored = []
+        for s in builtin_library:
             if dd_target is not None:
                 dd_range = s.get("max_drawdown_range", [0, 100])
                 if dd_range[0] > dd_target * 100:
-                    continue  # 该策略的最低回撤都超过目标，跳过
+                    continue
             score = compute_match_score(s, goals_dict)
-            strategies.append({**s, "match_pct": round(score)})
-        strategies.sort(key=lambda x: x["match_pct"], reverse=True)
-        qualified = [s for s in strategies if s["match_pct"] >= MIN_MATCH]
+            scored.append({**s, "match_pct": round(score)})
+        scored.sort(key=lambda x: x["match_pct"], reverse=True)
+        qualified = [s for s in scored if s["match_pct"] >= MIN_MATCH]
         if qualified:
             strategies = qualified[:10]
             low_match_fallback = False
         else:
-            strategies = strategies[:5] if strategies else []
+            strategies = scored[:5] if scored else []
             low_match_fallback = bool(strategies)
+
+        # Always prepend user's custom strategies regardless of match score
+        custom_pinned = []
+        for s in custom_strategies:
+            score = compute_match_score(s, goals_dict)
+            custom_pinned.append({**s, "match_pct": round(score)})
+        strategies = custom_pinned + strategies
     else:
-        strategies = []
+        # No goals set: still show custom strategies
+        strategies = [{**s, "match_pct": 0} for s in custom_strategies]
         low_match_fallback = False
 
     return templates.TemplateResponse("qp_hunt.html", {
