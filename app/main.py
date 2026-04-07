@@ -29,7 +29,7 @@ from sqlalchemy.orm import Session
 from models import (init_db, get_db, UserGoals, Position, TradeJournal, JournalCompliance,
                      StrategyConfig, BacktestRun, TradeSignal, StrategyLeaderboard,
                      AlertConfig, AlertHistory, ExecutionLog, ApiConfig, WatchlistItem,
-                     ParallelBacktestRun, Base, engine)
+                     ParallelBacktestRun, SystemConfig, Base, engine)
 from calculator import calculate_position_size, derive_constraints, check_can_open_position
 from schemas import GoalsCreate, PositionCreate, CalculateRequest, PositionClose
 from market_data import fetch_current_price, fetch_vix, detect_market_regime, fetch_stock_history, compute_technicals
@@ -1784,8 +1784,16 @@ def save_goals_v4(
 @app.get("/hunt", response_class=HTMLResponse)
 def hunt_page(request: Request, db: Session = Depends(get_db)):
     goals = db.query(UserGoals).order_by(UserGoals.updated_at.desc()).first()
-    # Pre-load library strategies for initial display
-    library = get_strategy_library()
+
+    # Load custom user strategies and merge with library
+    custom_cfg = db.query(SystemConfig).filter(SystemConfig.key == "custom_strategies").first()
+    custom_strategies = json.loads(custom_cfg.value) if custom_cfg and custom_cfg.value else []
+    library = get_strategy_library() + custom_strategies
+
+    # Load factor preferences for template
+    factor_cfg = db.query(SystemConfig).filter(SystemConfig.key == "hunt_factors").first()
+    factors = json.loads(factor_cfg.value) if factor_cfg and factor_cfg.value else {}
+
     strategies = []
     if goals:
         goals_dict = {
@@ -1823,6 +1831,7 @@ def hunt_page(request: Request, db: Session = Depends(get_db)):
         "min_match": 40,
         "param_hints": PARAM_HINTS,
         "param_labels": PARAM_LABELS,
+        "factors": factors,
     })
 
 
@@ -2153,6 +2162,69 @@ def hunt_save_strategy(
     return HTMLResponse(
         f'<span class="text-accent-green text-xs">✓ 已加入回测，可在回测实验室选择「{name[:30]}」</span>'
     )
+
+
+@app.post("/hunt/add-strategy")
+async def hunt_add_strategy(
+    request: Request,
+    db: Session = Depends(get_db),
+    name: str = Form(...),
+    description: str = Form(""),
+    instrument: str = Form("stock"),
+    direction: str = Form("bullish"),
+    strategy_type: str = Form("momentum"),
+    annual_min: int = Form(10),
+    annual_max: int = Form(20),
+    drawdown_max: int = Form(20),
+    tags: str = Form(""),
+):
+    """保存用户自定义策略到自定义策略库"""
+    import re
+    cfg = db.query(SystemConfig).filter(SystemConfig.key == "custom_strategies").first()
+    strategies = json.loads(cfg.value) if cfg and cfg.value else []
+    strategy_id = f"custom_{re.sub(r'[^a-z0-9]', '_', name.lower())[:25]}_{len(strategies)+1}"
+    strategy = {
+        "id": strategy_id,
+        "name": name,
+        "description": description or f"用户自定义{strategy_type}策略",
+        "source": "我的策略",
+        "instrument": instrument,
+        "direction": direction,
+        "style": strategy_type,
+        "risk_level": "medium",
+        "annual_return_range": [annual_min, annual_max],
+        "max_drawdown_range": [drawdown_max // 2, drawdown_max],
+        "win_rate_pct": 55,
+        "tags": [t.strip() for t in tags.split(",") if t.strip()],
+        "is_custom": True,
+    }
+    strategies.append(strategy)
+    if cfg:
+        cfg.value = json.dumps(strategies, ensure_ascii=False)
+    else:
+        db.add(SystemConfig(key="custom_strategies", value=json.dumps(strategies, ensure_ascii=False)))
+    db.commit()
+    return HTMLResponse(f'<span class="text-accent-green text-sm">✓ 策略「{name[:20]}」已添加到库中</span>')
+
+
+@app.post("/hunt/save-factors")
+async def hunt_save_factors(request: Request, db: Session = Depends(get_db)):
+    """保存用户的策略因子偏好"""
+    form = await request.form()
+    factor_keys = ["momentum", "mean_reversion", "trend", "value", "volatility", "arbitrage"]
+    factors = {}
+    for key in factor_keys:
+        factors[key] = {
+            "enabled": form.get(f"factor_{key}_enabled") == "1",
+            "weight": int(form.get(f"factor_{key}_weight", 1) or 1),
+        }
+    cfg = db.query(SystemConfig).filter(SystemConfig.key == "hunt_factors").first()
+    if cfg:
+        cfg.value = json.dumps(factors, ensure_ascii=False)
+    else:
+        db.add(SystemConfig(key="hunt_factors", value=json.dumps(factors, ensure_ascii=False)))
+    db.commit()
+    return HTMLResponse('<span class="text-accent-green text-xs">✓ 已保存，下次搜索生效</span>')
 
 
 @app.post("/settings/system")

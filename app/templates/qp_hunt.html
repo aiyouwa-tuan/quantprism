@@ -17,6 +17,10 @@
         </p>
         {% endif %}
     </div>
+    <button onclick="openAddModal()"
+            class="flex items-center gap-2 bg-dark-700 border border-dark-500 text-gray-300 px-4 py-2 rounded-lg text-sm font-medium hover:bg-dark-600 hover:border-accent-blue/50 hover:text-white transition">
+        <span class="text-base leading-none">＋</span> 添加我的策略
+    </button>
 </div>
 
 <!-- 搜索区域 -->
@@ -97,6 +101,35 @@
     </script>
 </div>
 
+<!-- 策略因子配置 -->
+<div class="mb-4">
+    <button onclick="toggleFactorPanel()"
+            class="w-full flex items-center justify-between px-4 py-3 bg-dark-700 border border-dark-600 rounded-xl hover:bg-dark-600/40 transition text-sm">
+        <div class="flex items-center gap-2">
+            <span>⚗️</span>
+            <span class="font-medium text-white">策略因子偏好</span>
+            <span class="text-xs text-gray-500 hidden sm:inline">· 告诉系统你偏好哪类策略因子，影响搜索匹配</span>
+        </div>
+        <span id="factor-chevron" class="text-gray-400 text-xs" style="transition:transform 0.2s">▼</span>
+    </button>
+
+    <div id="factor-panel" class="hidden mt-2 bg-dark-700 border border-dark-600 rounded-xl overflow-hidden">
+        <div class="p-4">
+            <p class="text-xs text-gray-500 mb-3">开启因子并设置权重，搜索策略时系统会优先匹配对应类型的策略。</p>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-2.5" id="factor-cards">
+                <!-- 由 JS 渲染 -->
+            </div>
+        </div>
+        <div class="px-4 py-3 bg-dark-800/60 border-t border-dark-600 flex items-center justify-between">
+            <span id="factor-save-msg" class="text-xs"></span>
+            <button onclick="saveFactors()"
+                    class="text-sm bg-accent-blue text-white px-5 py-1.5 rounded-lg hover:brightness-110 transition font-medium">
+                保存因子偏好
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- 后台研究状态横幅 -->
 <div id="research-banner" class="hidden mb-4 bg-dark-700 border border-accent-blue/30 rounded-xl p-4">
     <div class="flex items-center justify-between mb-3">
@@ -148,12 +181,18 @@
                 <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center gap-3">
                         <span class="text-lg">
-                            {% if 'github' in (s.source or '') %}&#x1F4E6;{% elif s.instrument and 'put' in s.instrument %}&#x1F4B0;{% else %}&#x1F4CA;{% endif %}
+                            {% if s.is_custom %}✏️{% elif 'github' in (s.source or '') %}&#x1F4E6;{% elif s.instrument and 'put' in s.instrument %}&#x1F4B0;{% else %}&#x1F4CA;{% endif %}
                         </span>
                         <h3 class="text-white font-medium">{{ s.name or s.display_name or '未命名策略' }}</h3>
+                        {% if s.is_custom %}
+                        <span class="px-2 py-0.5 rounded text-xs bg-accent-blue/20 text-accent-blue border border-accent-blue/40">
+                            我的策略
+                        </span>
+                        {% else %}
                         <span class="px-2 py-0.5 rounded text-xs bg-gray-500/20 text-gray-400 border border-gray-500/30">
                             {{ s.source or 'library' }}
                         </span>
+                        {% endif %}
                     </div>
                     <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-accent-green/20 text-accent-green">
                         {{ s.match_pct }}% 匹配
@@ -426,6 +465,302 @@ function loadResearchResults() {
             }
         });
 })();
+</script>
+
+<!-- ===== 添加策略 Modal ===== -->
+<div id="add-strategy-modal" class="fixed inset-0 z-50 hidden flex items-start justify-center bg-black/70 backdrop-blur-sm overflow-y-auto py-8 px-4"
+     onclick="if(event.target===this)closeAddModal()">
+    <div class="bg-dark-800 border border-dark-600 rounded-2xl w-full max-w-lg shadow-2xl">
+        <!-- Header -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-dark-600">
+            <h2 class="text-white font-semibold text-base">＋ 添加我的策略</h2>
+            <button onclick="closeAddModal()" class="text-gray-400 hover:text-white transition text-lg leading-none">✕</button>
+        </div>
+
+        <div class="p-6 space-y-5">
+            <!-- 名称 -->
+            <div>
+                <label class="block text-sm text-gray-400 mb-1.5">策略名称 <span class="text-accent-red text-xs">必填</span></label>
+                <input id="add-name" type="text" placeholder="例：我的动量追高策略"
+                       class="w-full bg-dark-700 border border-dark-500 rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-accent-blue/70 transition">
+            </div>
+
+            <!-- 描述 -->
+            <div>
+                <label class="block text-sm text-gray-400 mb-1.5">策略逻辑 <span class="text-xs text-gray-600">选填</span></label>
+                <textarea id="add-desc" rows="2" placeholder="简述入场/出场逻辑，或记录策略核心思路..."
+                          class="w-full bg-dark-700 border border-dark-500 rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-accent-blue/70 transition resize-none"></textarea>
+            </div>
+
+            <!-- 交易标的 -->
+            <div>
+                <label class="block text-sm text-gray-400 mb-2">交易标的</label>
+                <div class="grid grid-cols-4 gap-2" id="instrument-cards">
+                    <button class="inst-card flex flex-col items-center gap-1 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-xs" data-val="stock">
+                        <span class="text-lg">📈</span><span class="text-gray-300">股票</span>
+                    </button>
+                    <button class="inst-card flex flex-col items-center gap-1 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-xs" data-val="etf">
+                        <span class="text-lg">🏦</span><span class="text-gray-300">ETF</span>
+                    </button>
+                    <button class="inst-card flex flex-col items-center gap-1 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-xs" data-val="sell_put">
+                        <span class="text-lg">⚙️</span><span class="text-gray-300">期权</span>
+                    </button>
+                    <button class="inst-card flex flex-col items-center gap-1 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-xs" data-val="crypto">
+                        <span class="text-lg">₿</span><span class="text-gray-300">加密货币</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 方向 -->
+            <div>
+                <label class="block text-sm text-gray-400 mb-2">策略方向</label>
+                <div class="grid grid-cols-3 gap-2" id="direction-cards">
+                    <button class="dir-card flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-sm" data-val="bullish">
+                        <span>📈</span><span class="text-gray-300">看涨</span>
+                    </button>
+                    <button class="dir-card flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-sm" data-val="bearish">
+                        <span>📉</span><span class="text-gray-300">看跌</span>
+                    </button>
+                    <button class="dir-card flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-sm" data-val="neutral">
+                        <span>⚖️</span><span class="text-gray-300">中性</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 策略风格 -->
+            <div>
+                <label class="block text-sm text-gray-400 mb-2">策略风格</label>
+                <div class="grid grid-cols-4 gap-2" id="style-cards">
+                    <button class="style-card flex flex-col items-center gap-1 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-xs" data-val="momentum">
+                        <span class="text-base">🚀</span><span class="text-gray-300">动量</span>
+                    </button>
+                    <button class="style-card flex flex-col items-center gap-1 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-xs" data-val="mean_reversion">
+                        <span class="text-base">🔄</span><span class="text-gray-300">均值回归</span>
+                    </button>
+                    <button class="style-card flex flex-col items-center gap-1 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-xs" data-val="trend">
+                        <span class="text-base">📊</span><span class="text-gray-300">趋势</span>
+                    </button>
+                    <button class="style-card flex flex-col items-center gap-1 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-xs" data-val="income">
+                        <span class="text-base">💰</span><span class="text-gray-300">收入型</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 预期年化收益 -->
+            <div>
+                <div class="flex justify-between items-center mb-2">
+                    <label class="text-sm text-gray-400">预期年化收益</label>
+                    <span class="text-sm font-bold text-accent-green" id="return-label">15–25%</span>
+                </div>
+                <div class="flex gap-3 items-center">
+                    <span class="text-xs text-gray-600 w-4">低</span>
+                    <input type="range" id="return-min" min="0" max="100" value="15"
+                           class="flex-1 h-1.5 accent-green-500" oninput="updateReturnLabel()">
+                    <span class="text-gray-600 text-xs">~</span>
+                    <input type="range" id="return-max" min="0" max="100" value="25"
+                           class="flex-1 h-1.5 accent-green-500" oninput="updateReturnLabel()">
+                    <span class="text-xs text-gray-600 w-4">高</span>
+                </div>
+                <div class="flex justify-between text-[10px] text-gray-600 mt-1 px-4">
+                    <span>0%</span><span>50%</span><span>100%+</span>
+                </div>
+            </div>
+
+            <!-- 最大回撤 -->
+            <div>
+                <div class="flex justify-between items-center mb-2">
+                    <label class="text-sm text-gray-400">可接受最大回撤</label>
+                    <span class="text-sm font-bold text-accent-red" id="drawdown-label">15%</span>
+                </div>
+                <div class="flex gap-3 items-center">
+                    <span class="text-xs text-gray-600">低</span>
+                    <input type="range" id="drawdown-max" min="5" max="60" value="15"
+                           class="flex-1 h-1.5 accent-red-500"
+                           oninput="document.getElementById('drawdown-label').textContent=this.value+'%'">
+                    <span class="text-xs text-gray-600">高</span>
+                </div>
+            </div>
+
+            <!-- 标签 -->
+            <div>
+                <label class="block text-sm text-gray-400 mb-2">快速打标签 <span class="text-xs text-gray-600">可多选</span></label>
+                <div class="flex flex-wrap gap-2" id="tag-chips"></div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="px-6 py-4 border-t border-dark-600 flex items-center justify-between">
+            <span id="add-strategy-msg" class="text-sm"></span>
+            <div class="flex gap-3">
+                <button onclick="closeAddModal()"
+                        class="text-sm text-gray-400 px-4 py-2 rounded-lg hover:text-white transition">取消</button>
+                <button onclick="submitAddStrategy()"
+                        class="text-sm bg-accent-blue text-white px-6 py-2 rounded-lg font-bold hover:brightness-110 transition">
+                    添加到库 →
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ===== 策略因子 =====
+var FACTORS = [
+    {key:'momentum',     icon:'🚀', name:'动量因子',   desc:'追涨杀跌、RSI动量、52周高点突破类策略'},
+    {key:'mean_reversion',icon:'🔄',name:'均值回归',   desc:'超卖反弹、布林带回归、波动率收缩类策略'},
+    {key:'trend',        icon:'📈', name:'趋势跟踪',   desc:'均线交叉、MACD、价格通道突破类策略'},
+    {key:'value',        icon:'💎', name:'价值选股',   desc:'低估值、高股息、基本面驱动类策略'},
+    {key:'volatility',   icon:'⚡', name:'波动率套利', desc:'高IV卖方、期权时间价值、Theta收租类策略'},
+    {key:'arbitrage',    icon:'🌐', name:'统计套利',   desc:'配对交易、价差套利、跨市场中性类策略'},
+];
+var factorState = {};
+FACTORS.forEach(function(f){ factorState[f.key]={enabled:false,weight:1}; });
+{% if factors %}
+(function(){var s={{ factors|tojson }};Object.keys(s).forEach(function(k){if(factorState[k])factorState[k]=s[k];});})();
+{% endif %}
+
+function toggleFactorPanel(){
+    var p=document.getElementById('factor-panel'),ch=document.getElementById('factor-chevron');
+    var hidden=p.classList.toggle('hidden');
+    ch.style.transform=hidden?'':'rotate(180deg)';
+    if(!hidden)renderFactorCards();
+}
+
+function renderFactorCards(){
+    var c=document.getElementById('factor-cards');
+    c.innerHTML=FACTORS.map(function(f){
+        var s=factorState[f.key]||{enabled:false,weight:1};
+        var dots=[1,2,3].map(function(w){
+            var active=s.weight>=w&&s.enabled;
+            var half=s.weight>=w&&!s.enabled;
+            return '<button class="w-3.5 h-3.5 rounded-full border transition-colors '+(active?'bg-accent-blue border-accent-blue':half?'bg-gray-500 border-gray-500':'bg-transparent border-dark-400')+'" onclick="setFactorWeight(event,\''+f.key+'\','+w+')"></button>';
+        }).join('');
+        return '<div class="factor-card p-3.5 rounded-xl border cursor-pointer transition-all '+(s.enabled?'bg-accent-blue/10 border-accent-blue/40':'bg-dark-800 border-dark-600')+'" onclick="toggleFactor(\''+f.key+'\')">'+
+            '<div class="flex items-start justify-between mb-2">'+
+            '<div class="flex items-center gap-1.5"><span class="text-xl">'+f.icon+'</span><span class="text-sm font-medium text-white">'+f.name+'</span></div>'+
+            '<div style="width:30px;height:17px;border-radius:999px;background:'+(s.enabled?'#3b82f6':'#374151')+';position:relative;flex-shrink:0;transition:background 0.2s">'+
+            '<div style="position:absolute;top:2px;'+(s.enabled?'left:15px':'left:2px')+';width:13px;height:13px;border-radius:50%;background:white;transition:left 0.2s"></div></div>'+
+            '</div>'+
+            '<p class="text-[11px] text-gray-500 mb-2.5 leading-relaxed">'+f.desc+'</p>'+
+            '<div class="flex items-center gap-1.5"><span class="text-[10px] text-gray-500 mr-0.5">权重</span>'+dots+'</div>'+
+            '</div>';
+    }).join('');
+}
+
+function toggleFactor(key){
+    factorState[key]=factorState[key]||{enabled:false,weight:1};
+    factorState[key].enabled=!factorState[key].enabled;
+    renderFactorCards();
+}
+function setFactorWeight(e,key,w){
+    e.stopPropagation();
+    factorState[key]=factorState[key]||{enabled:false,weight:1};
+    factorState[key].weight=w;
+    factorState[key].enabled=true;
+    renderFactorCards();
+}
+async function saveFactors(){
+    var fd=new FormData();
+    FACTORS.forEach(function(f){
+        var s=factorState[f.key]||{enabled:false,weight:1};
+        fd.append('factor_'+f.key+'_enabled',s.enabled?'1':'0');
+        fd.append('factor_'+f.key+'_weight',s.weight);
+    });
+    var el=document.getElementById('factor-save-msg');
+    el.innerHTML='<span class="text-gray-400 text-xs">保存中...</span>';
+    try{
+        var r=await fetch('/hunt/save-factors',{method:'POST',body:fd});
+        el.innerHTML=await r.text();
+    }catch(e){el.innerHTML='<span class="text-accent-red text-xs">保存失败</span>';}
+}
+
+// ===== 添加策略 Modal =====
+var PRESET_TAGS=['趋势','动量','均值回归','价值','收入型','期权','套利','量化','日内','波段','长期','低风险'];
+var selectedTags=[];
+var selectedInstrument='stock', selectedDirection='bullish', selectedStyle='momentum';
+
+function openAddModal(){
+    document.getElementById('add-strategy-modal').classList.remove('hidden');
+    document.body.style.overflow='hidden';
+    renderTagChips();
+    // init first card selections
+    setCardActive('instrument-cards','inst-card','stock');
+    setCardActive('direction-cards','dir-card','bullish');
+    setCardActive('style-cards','style-card','momentum');
+}
+function closeAddModal(){
+    document.getElementById('add-strategy-modal').classList.add('hidden');
+    document.body.style.overflow='';
+    document.getElementById('add-strategy-msg').innerHTML='';
+}
+
+function setCardActive(groupId, cls, val){
+    document.getElementById(groupId).querySelectorAll('.'+cls).forEach(function(b){
+        var active=b.dataset.val===val;
+        b.classList.toggle('border-accent-blue/60',active);
+        b.classList.toggle('bg-dark-600',active);
+        b.classList.toggle('border-dark-500',!active);
+        b.classList.toggle('bg-dark-700',!active);
+    });
+}
+
+document.addEventListener('DOMContentLoaded',function(){
+    ['inst-card','dir-card','style-card'].forEach(function(cls,i){
+        var groupIds=['instrument-cards','direction-cards','style-cards'];
+        var vals=['stock','bullish','momentum'];
+        document.getElementById(groupIds[i]).querySelectorAll('.'+cls).forEach(function(b){
+            b.addEventListener('click',function(){
+                if(cls==='inst-card') selectedInstrument=this.dataset.val;
+                if(cls==='dir-card') selectedDirection=this.dataset.val;
+                if(cls==='style-card') selectedStyle=this.dataset.val;
+                setCardActive(groupIds[i],cls,this.dataset.val);
+            });
+        });
+    });
+});
+
+function renderTagChips(){
+    var c=document.getElementById('tag-chips');
+    c.innerHTML=PRESET_TAGS.map(function(t){
+        var sel=selectedTags.indexOf(t)>=0;
+        return '<button class="px-2.5 py-1 rounded-full text-xs border transition '+(sel?'bg-accent-blue/20 border-accent-blue/60 text-accent-blue':'bg-dark-700 border-dark-600 text-gray-400 hover:border-dark-400')+'" onclick="toggleTag(\''+t+'\')">'+t+'</button>';
+    }).join('');
+}
+function toggleTag(t){
+    var i=selectedTags.indexOf(t);
+    if(i>=0)selectedTags.splice(i,1);else selectedTags.push(t);
+    renderTagChips();
+}
+function updateReturnLabel(){
+    var mn=parseInt(document.getElementById('return-min').value);
+    var mx=parseInt(document.getElementById('return-max').value);
+    if(mn>mx){var tmp=mn;mn=mx;mx=tmp;}
+    document.getElementById('return-label').textContent=mn+'–'+mx+'%';
+}
+async function submitAddStrategy(){
+    var name=document.getElementById('add-name').value.trim();
+    if(!name){document.getElementById('add-strategy-msg').innerHTML='<span class="text-accent-red">请填写策略名称</span>';return;}
+    var mn=parseInt(document.getElementById('return-min').value);
+    var mx=parseInt(document.getElementById('return-max').value);
+    if(mn>mx){var tmp=mn;mn=mx;mx=tmp;}
+    var fd=new FormData();
+    fd.append('name',name);
+    fd.append('description',document.getElementById('add-desc').value.trim());
+    fd.append('instrument',selectedInstrument);
+    fd.append('direction',selectedDirection);
+    fd.append('strategy_type',selectedStyle);
+    fd.append('annual_min',mn);
+    fd.append('annual_max',mx);
+    fd.append('drawdown_max',document.getElementById('drawdown-max').value);
+    fd.append('tags',selectedTags.join(','));
+    document.getElementById('add-strategy-msg').innerHTML='<span class="text-gray-400">添加中...</span>';
+    try{
+        var r=await fetch('/hunt/add-strategy',{method:'POST',body:fd});
+        var txt=await r.text();
+        document.getElementById('add-strategy-msg').innerHTML=txt;
+        if(r.ok) setTimeout(function(){closeAddModal();location.reload();},1200);
+    }catch(e){document.getElementById('add-strategy-msg').innerHTML='<span class="text-accent-red">添加失败，请重试</span>';}
+}
 </script>
 
 {% endblock %}
