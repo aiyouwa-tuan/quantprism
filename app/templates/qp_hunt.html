@@ -468,128 +468,452 @@ function loadResearchResults() {
 </script>
 
 <!-- ===== 添加策略 Modal ===== -->
-<div id="add-strategy-modal" class="fixed inset-0 z-50 hidden flex items-start justify-center bg-black/70 backdrop-blur-sm overflow-y-auto py-8 px-4"
+<div id="add-strategy-modal" class="fixed inset-0 z-50 hidden flex items-start justify-center bg-black/70 backdrop-blur-sm overflow-y-auto py-6 px-4"
      onclick="if(event.target===this)closeAddModal()">
-    <div class="bg-dark-800 border border-dark-600 rounded-2xl w-full max-w-lg shadow-2xl">
+    <div class="bg-dark-800 border border-dark-600 rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col" style="max-height:90vh">
         <!-- Header -->
-        <div class="flex items-center justify-between px-6 py-4 border-b border-dark-600">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-dark-600 flex-shrink-0">
             <h2 class="text-white font-semibold text-base">＋ 添加我的策略</h2>
             <button onclick="closeAddModal()" class="text-gray-400 hover:text-white transition text-lg leading-none">✕</button>
         </div>
 
-        <div class="p-6 space-y-5">
-            <!-- 名称 -->
-            <div>
-                <label class="block text-sm text-gray-400 mb-1.5">策略名称 <span class="text-accent-red text-xs">必填</span></label>
-                <input id="add-name" type="text" placeholder="例：我的动量追高策略"
-                       class="w-full bg-dark-700 border border-dark-500 rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-accent-blue/70 transition">
-            </div>
-
-            <!-- 描述 -->
-            <div>
-                <label class="block text-sm text-gray-400 mb-1.5">策略逻辑 <span class="text-xs text-gray-600">选填</span></label>
-                <textarea id="add-desc" rows="2" placeholder="简述入场/出场逻辑，或记录策略核心思路..."
-                          class="w-full bg-dark-700 border border-dark-500 rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-accent-blue/70 transition resize-none"></textarea>
-            </div>
-
-            <!-- 交易标的 -->
-            <div>
-                <label class="block text-sm text-gray-400 mb-2">交易标的</label>
-                <div class="grid grid-cols-4 gap-2" id="instrument-cards">
-                    <button class="inst-card flex flex-col items-center gap-1 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-xs" data-val="stock">
-                        <span class="text-lg">📈</span><span class="text-gray-300">股票</span>
-                    </button>
-                    <button class="inst-card flex flex-col items-center gap-1 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-xs" data-val="etf">
-                        <span class="text-lg">🏦</span><span class="text-gray-300">ETF</span>
-                    </button>
-                    <button class="inst-card flex flex-col items-center gap-1 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-xs" data-val="sell_put">
-                        <span class="text-lg">⚙️</span><span class="text-gray-300">期权</span>
-                    </button>
-                    <button class="inst-card flex flex-col items-center gap-1 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-xs" data-val="crypto">
-                        <span class="text-lg">₿</span><span class="text-gray-300">加密货币</span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- 方向 -->
-            <div>
-                <label class="block text-sm text-gray-400 mb-2">策略方向</label>
-                <div class="grid grid-cols-3 gap-2" id="direction-cards">
-                    <button class="dir-card flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-sm" data-val="bullish">
-                        <span>📈</span><span class="text-gray-300">看涨</span>
-                    </button>
-                    <button class="dir-card flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-sm" data-val="bearish">
-                        <span>📉</span><span class="text-gray-300">看跌</span>
-                    </button>
-                    <button class="dir-card flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-sm" data-val="neutral">
-                        <span>⚖️</span><span class="text-gray-300">中性</span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- 策略风格 -->
-            <div>
-                <label class="block text-sm text-gray-400 mb-2">策略风格</label>
-                <div class="grid grid-cols-4 gap-2" id="style-cards">
-                    <button class="style-card flex flex-col items-center gap-1 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-xs" data-val="momentum">
-                        <span class="text-base">🚀</span><span class="text-gray-300">动量</span>
-                    </button>
-                    <button class="style-card flex flex-col items-center gap-1 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-xs" data-val="mean_reversion">
-                        <span class="text-base">🔄</span><span class="text-gray-300">均值回归</span>
-                    </button>
-                    <button class="style-card flex flex-col items-center gap-1 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-xs" data-val="trend">
-                        <span class="text-base">📊</span><span class="text-gray-300">趋势</span>
-                    </button>
-                    <button class="style-card flex flex-col items-center gap-1 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-xs" data-val="income">
-                        <span class="text-base">💰</span><span class="text-gray-300">收入型</span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- 预期年化收益 -->
-            <div>
-                <div class="flex justify-between items-center mb-2">
-                    <label class="text-sm text-gray-400">预期年化收益</label>
-                    <span class="text-sm font-bold text-accent-green" id="return-label">15–25%</span>
-                </div>
-                <div class="flex gap-3 items-center">
-                    <span class="text-xs text-gray-600 w-4">低</span>
-                    <input type="range" id="return-min" min="0" max="100" value="15"
-                           class="flex-1 h-1.5 accent-green-500" oninput="updateReturnLabel()">
-                    <span class="text-gray-600 text-xs">~</span>
-                    <input type="range" id="return-max" min="0" max="100" value="25"
-                           class="flex-1 h-1.5 accent-green-500" oninput="updateReturnLabel()">
-                    <span class="text-xs text-gray-600 w-4">高</span>
-                </div>
-                <div class="flex justify-between text-[10px] text-gray-600 mt-1 px-4">
-                    <span>0%</span><span>50%</span><span>100%+</span>
-                </div>
-            </div>
-
-            <!-- 最大回撤 -->
-            <div>
-                <div class="flex justify-between items-center mb-2">
-                    <label class="text-sm text-gray-400">可接受最大回撤</label>
-                    <span class="text-sm font-bold text-accent-red" id="drawdown-label">15%</span>
-                </div>
-                <div class="flex gap-3 items-center">
-                    <span class="text-xs text-gray-600">低</span>
-                    <input type="range" id="drawdown-max" min="5" max="60" value="15"
-                           class="flex-1 h-1.5 accent-red-500"
-                           oninput="document.getElementById('drawdown-label').textContent=this.value+'%'">
-                    <span class="text-xs text-gray-600">高</span>
-                </div>
-            </div>
-
-            <!-- 标签 -->
-            <div>
-                <label class="block text-sm text-gray-400 mb-2">快速打标签 <span class="text-xs text-gray-600">可多选</span></label>
-                <div class="flex flex-wrap gap-2" id="tag-chips"></div>
-            </div>
+        <!-- Tabs -->
+        <div class="flex border-b border-dark-600 flex-shrink-0 px-2">
+            <button class="modal-tab-btn px-4 py-3 text-sm font-medium border-b-2 transition" data-tab="basic" onclick="switchModalTab('basic')">基本设置</button>
+            <button class="modal-tab-btn px-4 py-3 text-sm font-medium border-b-2 transition" data-tab="signals" onclick="switchModalTab('signals')">技术因子</button>
+            <button class="modal-tab-btn px-4 py-3 text-sm font-medium border-b-2 transition" data-tab="exits" onclick="switchModalTab('exits')">进出场规则</button>
+            <button class="modal-tab-btn px-4 py-3 text-sm font-medium border-b-2 transition" data-tab="code" onclick="switchModalTab('code')">代码策略</button>
         </div>
 
+        <!-- Scrollable tab body -->
+        <div class="overflow-y-auto flex-1">
+
+            <!-- ── Tab 1: 基本设置 ── -->
+            <div id="modal-tab-basic" class="p-6 space-y-5">
+                <!-- 名称 -->
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1.5">策略名称 <span class="text-accent-red text-xs">必填</span></label>
+                    <input id="add-name" type="text" placeholder="例：我的动量追高策略"
+                           class="w-full bg-dark-700 border border-dark-500 rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-accent-blue/70 transition">
+                </div>
+                <!-- 描述 -->
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1.5">策略逻辑 <span class="text-xs text-gray-600">选填</span></label>
+                    <textarea id="add-desc" rows="2" placeholder="简述入场/出场逻辑，或记录策略核心思路..."
+                              class="w-full bg-dark-700 border border-dark-500 rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-accent-blue/70 transition resize-none"></textarea>
+                </div>
+                <!-- 交易标的 -->
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">交易标的</label>
+                    <div class="grid grid-cols-4 gap-2" id="instrument-cards">
+                        <button class="inst-card flex flex-col items-center gap-1 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-xs" data-val="stock"><span class="text-lg">📈</span><span class="text-gray-300">股票</span></button>
+                        <button class="inst-card flex flex-col items-center gap-1 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-xs" data-val="etf"><span class="text-lg">🏦</span><span class="text-gray-300">ETF</span></button>
+                        <button class="inst-card flex flex-col items-center gap-1 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-xs" data-val="sell_put"><span class="text-lg">⚙️</span><span class="text-gray-300">期权</span></button>
+                        <button class="inst-card flex flex-col items-center gap-1 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-xs" data-val="crypto"><span class="text-lg">₿</span><span class="text-gray-300">加密货币</span></button>
+                    </div>
+                </div>
+                <!-- 策略方向 -->
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">策略方向</label>
+                    <div class="grid grid-cols-3 gap-2" id="direction-cards">
+                        <button class="dir-card flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-sm" data-val="bullish"><span>📈</span><span class="text-gray-300">看涨</span></button>
+                        <button class="dir-card flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-sm" data-val="bearish"><span>📉</span><span class="text-gray-300">看跌</span></button>
+                        <button class="dir-card flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-sm" data-val="neutral"><span>⚖️</span><span class="text-gray-300">中性</span></button>
+                    </div>
+                </div>
+                <!-- 策略风格 -->
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">策略风格</label>
+                    <div class="grid grid-cols-4 gap-2" id="style-cards">
+                        <button class="style-card flex flex-col items-center gap-1 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-xs" data-val="momentum"><span class="text-base">🚀</span><span class="text-gray-300">动量</span></button>
+                        <button class="style-card flex flex-col items-center gap-1 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-xs" data-val="mean_reversion"><span class="text-base">🔄</span><span class="text-gray-300">均值回归</span></button>
+                        <button class="style-card flex flex-col items-center gap-1 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-xs" data-val="trend"><span class="text-base">📊</span><span class="text-gray-300">趋势跟踪</span></button>
+                        <button class="style-card flex flex-col items-center gap-1 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-xs" data-val="income"><span class="text-base">💰</span><span class="text-gray-300">收入型</span></button>
+                        <button class="style-card flex flex-col items-center gap-1 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-xs" data-val="value"><span class="text-base">💎</span><span class="text-gray-300">价值选股</span></button>
+                        <button class="style-card flex flex-col items-center gap-1 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-xs" data-val="arbitrage"><span class="text-base">🌐</span><span class="text-gray-300">统计套利</span></button>
+                        <button class="style-card flex flex-col items-center gap-1 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-xs" data-val="breakout"><span class="text-base">⚡</span><span class="text-gray-300">突破</span></button>
+                        <button class="style-card flex flex-col items-center gap-1 py-2.5 rounded-xl border border-dark-500 bg-dark-700 hover:border-dark-400 transition text-xs" data-val="multi_factor"><span class="text-base">🧮</span><span class="text-gray-300">多因子</span></button>
+                    </div>
+                </div>
+                <!-- 预期收益 & 回撤 -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-dark-700/60 rounded-xl p-4 border border-dark-600">
+                        <label class="block text-sm text-gray-400 mb-3">预期年化收益</label>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="return-min" min="0" max="500" value="15"
+                                   class="w-20 bg-dark-800 border border-dark-500 rounded-lg px-2 py-2 text-base text-accent-green text-center font-bold focus:outline-none focus:border-accent-blue/70 transition"
+                                   placeholder="15">
+                            <span class="text-gray-500 text-sm">%</span>
+                            <span class="text-gray-600 text-sm">~</span>
+                            <input type="number" id="return-max" min="0" max="500" value="25"
+                                   class="w-20 bg-dark-800 border border-dark-500 rounded-lg px-2 py-2 text-base text-accent-green text-center font-bold focus:outline-none focus:border-accent-blue/70 transition"
+                                   placeholder="25">
+                            <span class="text-gray-500 text-sm">%</span>
+                        </div>
+                        <p class="text-[10px] text-gray-600 mt-2">年化区间，如 15% ~ 30%</p>
+                    </div>
+                    <div class="bg-dark-700/60 rounded-xl p-4 border border-dark-600">
+                        <label class="block text-sm text-gray-400 mb-3">最大可接受回撤</label>
+                        <div class="flex items-center gap-2">
+                            <span class="text-gray-500 text-sm">≤</span>
+                            <input type="number" id="drawdown-max" min="1" max="100" value="15"
+                                   class="w-20 bg-dark-800 border border-dark-500 rounded-lg px-2 py-2 text-base text-accent-red text-center font-bold focus:outline-none focus:border-accent-blue/70 transition"
+                                   placeholder="15">
+                            <span class="text-gray-500 text-sm">%</span>
+                        </div>
+                        <p class="text-[10px] text-gray-600 mt-2">从峰值下跌的最大容忍幅度</p>
+                    </div>
+                </div>
+                <!-- 标签 -->
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">快速打标签 <span class="text-xs text-gray-600">可多选</span></label>
+                    <div class="flex flex-wrap gap-2" id="tag-chips"></div>
+                </div>
+            </div>
+
+            <!-- ── Tab 2: 技术因子 ── -->
+            <div id="modal-tab-signals" class="p-6 space-y-4 hidden">
+                <p class="text-xs text-gray-500">记录策略使用的技术指标参数，仅作文档用途，不参与自动回测。</p>
+
+                <!-- 均线系统 -->
+                <div class="factor-group bg-dark-700/50 rounded-xl border border-dark-600 overflow-hidden">
+                    <div class="flex items-center justify-between px-4 py-3 cursor-pointer" onclick="toggleFactorGroup(this)">
+                        <span class="text-sm font-medium text-white">📉 均线系统（MA）</span>
+                        <span class="text-gray-500 text-xs factor-chevron">▼</span>
+                    </div>
+                    <div class="factor-group-body px-4 pb-4 grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">MA 类型</label>
+                            <div class="flex gap-1" id="ma-type-btns">
+                                <button class="ma-type flex-1 py-1.5 text-xs rounded-lg border border-accent-blue/60 bg-accent-blue/10 text-accent-blue transition" data-val="SMA">SMA</button>
+                                <button class="ma-type flex-1 py-1.5 text-xs rounded-lg border border-dark-500 bg-dark-800 text-gray-400 transition" data-val="EMA">EMA</button>
+                                <button class="ma-type flex-1 py-1.5 text-xs rounded-lg border border-dark-500 bg-dark-800 text-gray-400 transition" data-val="WMA">WMA</button>
+                            </div>
+                        </div>
+                        <div></div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">快线周期</label>
+                            <div class="flex items-center gap-1.5">
+                                <input type="number" id="ma-fast" value="10" min="1" max="500" class="signal-input w-16">
+                                <span class="text-xs text-gray-600">日</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">慢线周期</label>
+                            <div class="flex items-center gap-1.5">
+                                <input type="number" id="ma-slow" value="50" min="1" max="500" class="signal-input w-16">
+                                <span class="text-xs text-gray-600">日</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">长期均线（可选）</label>
+                            <div class="flex items-center gap-1.5">
+                                <input type="number" id="ma-long" value="200" min="1" max="500" class="signal-input w-16">
+                                <span class="text-xs text-gray-600">日</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RSI -->
+                <div class="factor-group bg-dark-700/50 rounded-xl border border-dark-600 overflow-hidden">
+                    <div class="flex items-center justify-between px-4 py-3 cursor-pointer" onclick="toggleFactorGroup(this)">
+                        <span class="text-sm font-medium text-white">📊 RSI 相对强弱指数</span>
+                        <span class="text-gray-500 text-xs factor-chevron">▼</span>
+                    </div>
+                    <div class="factor-group-body px-4 pb-4 grid grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">RSI 周期</label>
+                            <input type="number" id="rsi-period" value="14" min="2" max="200" class="signal-input w-full">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">超卖线（入场）</label>
+                            <div class="flex items-center gap-1"><span class="text-xs text-gray-600">&lt;</span>
+                            <input type="number" id="rsi-oversold" value="30" min="1" max="49" class="signal-input flex-1"></div>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">超买线（出场）</label>
+                            <div class="flex items-center gap-1"><span class="text-xs text-gray-600">&gt;</span>
+                            <input type="number" id="rsi-overbought" value="70" min="51" max="99" class="signal-input flex-1"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MACD -->
+                <div class="factor-group bg-dark-700/50 rounded-xl border border-dark-600 overflow-hidden">
+                    <div class="flex items-center justify-between px-4 py-3 cursor-pointer" onclick="toggleFactorGroup(this)">
+                        <span class="text-sm font-medium text-white">📈 MACD</span>
+                        <span class="text-gray-500 text-xs factor-chevron">▼</span>
+                    </div>
+                    <div class="factor-group-body px-4 pb-4 grid grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">快线（Fast）</label>
+                            <input type="number" id="macd-fast" value="12" min="1" max="100" class="signal-input w-full">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">慢线（Slow）</label>
+                            <input type="number" id="macd-slow" value="26" min="1" max="200" class="signal-input w-full">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">信号线（Signal）</label>
+                            <input type="number" id="macd-signal" value="9" min="1" max="50" class="signal-input w-full">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 布林带 -->
+                <div class="factor-group bg-dark-700/50 rounded-xl border border-dark-600 overflow-hidden">
+                    <div class="flex items-center justify-between px-4 py-3 cursor-pointer" onclick="toggleFactorGroup(this)">
+                        <span class="text-sm font-medium text-white">🎯 布林带（Bollinger Bands）</span>
+                        <span class="text-gray-500 text-xs factor-chevron">▼</span>
+                    </div>
+                    <div class="factor-group-body px-4 pb-4 grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">周期</label>
+                            <input type="number" id="bb-period" value="20" min="2" max="200" class="signal-input w-full">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">标准差倍数</label>
+                            <input type="number" id="bb-std" value="2.0" min="0.5" max="5" step="0.5" class="signal-input w-full">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ATR -->
+                <div class="factor-group bg-dark-700/50 rounded-xl border border-dark-600 overflow-hidden">
+                    <div class="flex items-center justify-between px-4 py-3 cursor-pointer" onclick="toggleFactorGroup(this)">
+                        <span class="text-sm font-medium text-white">⚡ ATR 真实波动幅度</span>
+                        <span class="text-gray-500 text-xs factor-chevron">▼</span>
+                    </div>
+                    <div class="factor-group-body px-4 pb-4 grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">ATR 周期</label>
+                            <input type="number" id="atr-period" value="14" min="1" max="100" class="signal-input w-full">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">止损倍数</label>
+                            <input type="number" id="atr-mult" value="2.0" min="0.5" max="10" step="0.5" class="signal-input w-full">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ADX -->
+                <div class="factor-group bg-dark-700/50 rounded-xl border border-dark-600 overflow-hidden">
+                    <div class="flex items-center justify-between px-4 py-3 cursor-pointer" onclick="toggleFactorGroup(this)">
+                        <span class="text-sm font-medium text-white">📡 ADX 趋势强度</span>
+                        <span class="text-gray-500 text-xs factor-chevron">▼</span>
+                    </div>
+                    <div class="factor-group-body px-4 pb-4 grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">ADX 周期</label>
+                            <input type="number" id="adx-period" value="14" min="1" max="100" class="signal-input w-full">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">趋势确认阈值</label>
+                            <div class="flex items-center gap-1"><span class="text-xs text-gray-600">&gt;</span>
+                            <input type="number" id="adx-threshold" value="25" min="5" max="80" class="signal-input flex-1"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 成交量 -->
+                <div class="factor-group bg-dark-700/50 rounded-xl border border-dark-600 overflow-hidden">
+                    <div class="flex items-center justify-between px-4 py-3 cursor-pointer" onclick="toggleFactorGroup(this)">
+                        <span class="text-sm font-medium text-white">📦 成交量过滤</span>
+                        <span class="text-gray-500 text-xs factor-chevron">▼</span>
+                    </div>
+                    <div class="factor-group-body px-4 pb-4 grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">均量周期</label>
+                            <input type="number" id="vol-period" value="20" min="5" max="200" class="signal-input w-full">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">放量阈值（倍数）</label>
+                            <div class="flex items-center gap-1"><span class="text-xs text-gray-600">&gt;</span>
+                            <input type="number" id="vol-mult" value="1.5" min="1" max="10" step="0.5" class="signal-input flex-1"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Alpha 因子（股票选股） -->
+                <div class="factor-group bg-dark-700/50 rounded-xl border border-dark-600 overflow-hidden">
+                    <div class="flex items-center justify-between px-4 py-3 cursor-pointer" onclick="toggleFactorGroup(this)">
+                        <span class="text-sm font-medium text-white">🏆 选股 Alpha 因子</span>
+                        <span class="text-gray-500 text-xs factor-chevron">▼</span>
+                    </div>
+                    <div class="factor-group-body px-4 pb-4 grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">动量周期</label>
+                            <div class="flex gap-1" id="mom-period-btns">
+                                <button class="mom-p flex-1 py-1 text-xs rounded border border-dark-500 bg-dark-800 text-gray-400" data-val="63">3M</button>
+                                <button class="mom-p flex-1 py-1 text-xs rounded border border-accent-blue/60 bg-accent-blue/10 text-accent-blue" data-val="126">6M</button>
+                                <button class="mom-p flex-1 py-1 text-xs rounded border border-dark-500 bg-dark-800 text-gray-400" data-val="252">12M</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">市值区间</label>
+                            <div class="flex gap-1" id="cap-btns">
+                                <button class="cap-b flex-1 py-1 text-xs rounded border border-dark-500 bg-dark-800 text-gray-400" data-val="small">小盘</button>
+                                <button class="cap-b flex-1 py-1 text-xs rounded border border-accent-blue/60 bg-accent-blue/10 text-accent-blue" data-val="mid">中盘</button>
+                                <button class="cap-b flex-1 py-1 text-xs rounded border border-dark-500 bg-dark-800 text-gray-400" data-val="large">大盘</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">目标 P/E (&lt;)</label>
+                            <input type="number" id="alpha-pe" value="" min="1" max="200" placeholder="不限" class="signal-input w-full">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">目标 ROE (&gt;%)</label>
+                            <input type="number" id="alpha-roe" value="" min="0" max="100" placeholder="不限" class="signal-input w-full">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">最低日均成交额（万）</label>
+                            <input type="number" id="alpha-minvol" value="" min="0" placeholder="不限" class="signal-input w-full">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">Beta (&lt;)</label>
+                            <input type="number" id="alpha-beta" value="" min="0" max="5" step="0.1" placeholder="不限" class="signal-input w-full">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Tab 3: 进出场规则 ── -->
+            <div id="modal-tab-exits" class="p-6 space-y-4 hidden">
+                <!-- 止损类型 -->
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">止损类型</label>
+                    <div class="grid grid-cols-3 gap-2" id="stoploss-cards">
+                        <button class="sl-card flex flex-col items-center gap-1.5 py-3 rounded-xl border border-accent-blue/60 bg-accent-blue/10 transition text-xs" data-val="fixed">
+                            <span class="text-base">🔒</span><span class="text-gray-300 font-medium">固定比例</span>
+                            <span class="text-gray-500 text-[10px]">设定固定 %</span>
+                        </button>
+                        <button class="sl-card flex flex-col items-center gap-1.5 py-3 rounded-xl border border-dark-500 bg-dark-700 transition text-xs" data-val="trailing">
+                            <span class="text-base">📍</span><span class="text-gray-300 font-medium">追踪止损</span>
+                            <span class="text-gray-500 text-[10px]">从最高点回撤</span>
+                        </button>
+                        <button class="sl-card flex flex-col items-center gap-1.5 py-3 rounded-xl border border-dark-500 bg-dark-700 transition text-xs" data-val="atr">
+                            <span class="text-base">⚡</span><span class="text-gray-300 font-medium">ATR 倍数</span>
+                            <span class="text-gray-500 text-[10px]">波动率自适应</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <!-- 止损幅度 -->
+                    <div class="bg-dark-700/50 rounded-xl p-4 border border-dark-600">
+                        <label class="block text-sm text-gray-400 mb-3">止损幅度</label>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="stop-loss-pct" value="5" min="0.5" max="50" step="0.5"
+                                   class="signal-input w-16 text-center">
+                            <span class="text-gray-500 text-sm">%</span>
+                        </div>
+                        <p class="text-[10px] text-gray-600 mt-2">入场价下跌此幅度触发止损</p>
+                    </div>
+                    <!-- 止盈目标 -->
+                    <div class="bg-dark-700/50 rounded-xl p-4 border border-dark-600">
+                        <label class="block text-sm text-gray-400 mb-3">止盈目标 <span class="text-[10px] text-gray-600">（可选）</span></label>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="take-profit-pct" placeholder="--" min="1" max="500"
+                                   class="signal-input w-16 text-center">
+                            <span class="text-gray-500 text-sm">%</span>
+                        </div>
+                        <p class="text-[10px] text-gray-600 mt-2">留空表示信号出场</p>
+                    </div>
+                    <!-- 最长持仓 -->
+                    <div class="bg-dark-700/50 rounded-xl p-4 border border-dark-600">
+                        <label class="block text-sm text-gray-400 mb-3">最长持仓时间</label>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="max-hold-days" placeholder="--" min="1" max="3650"
+                                   class="signal-input w-16 text-center">
+                            <span class="text-gray-500 text-sm">天</span>
+                        </div>
+                        <p class="text-[10px] text-gray-600 mt-2">超时强制出场，留空不限</p>
+                    </div>
+                    <!-- 单笔风险 -->
+                    <div class="bg-dark-700/50 rounded-xl p-4 border border-dark-600">
+                        <label class="block text-sm text-gray-400 mb-3">单笔风险</label>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="risk-per-trade" value="2" min="0.1" max="20" step="0.5"
+                                   class="signal-input w-16 text-center">
+                            <span class="text-gray-500 text-sm">% 账户</span>
+                        </div>
+                        <p class="text-[10px] text-gray-600 mt-2">每笔交易最大亏损占账户比例</p>
+                    </div>
+                </div>
+
+                <!-- 仓位管理 -->
+                <div class="bg-dark-700/50 rounded-xl p-4 border border-dark-600">
+                    <label class="block text-sm text-gray-400 mb-3">仓位管理</label>
+                    <div class="grid grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">最大同时持仓</label>
+                            <input type="number" id="max-positions" value="5" min="1" max="100" class="signal-input w-full">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">单仓位上限（%）</label>
+                            <input type="number" id="max-position-pct" value="20" min="1" max="100" class="signal-input w-full">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">总持仓热度（%）</label>
+                            <input type="number" id="portfolio-heat" value="10" min="1" max="100" class="signal-input w-full">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 市场过滤 -->
+                <div class="bg-dark-700/50 rounded-xl p-4 border border-dark-600">
+                    <label class="block text-sm text-gray-400 mb-3">市场过滤条件</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">VIX 上限（超过暂停）</label>
+                            <div class="flex items-center gap-1"><span class="text-xs text-gray-600">&lt;</span>
+                            <input type="number" id="vix-cap" value="30" min="10" max="100" class="signal-input flex-1"></div>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">趋势过滤</label>
+                            <div class="flex gap-1" id="trend-filter-btns">
+                                <button class="tf-b flex-1 py-1 text-xs rounded border border-accent-blue/60 bg-accent-blue/10 text-accent-blue" data-val="none">不限</button>
+                                <button class="tf-b flex-1 py-1 text-xs rounded border border-dark-500 bg-dark-800 text-gray-400" data-val="above_sma200">SMA200上方</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Tab 4: 代码策略 ── -->
+            <div id="modal-tab-code" class="p-6 space-y-4 hidden">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-300 font-medium">策略代码</p>
+                        <p class="text-xs text-gray-500 mt-0.5">粘贴或编写策略代码，支持 Python、Pine Script 或伪代码描述</p>
+                    </div>
+                    <div class="flex gap-1" id="code-lang-btns">
+                        <button class="lang-b px-2.5 py-1 text-xs rounded border border-accent-blue/60 bg-accent-blue/10 text-accent-blue" data-val="python">Python</button>
+                        <button class="lang-b px-2.5 py-1 text-xs rounded border border-dark-500 bg-dark-800 text-gray-400" data-val="pinescript">Pine Script</button>
+                        <button class="lang-b px-2.5 py-1 text-xs rounded border border-dark-500 bg-dark-800 text-gray-400" data-val="pseudo">伪代码</button>
+                    </div>
+                </div>
+                <textarea id="add-code" rows="16"
+                          placeholder="# 示例：Python 策略入场逻辑
+def entry_signal(df):
+    rsi = compute_rsi(df['close'], period=14)
+    ma50 = df['close'].rolling(50).mean()
+    ma200 = df['close'].rolling(200).mean()
+
+    # 金叉 + RSI 未超买
+    return (ma50 > ma200) & (rsi < 70) & (df['close'] > ma50)"
+                          class="w-full bg-dark-900 border border-dark-600 rounded-xl px-4 py-3 text-sm text-gray-200 placeholder-gray-700 focus:outline-none focus:border-accent-blue/50 transition resize-none font-mono leading-relaxed"></textarea>
+                <div class="flex items-center gap-2 text-xs text-gray-600">
+                    <span>💡</span>
+                    <span>代码仅作记录用途，保存至策略库后可随时查阅</span>
+                </div>
+            </div>
+
+        </div><!-- end scrollable body -->
+
         <!-- Footer -->
-        <div class="px-6 py-4 border-t border-dark-600 flex items-center justify-between">
+        <div class="px-6 py-4 border-t border-dark-600 flex items-center justify-between flex-shrink-0">
             <span id="add-strategy-msg" class="text-sm"></span>
             <div class="flex gap-3">
                 <button onclick="closeAddModal()"
@@ -602,6 +926,24 @@ function loadResearchResults() {
         </div>
     </div>
 </div>
+
+<style>
+.signal-input {
+    background: #1a1f2e;
+    border: 1px solid #2d3548;
+    border-radius: 0.5rem;
+    padding: 0.375rem 0.5rem;
+    font-size: 0.8125rem;
+    color: #e2e8f0;
+    outline: none;
+    transition: border-color 0.15s;
+}
+.signal-input:focus { border-color: rgba(59,130,246,0.6); }
+.signal-input::placeholder { color: #4b5563; }
+.factor-group-body { display: block; }
+.modal-tab-btn { color: #6b7280; border-bottom-color: transparent; }
+.modal-tab-btn.active { color: #fff; border-bottom-color: #3b82f6; }
+</style>
 
 <script>
 // ===== 策略因子 =====
@@ -678,15 +1020,41 @@ async function saveFactors(){
 var PRESET_TAGS=['趋势','动量','均值回归','价值','收入型','期权','套利','量化','日内','波段','长期','低风险'];
 var selectedTags=[];
 var selectedInstrument='stock', selectedDirection='bullish', selectedStyle='momentum';
+var selectedStopLoss='fixed', selectedMaType='SMA', selectedMomPeriod='126', selectedCapBucket='mid';
+var selectedTrendFilter='none', selectedCodeLang='python';
+var currentModalTab='basic';
+
+function switchModalTab(tab){
+    currentModalTab=tab;
+    document.querySelectorAll('.modal-tab-btn').forEach(function(b){
+        b.classList.toggle('active',b.dataset.tab===tab);
+    });
+    ['basic','signals','exits','code'].forEach(function(t){
+        var el=document.getElementById('modal-tab-'+t);
+        if(el) el.classList.toggle('hidden',t!==tab);
+    });
+}
+
+function toggleFactorGroup(header){
+    var body=header.nextElementSibling;
+    var chev=header.querySelector('.factor-chevron');
+    var hidden=body.style.display==='none';
+    body.style.display=hidden?'':'none';
+    if(chev) chev.style.transform=hidden?'':'rotate(-90deg)';
+}
 
 function openAddModal(){
     document.getElementById('add-strategy-modal').classList.remove('hidden');
     document.body.style.overflow='hidden';
+    switchModalTab('basic');
     renderTagChips();
-    // init first card selections
     setCardActive('instrument-cards','inst-card','stock');
     setCardActive('direction-cards','dir-card','bullish');
     setCardActive('style-cards','style-card','momentum');
+    setCardActive('stoploss-cards','sl-card','fixed');
+    selectedInstrument='stock'; selectedDirection='bullish'; selectedStyle='momentum';
+    selectedStopLoss='fixed'; selectedTrendFilter='none'; selectedCodeLang='python';
+    selectedMaType='SMA'; selectedMomPeriod='126'; selectedCapBucket='mid';
 }
 function closeAddModal(){
     document.getElementById('add-strategy-modal').classList.add('hidden');
@@ -695,26 +1063,57 @@ function closeAddModal(){
 }
 
 function setCardActive(groupId, cls, val){
-    document.getElementById(groupId).querySelectorAll('.'+cls).forEach(function(b){
+    var grp=document.getElementById(groupId);
+    if(!grp)return;
+    grp.querySelectorAll('.'+cls).forEach(function(b){
         var active=b.dataset.val===val;
         b.classList.toggle('border-accent-blue/60',active);
-        b.classList.toggle('bg-dark-600',active);
+        b.classList.toggle('bg-accent-blue/10',active);
         b.classList.toggle('border-dark-500',!active);
         b.classList.toggle('bg-dark-700',!active);
     });
 }
 
+function setToggleActive(groupId, cls, val){
+    var grp=document.getElementById(groupId);
+    if(!grp)return;
+    grp.querySelectorAll('.'+cls).forEach(function(b){
+        var active=b.dataset.val===val;
+        b.classList.toggle('border-accent-blue/60',active);
+        b.classList.toggle('bg-accent-blue/10',active);
+        b.classList.toggle('text-accent-blue',active);
+        b.classList.toggle('border-dark-500',!active);
+        b.classList.toggle('bg-dark-800',!active);
+        b.classList.toggle('text-gray-400',!active);
+    });
+}
+
 document.addEventListener('DOMContentLoaded',function(){
-    ['inst-card','dir-card','style-card'].forEach(function(cls,i){
-        var groupIds=['instrument-cards','direction-cards','style-cards'];
-        var vals=['stock','bullish','momentum'];
-        document.getElementById(groupIds[i]).querySelectorAll('.'+cls).forEach(function(b){
-            b.addEventListener('click',function(){
-                if(cls==='inst-card') selectedInstrument=this.dataset.val;
-                if(cls==='dir-card') selectedDirection=this.dataset.val;
-                if(cls==='style-card') selectedStyle=this.dataset.val;
-                setCardActive(groupIds[i],cls,this.dataset.val);
-            });
+    // card selectors
+    [['inst-card','instrument-cards',function(v){selectedInstrument=v;}],
+     ['dir-card','direction-cards',function(v){selectedDirection=v;}],
+     ['style-card','style-cards',function(v){selectedStyle=v;}],
+     ['sl-card','stoploss-cards',function(v){selectedStopLoss=v;}]
+    ].forEach(function(cfg){
+        var cls=cfg[0],gid=cfg[1],cb=cfg[2];
+        var grp=document.getElementById(gid);
+        if(!grp)return;
+        grp.querySelectorAll('.'+cls).forEach(function(b){
+            b.addEventListener('click',function(){cb(this.dataset.val);setCardActive(gid,cls,this.dataset.val);});
+        });
+    });
+    // toggle button groups
+    [['ma-type','ma-type-btns',function(v){selectedMaType=v;}],
+     ['mom-p','mom-period-btns',function(v){selectedMomPeriod=v;}],
+     ['cap-b','cap-btns',function(v){selectedCapBucket=v;}],
+     ['tf-b','trend-filter-btns',function(v){selectedTrendFilter=v;}],
+     ['lang-b','code-lang-btns',function(v){selectedCodeLang=v;}]
+    ].forEach(function(cfg){
+        var cls=cfg[0],gid=cfg[1],cb=cfg[2];
+        var grp=document.getElementById(gid);
+        if(!grp)return;
+        grp.querySelectorAll('.'+cls).forEach(function(b){
+            b.addEventListener('click',function(){cb(this.dataset.val);setToggleActive(gid,cls,this.dataset.val);});
         });
     });
 });
@@ -731,17 +1130,17 @@ function toggleTag(t){
     if(i>=0)selectedTags.splice(i,1);else selectedTags.push(t);
     renderTagChips();
 }
-function updateReturnLabel(){
-    var mn=parseInt(document.getElementById('return-min').value);
-    var mx=parseInt(document.getElementById('return-max').value);
-    if(mn>mx){var tmp=mn;mn=mx;mx=tmp;}
-    document.getElementById('return-label').textContent=mn+'–'+mx+'%';
+
+function numVal(id,fallback){
+    var el=document.getElementById(id);
+    if(!el||el.value===''||el.value===null) return fallback;
+    return parseFloat(el.value);
 }
+
 async function submitAddStrategy(){
     var name=document.getElementById('add-name').value.trim();
     if(!name){document.getElementById('add-strategy-msg').innerHTML='<span class="text-accent-red">请填写策略名称</span>';return;}
-    var mn=parseInt(document.getElementById('return-min').value);
-    var mx=parseInt(document.getElementById('return-max').value);
+    var mn=numVal('return-min',10), mx=numVal('return-max',20);
     if(mn>mx){var tmp=mn;mn=mx;mx=tmp;}
     var fd=new FormData();
     fd.append('name',name);
@@ -751,8 +1150,47 @@ async function submitAddStrategy(){
     fd.append('strategy_type',selectedStyle);
     fd.append('annual_min',mn);
     fd.append('annual_max',mx);
-    fd.append('drawdown_max',document.getElementById('drawdown-max').value);
+    fd.append('drawdown_max',numVal('drawdown-max',15));
     fd.append('tags',selectedTags.join(','));
+    // technical signals
+    fd.append('ma_type',selectedMaType);
+    fd.append('ma_fast',numVal('ma-fast',10));
+    fd.append('ma_slow',numVal('ma-slow',50));
+    fd.append('ma_long',numVal('ma-long',200));
+    fd.append('rsi_period',numVal('rsi-period',14));
+    fd.append('rsi_oversold',numVal('rsi-oversold',30));
+    fd.append('rsi_overbought',numVal('rsi-overbought',70));
+    fd.append('macd_fast',numVal('macd-fast',12));
+    fd.append('macd_slow',numVal('macd-slow',26));
+    fd.append('macd_signal',numVal('macd-signal',9));
+    fd.append('bb_period',numVal('bb-period',20));
+    fd.append('bb_std',numVal('bb-std',2.0));
+    fd.append('atr_period',numVal('atr-period',14));
+    fd.append('atr_mult',numVal('atr-mult',2.0));
+    fd.append('adx_period',numVal('adx-period',14));
+    fd.append('adx_threshold',numVal('adx-threshold',25));
+    fd.append('vol_period',numVal('vol-period',20));
+    fd.append('vol_mult',numVal('vol-mult',1.5));
+    fd.append('alpha_pe',document.getElementById('alpha-pe').value);
+    fd.append('alpha_roe',document.getElementById('alpha-roe').value);
+    fd.append('alpha_beta',document.getElementById('alpha-beta').value);
+    fd.append('alpha_minvol',document.getElementById('alpha-minvol').value);
+    fd.append('mom_period',selectedMomPeriod);
+    fd.append('cap_bucket',selectedCapBucket);
+    // exit / risk
+    fd.append('stop_loss_type',selectedStopLoss);
+    fd.append('stop_loss_pct',numVal('stop-loss-pct',5));
+    fd.append('take_profit_pct',document.getElementById('take-profit-pct').value);
+    fd.append('max_hold_days',document.getElementById('max-hold-days').value);
+    fd.append('risk_per_trade',numVal('risk-per-trade',2));
+    fd.append('max_positions',numVal('max-positions',5));
+    fd.append('max_position_pct',numVal('max-position-pct',20));
+    fd.append('portfolio_heat',numVal('portfolio-heat',10));
+    fd.append('vix_cap',numVal('vix-cap',30));
+    fd.append('trend_filter',selectedTrendFilter);
+    // code
+    fd.append('code_lang',selectedCodeLang);
+    fd.append('strategy_code',document.getElementById('add-code').value);
     document.getElementById('add-strategy-msg').innerHTML='<span class="text-gray-400">添加中...</span>';
     try{
         var r=await fetch('/hunt/add-strategy',{method:'POST',body:fd});

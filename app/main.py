@@ -2177,39 +2177,116 @@ def hunt_save_strategy(
 
 
 @app.post("/hunt/add-strategy")
-async def hunt_add_strategy(
-    request: Request,
-    db: Session = Depends(get_db),
-    name: str = Form(...),
-    description: str = Form(""),
-    instrument: str = Form("stock"),
-    direction: str = Form("bullish"),
-    strategy_type: str = Form("momentum"),
-    annual_min: int = Form(10),
-    annual_max: int = Form(20),
-    drawdown_max: int = Form(20),
-    tags: str = Form(""),
-):
-    """保存用户自定义策略到自定义策略库"""
+async def hunt_add_strategy(request: Request, db: Session = Depends(get_db)):
+    """保存用户自定义策略（含完整因子参数）到自定义策略库"""
     import re
+    form = await request.form()
+
+    def fget(key, default=""):
+        v = form.get(key, default)
+        return v if v is not None else default
+
+    def fnum(key, default=None):
+        v = form.get(key, "")
+        try:
+            return float(v) if v and v.strip() else default
+        except (ValueError, AttributeError):
+            return default
+
+    name = (fget("name") or "").strip()
+    if not name:
+        return HTMLResponse('<span class="text-accent-red text-sm">请填写策略名称</span>', status_code=400)
+
+    annual_min = fnum("annual_min", 10)
+    annual_max = fnum("annual_max", 20)
+    if annual_min > annual_max:
+        annual_min, annual_max = annual_max, annual_min
+    drawdown_max = fnum("drawdown_max", 15)
+
+    tags_raw = fget("tags", "")
+    tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
+
     cfg = db.query(SystemConfig).filter(SystemConfig.key == "custom_strategies").first()
     strategies = json.loads(cfg.value) if cfg and cfg.value else []
     strategy_id = f"custom_{re.sub(r'[^a-z0-9]', '_', name.lower())[:25]}_{len(strategies)+1}"
+
     strategy = {
         "id": strategy_id,
         "name": name,
-        "description": description or f"用户自定义{strategy_type}策略",
+        "description": fget("description") or f"用户自定义策略",
         "source": "我的策略",
-        "instrument": instrument,
-        "direction": direction,
-        "style": strategy_type,
+        "instrument": fget("instrument", "stock"),
+        "direction": fget("direction", "bullish"),
+        "style": fget("strategy_type", "momentum"),
         "risk_level": "medium",
         "annual_return_range": [annual_min, annual_max],
-        "max_drawdown_range": [drawdown_max // 2, drawdown_max],
+        "max_drawdown_range": [round(drawdown_max * 0.5, 1), drawdown_max],
         "win_rate_pct": 55,
-        "tags": [t.strip() for t in tags.split(",") if t.strip()],
+        "tags": tags,
         "is_custom": True,
+        # ── 技术指标参数 ──
+        "params": {
+            "ma": {
+                "type": fget("ma_type", "SMA"),
+                "fast": fnum("ma_fast", 10),
+                "slow": fnum("ma_slow", 50),
+                "long": fnum("ma_long", 200),
+            },
+            "rsi": {
+                "period": fnum("rsi_period", 14),
+                "oversold": fnum("rsi_oversold", 30),
+                "overbought": fnum("rsi_overbought", 70),
+            },
+            "macd": {
+                "fast": fnum("macd_fast", 12),
+                "slow": fnum("macd_slow", 26),
+                "signal": fnum("macd_signal", 9),
+            },
+            "bb": {
+                "period": fnum("bb_period", 20),
+                "std": fnum("bb_std", 2.0),
+            },
+            "atr": {
+                "period": fnum("atr_period", 14),
+                "mult": fnum("atr_mult", 2.0),
+            },
+            "adx": {
+                "period": fnum("adx_period", 14),
+                "threshold": fnum("adx_threshold", 25),
+            },
+            "volume": {
+                "period": fnum("vol_period", 20),
+                "mult": fnum("vol_mult", 1.5),
+            },
+            "alpha": {
+                "mom_period": fget("mom_period", "126"),
+                "cap_bucket": fget("cap_bucket", "mid"),
+                "pe_max": fnum("alpha_pe"),
+                "roe_min": fnum("alpha_roe"),
+                "beta_max": fnum("alpha_beta"),
+                "min_vol_wan": fnum("alpha_minvol"),
+            },
+        },
+        # ── 进出场规则 ──
+        "exit_rules": {
+            "stop_loss_type": fget("stop_loss_type", "fixed"),
+            "stop_loss_pct": fnum("stop_loss_pct", 5),
+            "take_profit_pct": fnum("take_profit_pct"),
+            "max_hold_days": fnum("max_hold_days"),
+            "risk_per_trade_pct": fnum("risk_per_trade", 2),
+            "max_positions": int(fnum("max_positions", 5) or 5),
+            "max_position_pct": fnum("max_position_pct", 20),
+            "portfolio_heat_pct": fnum("portfolio_heat", 10),
+            "vix_cap": fnum("vix_cap", 30),
+            "trend_filter": fget("trend_filter", "none"),
+        },
+        # ── 代码 ──
+        "code": {
+            "lang": fget("code_lang", "python"),
+            "body": fget("strategy_code", ""),
+        },
     }
+
     strategies.append(strategy)
     if cfg:
         cfg.value = json.dumps(strategies, ensure_ascii=False)
