@@ -78,12 +78,16 @@ jobs:
             echo "=== App import test ==="
             sudo -u www-data bash -c 'cd /opt/quant/Quant/app && /opt/quant/Quant/venv/bin/python3 -c "import main; print(\"IMPORT_OK\")"' 2>&1 || true
 
-            # Kill orphaned uvicorn workers holding port 8000, then restart
+            # Stop service cleanly (systemd kills cgroup), then start fresh
             systemctl stop quantprism || true
-            sleep 2
-            fuser -k 8000/tcp 2>/dev/null || true
-            pkill -f "uvicorn" 2>/dev/null || true
-            sleep 1
+            sleep 3
+            # Kill any process still holding port 8000 by PID (not by name)
+            PORT_PID=$(fuser 8000/tcp 2>/dev/null | awk '{print $1}') || true
+            if [ -n "$PORT_PID" ]; then
+              echo "Killing stale PID $PORT_PID on port 8000"
+              kill -9 "$PORT_PID" 2>/dev/null || true
+              sleep 1
+            fi
             systemctl start quantprism
             sleep 8
 
