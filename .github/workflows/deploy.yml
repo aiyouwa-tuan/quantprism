@@ -78,8 +78,13 @@ jobs:
             echo "=== App import test ==="
             sudo -u www-data bash -c 'cd /opt/quant/Quant/app && /opt/quant/Quant/venv/bin/python3 -c "import main; print(\"IMPORT_OK\")"' 2>&1 || true
 
-            # Restart
-            systemctl restart quantprism
+            # Kill orphaned uvicorn workers holding port 8000, then restart
+            systemctl stop quantprism || true
+            sleep 2
+            fuser -k 8000/tcp 2>/dev/null || true
+            pkill -f "uvicorn" 2>/dev/null || true
+            sleep 1
+            systemctl start quantprism
             sleep 8
 
             # Always dump recent logs for visibility
