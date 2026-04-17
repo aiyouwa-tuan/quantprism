@@ -1,0 +1,48 @@
+<!-- 逐笔成交展开行 for {{ symbol }} -->
+<div class="py-3">
+    {% if trades %}
+    <div class="text-xs text-gray-500 mb-2 px-2 font-semibold">{{ symbol }} 成交记录 ({{ trades|length }} 笔)</div>
+    <table class="w-full text-xs">
+        <thead>
+            <tr class="border-b border-dark-600/50">
+                <th class="text-left px-2 py-1.5 text-gray-600 font-normal">日期</th>
+                <th class="text-center px-2 py-1.5 text-gray-600 font-normal">操作</th>
+                <th class="text-right px-2 py-1.5 text-gray-600 font-normal">数量</th>
+                <th class="text-right px-2 py-1.5 text-gray-600 font-normal">价格</th>
+                <th class="text-right px-2 py-1.5 text-gray-600 font-normal">手续费</th>
+                <th class="text-right px-2 py-1.5 text-gray-600 font-normal">成本前</th>
+                <th class="text-right px-2 py-1.5 text-gray-600 font-normal">成本后</th>
+                <th class="text-right px-2 py-1.5 text-gray-600 font-normal">已实现盈亏</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for t in trades %}
+        {% set side = t.get('side', 'BUY') %}
+        <tr class="border-b border-dark-600/30 hover:bg-dark-600/10">
+            <td class="px-2 py-1.5 font-mono text-gray-500">{{ t.get('tradeTime', '') | trade_time }}</td>
+            <td class="text-center px-2 py-1.5">
+                <span class="px-1.5 py-0.5 rounded text-xs {{ 'text-green-400 bg-green-500/10' if side == 'BUY' else 'text-red-400 bg-red-500/10' }}">
+                    {{ side }}
+                </span>
+            </td>
+            <td class="text-right px-2 py-1.5 font-mono text-gray-300">{{ t.get('quantity', 0) }}</td>
+            <td class="text-right px-2 py-1.5 font-mono text-white pv">${{ "%.2f"|format(t.get('price', 0)) }}</td>
+            <td class="text-right px-2 py-1.5 font-mono text-red-400 pv">-${{ "%.2f"|format(t.get('commission', 0)) }}</td>
+            <td class="text-right px-2 py-1.5 font-mono text-gray-500 pv">
+                ${{ "%.2f"|format(t.get('costBefore', 0)) }}
+            </td>
+            <td class="text-right px-2 py-1.5 font-mono text-gray-400 pv">
+                ${{ "%.2f"|format(t.get('costAfter', 0)) }}
+            </td>
+            <td class="text-right px-2 py-1.5 font-mono pv {{ 'text-green-400' if t.get('realizedPL', 0) > 0 else 'text-red-400' if t.get('realizedPL', 0) < 0 else 'text-gray-600' }}">
+                {% set rpl = t.get('realizedPL', 0) %}
+                {% if rpl %}{{ '+' if rpl > 0 else '' }}${{ "%.0f"|format(rpl) }}{% else %}--{% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="text-center py-3 text-gray-600 text-xs">暂无成交记录</div>
+    {% endif %}
+</div>

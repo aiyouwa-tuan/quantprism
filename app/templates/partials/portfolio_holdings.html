@@ -1,0 +1,133 @@
+{% set avatar_colors = {
+  'A':'#f59e0b','B':'#3b82f6','C':'#14b8a6','D':'#8b5cf6',
+  'E':'#ec4899','F':'#f97316','G':'#10b981','H':'#6366f1',
+  'I':'#0ea5e9','J':'#a855f7','K':'#84cc16','L':'#f43f5e',
+  'M':'#5e6ad2','N':'#06b6d4','O':'#fb923c','P':'#4ade80',
+  'Q':'#818cf8','R':'#fb7185','S':'#5e6ad2','T':'#34d399',
+  'U':'#f472b6','V':'#38bdf8','W':'#fb923c','X':'#c084fc',
+  'Y':'#facc15','Z':'#94a3b8'
+} %}
+{% for h in holdings if h.get('quantity', 0) != 0 %}
+{% set sym = h.get('symbol', 'X') %}
+{% set sec = h.get('secType', 'STK') %}
+{% set qty = h.get('quantity', 0) %}
+{% set unit_cost = h.get('unitCost', 0) %}
+{% set fifo_cost = h.get('fifoAvgCost', 0) %}
+{% set last_price = h.get('lastPrice', 0) or 0 %}
+{% set total_invest = h.get('totalInvestment', 0) or 0 %}
+{% set multiplier = h.get('multiplier', 1) or 1 %}
+{% set mkt_val = last_price * qty * (multiplier if sec == 'OPT' else 1) if last_price else 0 %}
+{% set unrealized = mkt_val - total_invest %}
+{% set realized = h.get('realizedPL', 0) or 0 %}
+{% set total_pl = unrealized + realized %}
+{% set pl_pct = (total_pl / total_invest * 100) if total_invest else 0 %}
+{% set day_chg = h.get('changePercent', 0) or 0 %}
+{% set day_pl = last_price * qty * (multiplier if sec == 'OPT' else 1) * day_chg / 100 if (last_price and day_chg) else 0 %}
+{% set ytd = h.get('ytd', none) %}
+{% set av_color = avatar_colors.get(sym[0:1].upper(), '#5e6ad2') %}
+{% set expiry_fmt = h.get('expiry', '') %}
+{% if expiry_fmt and expiry_fmt|length == 8 %}
+  {% set expiry_fmt = expiry_fmt[0:4] + '-' + expiry_fmt[4:6] + '-' + expiry_fmt[6:8] %}
+{% endif %}
+<tr style="border-bottom:1px solid rgba(255,255,255,0.04);"
+    class="hover:bg-white/[0.02] cursor-pointer transition-colors"
+    onclick="toggleTradeRow('{{ h.get('positionKey', sym)|replace(' ','_') }}', this)">
+
+    <td class="px-4 py-3">
+        <div class="flex items-center gap-2.5">
+            <div style="width:28px;height:28px;border-radius:7px;background:{{ av_color }};opacity:0.9;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;flex-shrink:0;">
+                {{ sym[0:1] }}
+            </div>
+            <div>
+                <div class="flex items-center gap-1.5">
+                    <span style="font-weight:700;color:#f7f8f8;font-size:13px;">{{ sym }}</span>
+                    <span style="padding:1px 5px;border-radius:4px;font-size:10px;font-weight:510;
+                        {% if sec == 'OPT' %}background:rgba(139,92,246,0.15);color:#a78bfa;border:1px solid rgba(139,92,246,0.25);
+                        {% elif sec == 'ETF' %}background:rgba(16,185,129,0.15);color:#34d399;border:1px solid rgba(16,185,129,0.25);
+                        {% else %}background:rgba(255,255,255,0.06);color:#8a8f98;border:1px solid rgba(255,255,255,0.1);{% endif %}">
+                        {% if sec == 'OPT' %}约{% elif sec == 'ETF' %}ETF{% else %}股{% endif %}
+                    </span>
+                </div>
+                {% if sec == 'OPT' %}
+                <div style="font-size:10px;color:#62666d;margin-top:2px;">
+                    {{ h.get('right','') }}{{ h.get('strike','')|int if h.get('strike') else '' }}
+                    {% if expiry_fmt %} · {{ expiry_fmt }}{% endif %}
+                </div>
+                {% else %}
+                <div style="font-size:10px;color:#62666d;margin-top:2px;">{{ h.get('tradeCount',0) }} 笔</div>
+                {% endif %}
+            </div>
+        </div>
+    </td>
+
+    <td class="text-right px-3 py-3" style="font-family:'Berkeley Mono',ui-monospace,monospace;color:#d0d6e0;">
+        {{ qty }}
+        <div style="font-size:10px;color:#62666d;">{{ '合约' if sec == 'OPT' else '股' }}</div>
+    </td>
+
+    <td class="text-right px-3 py-3 pv" style="font-family:'Berkeley Mono',ui-monospace,monospace;color:#f7f8f8;">
+        {% if last_price %}${{ "%.2f"|format(last_price) }}{% else %}<span style="color:#3e3e44;">--</span>{% endif %}
+    </td>
+
+    <td class="text-right px-3 py-3 pv" style="font-family:'Berkeley Mono',ui-monospace,monospace;color:#8a8f98;">
+        {% if unit_cost %}${{ "%.2f"|format(unit_cost) }}{% else %}<span style="color:#3e3e44;">--</span>{% endif %}
+        {% if fifo_cost and fifo_cost != unit_cost %}
+        <div style="font-size:10px;color:#62666d;">IB ${{ "%.2f"|format(fifo_cost) }}</div>
+        {% endif %}
+    </td>
+
+    <td class="text-right px-3 py-3 pv" style="font-family:'Berkeley Mono',ui-monospace,monospace;color:#8a8f98;">
+        {% if total_invest %}${{ "{:,.0f}".format(total_invest|abs) }}{% else %}<span style="color:#3e3e44;">--</span>{% endif %}
+    </td>
+
+    <td class="text-right px-3 py-3" style="font-family:'Berkeley Mono',ui-monospace,monospace;">
+        {% if day_chg %}
+        <div style="color:{{ '#4ade80' if day_chg >= 0 else '#f87171' }};">
+            {{ '+' if day_chg >= 0 else '' }}{{ "%.2f"|format(day_chg) }}%
+        </div>
+        <div class="pv" style="font-size:10px;color:{{ '#4ade80' if day_pl >= 0 else '#f87171' }};">
+            {{ '+' if day_pl >= 0 else '' }}${{ "{:,.0f}".format(day_pl) }}
+        </div>
+        {% else %}<span style="color:#3e3e44;">--</span>{% endif %}
+    </td>
+
+    <td class="text-right px-3 py-3 pv" style="font-family:'Berkeley Mono',ui-monospace,monospace;color:#f7f8f8;font-weight:600;">
+        {% if mkt_val %}${{ "{:,.0f}".format(mkt_val|abs) }}{% else %}<span style="color:#3e3e44;">--</span>{% endif %}
+    </td>
+
+    <td class="text-right px-3 py-3" style="font-family:'Berkeley Mono',ui-monospace,monospace;">
+        {% if total_invest %}
+        <div class="pv" style="color:{{ '#4ade80' if total_pl >= 0 else '#f87171' }};font-weight:600;">
+            {{ '+' if total_pl >= 0 else '' }}${{ "{:,.0f}".format(total_pl) }}
+        </div>
+        <div style="font-size:10px;color:{{ '#4ade80' if pl_pct >= 0 else '#f87171' }};">
+            {{ '+' if pl_pct >= 0 else '' }}{{ "%.1f"|format(pl_pct) }}%
+        </div>
+        <div class="pv" style="font-size:10px;color:#62666d;margin-top:1px;">
+            浮 {{ '+' if unrealized >= 0 else '' }}${{ "{:,.0f}".format(unrealized) }}
+            {% if realized %} 实 {{ '+' if realized >= 0 else '' }}${{ "{:,.0f}".format(realized) }}{% endif %}
+        </div>
+        {% else %}<span style="color:#3e3e44;">--</span>{% endif %}
+    </td>
+
+    <td class="text-right px-3 py-3" style="font-family:'Berkeley Mono',ui-monospace,monospace;">
+        {% if ytd is not none %}
+        <span style="color:{{ '#4ade80' if ytd >= 0 else '#f87171' }};">
+            {{ '+' if ytd >= 0 else '' }}{{ "%.1f"|format(ytd) }}%
+        </span>
+        {% else %}<span style="color:#3e3e44;">--</span>{% endif %}
+    </td>
+</tr>
+<tr id="expand-{{ h.get('positionKey', sym)|replace(' ','_') }}" class="hidden" style="background:rgba(255,255,255,0.01);">
+    <td colspan="9" class="px-4 py-0">
+        <div hx-get="/api/portfolio/holding-trades/{{ sym }}"
+             hx-trigger="revealed"
+             hx-swap="outerHTML"
+             class="py-3 text-xs text-gray-500">加载成交记录...</div>
+    </td>
+</tr>
+{% else %}
+<tr>
+    <td colspan="9" class="text-center py-12 text-gray-500 text-xs">暂无持仓数据</td>
+</tr>
+{% endfor %}

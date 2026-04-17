@@ -1,0 +1,81 @@
+<div class="overflow-x-auto">
+    <table class="w-full text-xs">
+        <thead>
+            <tr class="border-b border-dark-600">
+                <th class="text-left px-4 py-2.5 text-gray-500 font-medium">日期</th>
+                <th class="text-left px-3 py-2.5 text-gray-500 font-medium">股票</th>
+                <th class="text-center px-3 py-2.5 text-gray-500 font-medium">操作</th>
+                <th class="text-right px-3 py-2.5 text-gray-500 font-medium">数量</th>
+                <th class="text-right px-3 py-2.5 text-gray-500 font-medium">价格</th>
+                <th class="text-right px-3 py-2.5 text-gray-500 font-medium">成交金额</th>
+                <th class="text-right px-3 py-2.5 text-gray-500 font-medium">手续费</th>
+                <th class="text-right px-3 py-2.5 text-gray-500 font-medium">已实现盈亏</th>
+                <th class="text-right px-3 py-2.5 text-gray-500 font-medium">成本变动</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for t in trades %}
+            {% set side = t.get('side', 'BUY') %}
+            {% set qty = t.get('quantity', 0) %}
+            {% set price = t.get('price', 0) %}
+            {% set amount = qty * price * t.get('multiplier', 1) %}
+            {% set comm = t.get('commission', 0) %}
+            {% set rpl = t.get('realizedPL', 0) %}
+            {% set cost_before = t.get('costBefore', 0) %}
+            {% set cost_after = t.get('costAfter', 0) %}
+            {% set cost_delta = cost_after - cost_before %}
+            <tr class="border-b border-dark-600/40 hover:bg-dark-600/20 transition-colors">
+                <td class="px-4 py-2.5 font-mono text-gray-400">
+                    {{ (t.get('tradeTime') or t.get('date')) | trade_time if t.get('tradeTime') or t.get('date') else '--' }}
+                </td>
+                <td class="px-3 py-2.5">
+                    <span class="font-bold text-white">{{ t.get('symbol', '') }}</span>
+                    {% if t.get('secType') == 'OPT' %}
+                    <span class="ml-1 text-purple-400 opacity-70">{{ t.get('right', '') }}{{ t.get('strike', '') }}</span>
+                    {% endif %}
+                </td>
+                <td class="text-center px-3 py-2.5">
+                    <span class="px-2 py-0.5 rounded-full text-xs font-medium {{ 'bg-green-500/15 text-green-400' if side == 'BUY' else 'bg-red-500/15 text-red-400' }}">
+                        {{ side }}
+                    </span>
+                </td>
+                <td class="text-right px-3 py-2.5 font-mono text-gray-300">{{ qty }}</td>
+                <td class="text-right px-3 py-2.5 font-mono text-white pv">${{ "%.2f"|format(price) }}</td>
+                <td class="text-right px-3 py-2.5 font-mono text-gray-300 pv">${{ "{:,.0f}".format(amount) }}</td>
+                <td class="text-right px-3 py-2.5 font-mono text-red-400 pv">-${{ "%.2f"|format(comm) }}</td>
+                <td class="text-right px-3 py-2.5 font-mono pv {{ 'text-green-400' if rpl > 0 else 'text-red-400' if rpl < 0 else 'text-gray-500' }}">
+                    {% if rpl %}{{ '+' if rpl > 0 else '' }}${{ "%.0f"|format(rpl) }}{% else %}--{% endif %}
+                </td>
+                <td class="text-right px-3 py-2.5 font-mono text-gray-500 pv">
+                    {% if cost_before or cost_after %}
+                    ${{ "%.2f"|format(cost_before) }} → ${{ "%.2f"|format(cost_after) }}
+                    {% else %}--{% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="9" class="text-center py-10 text-gray-500">暂无成交记录</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- 分页 -->
+{% if pages > 1 %}
+<div class="flex items-center justify-between px-4 py-3 border-t border-dark-600">
+    <span class="text-xs text-gray-500">共 {{ total }} 条记录，第 {{ page }}/{{ pages }} 页</span>
+    <div class="flex gap-1">
+        {% if page > 1 %}
+        <button hx-get="/api/portfolio/trades-partial?page={{ page - 1 }}&per_page={{ per_page }}&search={{ search }}&sec_type={{ sec_type }}"
+                hx-target="#trades-content" hx-swap="innerHTML"
+                class="px-2 py-1 text-xs bg-dark-600 hover:bg-dark-500 rounded text-gray-400 hover:text-white transition-colors">上一页</button>
+        {% endif %}
+        {% if page < pages %}
+        <button hx-get="/api/portfolio/trades-partial?page={{ page + 1 }}&per_page={{ per_page }}&search={{ search }}&sec_type={{ sec_type }}"
+                hx-target="#trades-content" hx-swap="innerHTML"
+                class="px-2 py-1 text-xs bg-dark-600 hover:bg-dark-500 rounded text-gray-400 hover:text-white transition-colors">下一页</button>
+        {% endif %}
+    </div>
+</div>
+{% endif %}

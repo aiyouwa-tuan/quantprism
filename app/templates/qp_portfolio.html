@@ -1,0 +1,864 @@
+{% extends "base.html" %}
+{% block content %}
+
+{% if not configured %}
+<!-- ===== 未配置状态 ===== -->
+<div class="flex flex-col items-center justify-center min-h-96 text-center">
+    <div style="font-size:48px; margin-bottom:16px;">🔌</div>
+    <h2 class="text-xl font-bold text-white mb-2">需要配置 AlphaLens 连接</h2>
+    <p class="text-gray-400 text-sm max-w-md mb-6">
+        持仓管理数据来自 neurynx.com（AlphaLens），需要在 <code class="text-accent-blue">.env</code> 中配置认证 Cookie 才能访问。
+    </p>
+    <div class="bg-dark-700 border border-dark-600 rounded-xl p-5 text-left max-w-lg w-full mb-4">
+        <div class="text-xs text-gray-500 mb-2">在 QuantPrism 根目录的 <code>.env</code> 文件中添加：</div>
+        <pre class="text-green-400 text-sm font-mono">NEURYNX_COOKIE=your_session_cookie_here
+NEURYNX_BASE_URL=https://neurynx.com</pre>
+    </div>
+    <div class="bg-dark-700 border border-dark-600 rounded-xl p-5 text-left max-w-lg w-full">
+        <div class="text-xs text-gray-500 mb-2 font-semibold">如何获取 Cookie：</div>
+        <ol class="text-xs text-gray-400 space-y-1 list-decimal list-inside">
+            <li>在浏览器中登录 <a href="https://neurynx.com" class="text-accent-blue">neurynx.com</a></li>
+            <li>打开 DevTools → Network → 任意请求 → 复制 Cookie 请求头的值</li>
+            <li>将完整 cookie 字符串粘贴到 .env 中</li>
+            <li>重启 QuantPrism 服务</li>
+        </ol>
+    </div>
+</div>
+
+{% elif auth_error %}
+<!-- ===== 认证失败状态 ===== -->
+<div class="flex flex-col items-center justify-center min-h-96 text-center">
+    <div style="font-size:48px; margin-bottom:16px;">🔒</div>
+    <h2 class="text-xl font-bold text-white mb-2">认证失败</h2>
+    <p class="text-gray-400 text-sm max-w-md">
+        NEURYNX_COOKIE 已配置，但 neurynx.com 返回了认证错误。Cookie 可能已过期，请重新获取。
+    </p>
+</div>
+
+{% else %}
+<!-- ===== 主页面 ===== -->
+
+<!-- Header -->
+<div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+    <div>
+        <h1 class="text-2xl font-bold text-white">持仓管理</h1>
+        <p class="text-xs text-gray-500 mt-0.5">IB 实时持仓 · 中式成本计算 · 数据来源：neurynx.com</p>
+    </div>
+    <div class="flex items-center gap-2">
+        <!-- 隐私模式 -->
+        <button onclick="togglePrivacy()" id="privacy-btn"
+            class="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-dark-700 hover:bg-dark-600 border border-dark-600 rounded-lg text-gray-400 hover:text-white transition-colors">
+            <span id="privacy-icon">👁</span>
+            <span id="privacy-label">显示金额</span>
+        </button>
+        <!-- 刷新（只读缓存，不触发 IB 写操作） -->
+        <button
+            hx-get="/api/portfolio/holdings-partial?sec_type=STK"
+            hx-target="#holdings-tbody"
+            hx-swap="innerHTML"
+            hx-indicator="#sync-loading"
+            class="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-accent-blue hover:bg-blue-600 rounded-lg text-white font-medium transition-colors">
+            🔄 刷新
+        </button>
+        <div id="sync-loading" class="htmx-indicator text-xs text-gray-500">加载中...</div>
+    </div>
+</div>
+
+<!-- 连接状态栏 -->
+<div class="flex items-center gap-4 px-4 py-2.5 bg-dark-700 border border-dark-600 rounded-xl mb-4 text-xs">
+    <!-- IB 状态 -->
+    {% set ib_connected = ib_status.get('connected', False) if ib_status else False %}
+    <div class="flex items-center gap-1.5">
+        <span class="w-2 h-2 rounded-full {{ 'bg-green-400' if ib_connected else 'bg-red-400' }}"></span>
+        <span class="text-gray-400">IB Gateway {{ '已连接' if ib_connected else '离线' }}</span>
+    </div>
+    <span class="text-dark-600">|</span>
+    <!-- 数据源 -->
+    {% set meta = ib_status.get('meta', {}) if ib_status else {} %}
+    <span class="text-gray-500">行情: <span class="text-gray-300">{{ meta.get('quoteSource', 'Longbridge') }}</span></span>
+    {% if meta.get('fallbackSource') %}
+    <span class="text-gray-500">备援: <span class="text-gray-300">{{ meta.get('fallbackSource') }}</span></span>
+    {% endif %}
+    <!-- 时间戳 -->
+    {% if ib_status and ib_status.get('lastUpdated') %}
+    <span class="text-dark-600">|</span>
+    <span class="text-gray-500">更新: <span class="font-mono text-gray-400">{{ ib_status.get('lastUpdated', '') }}</span></span>
+    {% endif %}
+    <div class="flex-1"></div>
+    <a href="{{ neurynx_base }}/portfolio" target="_blank"
+       class="text-gray-600 hover:text-gray-400 transition-colors">↗ AlphaLens</a>
+</div>
+
+<!-- KPI 卡片
+     计算方式与 AlphaLens 保持一致：
+       持仓总市值 = sum(holding market values)，期权用成本兜底
+       整体收益   = 持仓总市值 − 本金(净入金)          ← 恒等式，不双重计算
+       整体收益分解：已实现(FIFO) + 未实现 + 股息      ← 未实现从恒等式反推
+-->
+{% set acct = account if account else {} %}
+{% set cf = cashflow if cashflow else {} %}
+{% set net_deposits = cf.get('netDeposits', 0) %}
+{% set total_dividends = cf.get('totalDividends', 0) %}
+{% set total_interest = cf.get('totalInterest', 0) %}
+{% set total_fees = cf.get('totalFees', 0) %}
+{% set total_commission = cf.get('totalFees', acct.get('totalCommission', 0)) %}
+
+{% set calc_total_mv = alloc_values.values() | sum %}
+
+{# 整体收益 = 持仓总市值 − 本金 #}
+{% set total_return = (calc_total_mv - net_deposits) if (calc_total_mv and net_deposits) else 0 %}
+{% set return_pct = (total_return / net_deposits * 100) if net_deposits else 0 %}
+
+{# 分解：未实现 = 整体收益 − FIFO已实现 − 股息 − 利息 + 费用 #}
+{% set fpl = fifo_realized_pl if fifo_realized_pl else 0 %}
+{% set unrealized_pl = (total_return - fpl - total_dividends - total_interest + total_fees) if total_return else 0 %}
+
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+    <!-- 持仓总市值 -->
+    <div class="bg-dark-700 border border-dark-600 rounded-xl p-4">
+        <div class="text-xs text-gray-500 mb-1">持仓总市值</div>
+        <div class="text-xl font-bold text-white pv">${{ "{:,.0f}".format(calc_total_mv) if calc_total_mv else '--' }}</div>
+        <div class="text-xs text-gray-600 mt-1">{{ holdings|length }} 个持仓</div>
+    </div>
+
+    <!-- 整体收益 -->
+    <div class="bg-dark-700 border border-dark-600 rounded-xl p-4">
+        <div class="text-xs text-gray-500 mb-1">整体收益</div>
+        <div class="text-xl font-bold pv {{ 'text-green-400' if total_return >= 0 else 'text-red-400' }}">
+            {% if total_return %}{{ '+' if total_return >= 0 else '' }}${{ "{:,.0f}".format(total_return) }}{% else %}--{% endif %}
+        </div>
+        {% if return_pct %}
+        <div class="text-xs {{ 'text-green-500' if return_pct >= 0 else 'text-red-500' }} mt-0.5">
+            {{ '+' if return_pct >= 0 else '' }}{{ "%.1f"|format(return_pct) }}%
+        </div>
+        {% endif %}
+        {% if fpl or total_dividends %}
+        <div class="text-xs text-gray-600 mt-1">
+            已实现 {{ '+' if fpl >= 0 else '' }}${{ "{:,.0f}".format(fpl) }}
+            {% if unrealized_pl %} · 浮动 {{ '+' if unrealized_pl >= 0 else '' }}${{ "{:,.0f}".format(unrealized_pl) }}{% endif %}
+            {% if total_dividends %} · 股息 +${{ "{:,.0f}".format(total_dividends) }}{% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 本金 -->
+    <div class="bg-dark-700 border border-dark-600 rounded-xl p-4">
+        <div class="text-xs text-gray-500 mb-1">真实本金</div>
+        <div class="text-xl font-bold text-white pv">${{ "{:,.0f}".format(net_deposits) if net_deposits else '--' }}</div>
+        <div class="text-xs text-gray-600 mt-1">Flex Query 净入金</div>
+    </div>
+
+    <!-- 累计手续费 -->
+    <div class="bg-dark-700 border border-dark-600 rounded-xl p-4">
+        <div class="text-xs text-gray-500 mb-1">累计手续费</div>
+        <div class="text-xl font-bold text-gray-300 pv">${{ "{:,.0f}".format(total_commission) if total_commission else '--' }}</div>
+        <div class="text-xs text-gray-600 mt-1">{{ "{:,.0f}".format(cf.get('tradeCount', 0)) if cf.get('tradeCount') else '' }} 笔交易</div>
+    </div>
+</div>
+
+<!-- 主内容区: 左侧持仓 + 右侧分布图 -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+    <!-- 左侧: 持仓表格 (2/3宽) -->
+    <div class="col-span-1 lg:col-span-2">
+        <div class="bg-dark-700 border border-dark-600 rounded-xl overflow-hidden">
+            <!-- 标签 + STK/OPT 切换 -->
+            <div class="flex items-center justify-between px-4 py-3 border-b border-dark-600">
+                <div class="flex gap-1" id="tab-bar">
+                    <button onclick="switchTab('holdings')" id="tab-holdings"
+                        class="px-3 py-1.5 text-xs rounded-lg font-medium bg-accent-blue text-white transition-colors">
+                        持仓明细
+                    </button>
+                    <button onclick="switchTab('trades')" id="tab-trades"
+                        class="px-3 py-1.5 text-xs rounded-lg font-medium text-gray-400 hover:text-white transition-colors">
+                        成交记录
+                    </button>
+                </div>
+
+                <!-- ALL/STK/OPT 切换（仅持仓明细） -->
+                <div id="sec-filter" class="flex gap-1">
+                    <button onclick="filterSec('ALL')" id="filter-ALL"
+                        class="px-2 py-1 text-xs rounded border border-dark-500 text-white bg-dark-500 transition-colors">
+                        全部
+                    </button>
+                    <button onclick="filterSec('STK')" id="filter-STK"
+                        class="px-2 py-1 text-xs rounded border border-dark-600 text-gray-400 hover:text-white transition-colors">
+                        股票
+                    </button>
+                    <button onclick="filterSec('OPT')" id="filter-OPT"
+                        class="px-2 py-1 text-xs rounded border border-dark-600 text-gray-400 hover:text-white transition-colors">
+                        期权
+                    </button>
+                </div>
+            </div>
+
+            <!-- 持仓明细面板 -->
+            {% set avatar_colors = {
+              'A':'#f59e0b','B':'#3b82f6','C':'#14b8a6','D':'#8b5cf6',
+              'E':'#ec4899','F':'#f97316','G':'#10b981','H':'#6366f1',
+              'I':'#0ea5e9','J':'#a855f7','K':'#84cc16','L':'#f43f5e',
+              'M':'#5e6ad2','N':'#06b6d4','O':'#fb923c','P':'#4ade80',
+              'Q':'#818cf8','R':'#fb7185','S':'#5e6ad2','T':'#34d399',
+              'U':'#f472b6','V':'#38bdf8','W':'#fb923c','X':'#c084fc',
+              'Y':'#facc15','Z':'#94a3b8'
+            } %}
+            <div id="panel-holdings">
+                <div class="overflow-x-auto">
+                    <table class="w-full" style="font-size:12px; border-collapse:collapse;">
+                        <thead>
+                            <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+                                <th class="text-left px-4 py-2.5 text-gray-500 font-medium" style="min-width:160px;">持仓</th>
+                                <th class="text-right px-3 py-2.5 text-gray-500 font-medium" style="min-width:70px;">数量</th>
+                                <th class="text-right px-3 py-2.5 text-gray-500 font-medium" style="min-width:80px;">最新价</th>
+                                <th class="text-right px-3 py-2.5 text-gray-500 font-medium" style="min-width:80px;">中式成本</th>
+                                <th class="text-right px-3 py-2.5 text-gray-500 font-medium" style="min-width:90px;">持仓成本</th>
+                                <th class="text-right px-3 py-2.5 text-gray-500 font-medium" style="min-width:90px;">当日涨跌/盈亏</th>
+                                <th class="text-right px-3 py-2.5 font-medium" style="min-width:100px; color:#d97706;">持仓市值 ↓</th>
+                                <th class="text-right px-3 py-2.5 text-gray-500 font-medium" style="min-width:110px;">总盈亏</th>
+                                <th class="text-right px-3 py-2.5 text-gray-500 font-medium" style="min-width:60px;">YTD</th>
+                            </tr>
+                        </thead>
+                        <tbody id="holdings-tbody">
+                            {% for h in holdings if h.get('quantity', 0) != 0 %}
+                            {% set sym = h.get('symbol', 'X') %}
+                            {% set sec = h.get('secType', 'STK') %}
+                            {% set qty = h.get('quantity', 0) %}
+                            {% set unit_cost = h.get('unitCost', 0) %}
+                            {% set fifo_cost = h.get('fifoAvgCost', 0) %}
+                            {% set last_price = h.get('lastPrice', 0) or 0 %}
+                            {% set total_invest = h.get('totalInvestment', 0) or 0 %}
+                            {% set multiplier = h.get('multiplier', 1) or 1 %}
+                            {% set mkt_val = last_price * qty * (multiplier if sec == 'OPT' else 1) if last_price else 0 %}
+                            {% set unrealized = mkt_val - total_invest %}
+                            {% set realized = h.get('realizedPL', 0) or 0 %}
+                            {% set total_pl = unrealized + realized %}
+                            {% set pl_pct = (total_pl / total_invest * 100) if total_invest else 0 %}
+                            {% set day_chg = h.get('changePercent', 0) or 0 %}
+                            {% set day_amt = h.get('changeAmount', 0) or 0 %}
+                            {% set day_pl = last_price * qty * (multiplier if sec == 'OPT' else 1) * day_chg / 100 if (last_price and day_chg) else 0 %}
+                            {% set ytd = h.get('ytd', none) %}
+                            {% set av_color = avatar_colors.get(sym[0:1].upper(), '#5e6ad2') %}
+                            {% set expiry_fmt = h.get('expiry', '') %}
+                            {% if expiry_fmt and expiry_fmt|length == 8 %}
+                              {% set expiry_fmt = expiry_fmt[0:4] + '-' + expiry_fmt[4:6] + '-' + expiry_fmt[6:8] %}
+                            {% endif %}
+                            <tr style="border-bottom:1px solid rgba(255,255,255,0.04);"
+                                class="hover:bg-white/[0.02] cursor-pointer transition-colors"
+                                onclick="toggleTradeRow('{{ h.get('positionKey', sym)|replace(' ','_') }}', this)">
+
+                                <!-- 持仓 -->
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center gap-2.5">
+                                        <div style="width:28px;height:28px;border-radius:7px;background:{{ av_color }};opacity:0.9;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;flex-shrink:0;">
+                                            {{ sym[0:1] }}
+                                        </div>
+                                        <div>
+                                            <div class="flex items-center gap-1.5">
+                                                <span style="font-weight:700;color:#f7f8f8;font-size:13px;">{{ sym }}</span>
+                                                <span style="padding:1px 5px;border-radius:4px;font-size:10px;font-weight:510;
+                                                    {% if sec == 'OPT' %}background:rgba(139,92,246,0.15);color:#a78bfa;border:1px solid rgba(139,92,246,0.25);
+                                                    {% elif sec == 'ETF' %}background:rgba(16,185,129,0.15);color:#34d399;border:1px solid rgba(16,185,129,0.25);
+                                                    {% else %}background:rgba(255,255,255,0.06);color:#8a8f98;border:1px solid rgba(255,255,255,0.1);{% endif %}">
+                                                    {% if sec == 'OPT' %}约{% elif sec == 'ETF' %}ETF{% else %}股{% endif %}
+                                                </span>
+                                            </div>
+                                            {% if sec == 'OPT' %}
+                                            <div style="font-size:10px;color:#62666d;margin-top:2px;">
+                                                {{ h.get('right','') }}{{ h.get('strike','')|int if h.get('strike') else '' }}
+                                                {% if expiry_fmt %} · {{ expiry_fmt }}{% endif %}
+                                            </div>
+                                            {% else %}
+                                            <div style="font-size:10px;color:#62666d;margin-top:2px;">{{ h.get('tradeCount',0) }} 笔</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+
+                                <!-- 数量 -->
+                                <td class="text-right px-3 py-3" style="font-family:'Berkeley Mono',ui-monospace,monospace;color:#d0d6e0;">
+                                    {{ qty }}
+                                    <div style="font-size:10px;color:#62666d;">{{ '合约' if sec == 'OPT' else '股' }}</div>
+                                </td>
+
+                                <!-- 最新价 -->
+                                <td class="text-right px-3 py-3 pv" style="font-family:'Berkeley Mono',ui-monospace,monospace;color:#f7f8f8;">
+                                    {% if last_price %}${{ "%.2f"|format(last_price) }}{% else %}<span style="color:#3e3e44;">--</span>{% endif %}
+                                </td>
+
+                                <!-- 中式成本 -->
+                                <td class="text-right px-3 py-3 pv" style="font-family:'Berkeley Mono',ui-monospace,monospace;color:#8a8f98;">
+                                    {% if unit_cost %}${{ "%.2f"|format(unit_cost) }}{% else %}<span style="color:#3e3e44;">--</span>{% endif %}
+                                    {% if fifo_cost and fifo_cost != unit_cost %}
+                                    <div style="font-size:10px;color:#62666d;">IB ${{ "%.2f"|format(fifo_cost) }}</div>
+                                    {% endif %}
+                                </td>
+
+                                <!-- 持仓成本 -->
+                                <td class="text-right px-3 py-3 pv" style="font-family:'Berkeley Mono',ui-monospace,monospace;color:#8a8f98;">
+                                    {% if total_invest %}${{ "{:,.0f}".format(total_invest|abs) }}{% else %}<span style="color:#3e3e44;">--</span>{% endif %}
+                                </td>
+
+                                <!-- 当日涨跌/盈亏 -->
+                                <td class="text-right px-3 py-3" style="font-family:'Berkeley Mono',ui-monospace,monospace;">
+                                    {% if day_chg %}
+                                    <div style="color:{{ '#4ade80' if day_chg >= 0 else '#f87171' }};">
+                                        {{ '+' if day_chg >= 0 else '' }}{{ "%.2f"|format(day_chg) }}%
+                                    </div>
+                                    <div class="pv" style="font-size:10px;color:{{ '#4ade80' if day_pl >= 0 else '#f87171' }};">
+                                        {{ '+' if day_pl >= 0 else '' }}${{ "{:,.0f}".format(day_pl) }}
+                                    </div>
+                                    {% else %}<span style="color:#3e3e44;">--</span>{% endif %}
+                                </td>
+
+                                <!-- 持仓市值 -->
+                                <td class="text-right px-3 py-3 pv" style="font-family:'Berkeley Mono',ui-monospace,monospace;color:#f7f8f8;font-weight:600;">
+                                    {% if mkt_val %}${{ "{:,.0f}".format(mkt_val|abs) }}{% else %}<span style="color:#3e3e44;">--</span>{% endif %}
+                                </td>
+
+                                <!-- 总盈亏 -->
+                                <td class="text-right px-3 py-3" style="font-family:'Berkeley Mono',ui-monospace,monospace;">
+                                    {% if total_invest %}
+                                    <div class="pv" style="color:{{ '#4ade80' if total_pl >= 0 else '#f87171' }};font-weight:600;">
+                                        {{ '+' if total_pl >= 0 else '' }}${{ "{:,.0f}".format(total_pl) }}
+                                    </div>
+                                    <div style="font-size:10px;color:{{ '#4ade80' if pl_pct >= 0 else '#f87171' }};">
+                                        {{ '+' if pl_pct >= 0 else '' }}{{ "%.1f"|format(pl_pct) }}%
+                                    </div>
+                                    <div class="pv" style="font-size:10px;color:#62666d;margin-top:1px;">
+                                        浮 {{ '+' if unrealized >= 0 else '' }}${{ "{:,.0f}".format(unrealized) }}
+                                        {% if realized %} 实 {{ '+' if realized >= 0 else '' }}${{ "{:,.0f}".format(realized) }}{% endif %}
+                                    </div>
+                                    {% else %}<span style="color:#3e3e44;">--</span>{% endif %}
+                                </td>
+
+                                <!-- YTD -->
+                                <td class="text-right px-3 py-3" style="font-family:'Berkeley Mono',ui-monospace,monospace;">
+                                    {% if ytd is not none %}
+                                    <span style="color:{{ '#4ade80' if ytd >= 0 else '#f87171' }};">
+                                        {{ '+' if ytd >= 0 else '' }}{{ "%.1f"|format(ytd) }}%
+                                    </span>
+                                    {% else %}<span style="color:#3e3e44;">--</span>{% endif %}
+                                </td>
+                            </tr>
+                            <!-- 展开行: 逐笔成交 -->
+                            <tr id="expand-{{ h.get('positionKey', sym)|replace(' ','_') }}" class="hidden" style="background:rgba(255,255,255,0.01);">
+                                <td colspan="9" class="px-4 py-0">
+                                    <div hx-get="/api/portfolio/holding-trades/{{ sym }}"
+                                         hx-trigger="revealed"
+                                         hx-swap="outerHTML"
+                                         class="py-3 text-xs text-gray-500">加载成交记录...</div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="9" class="text-center py-12 text-gray-500">
+                                    {% if not holdings %}暂无持仓数据{% else %}无持仓{% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 成交记录面板 (默认隐藏) -->
+            <div id="panel-trades" class="hidden">
+                <!-- 搜索栏 -->
+                <div class="flex gap-2 px-4 py-3 border-b border-dark-600">
+                    <input type="text" id="trades-search" placeholder="搜索股票代码..."
+                        class="flex-1 text-xs bg-dark-800 border border-dark-600 rounded-lg px-3 py-1.5 text-white placeholder-gray-600 focus:outline-none focus:border-accent-blue"
+                        hx-get="/api/portfolio/trades-partial"
+                        hx-trigger="keyup changed delay:400ms"
+                        hx-target="#trades-content"
+                        hx-include="#trades-search,#trades-sec-filter"
+                        name="search">
+                    <select id="trades-sec-filter" name="sec_type"
+                        class="text-xs bg-dark-800 border border-dark-600 rounded-lg px-2 py-1.5 text-gray-400"
+                        hx-get="/api/portfolio/trades-partial"
+                        hx-trigger="change"
+                        hx-target="#trades-content"
+                        hx-include="#trades-search,#trades-sec-filter">
+                        <option value="ALL">全部</option>
+                        <option value="STK">股票</option>
+                        <option value="OPT">期权</option>
+                    </select>
+                </div>
+                <div id="trades-content"
+                     hx-get="/api/portfolio/trades-partial"
+                     hx-trigger="load"
+                     hx-swap="innerHTML">
+                    <div class="py-8 text-center text-xs text-gray-500">加载成交记录...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右侧: 仓位分布图 (1/3宽) -->
+    <div class="space-y-4">
+        <!-- 仓位分布 widget (资产类型 + 行业分布 + 下钻) -->
+        <div class="bg-dark-700 border border-dark-600 rounded-xl p-4" id="alloc-widget">
+
+            <!-- Header -->
+            <div class="flex items-center justify-between mb-3">
+                <!-- Breadcrumb -->
+                <div id="alloc-breadcrumb" class="flex items-center gap-1.5 text-xs">
+                    <span class="font-semibold text-white">仓位分布</span>
+                </div>
+                <!-- View toggle (hidden while drilled) -->
+                <div id="alloc-view-toggle" class="flex rounded-lg overflow-hidden border border-dark-500">
+                    <button onclick="allocSetView('asset')" id="btn-asset"
+                        class="px-2 py-0.5 text-xs font-medium text-white bg-dark-500 transition-colors">资产类型</button>
+                    <button onclick="allocSetView('sector')" id="btn-sector"
+                        class="px-2 py-0.5 text-xs font-medium text-gray-500 transition-colors">行业分布</button>
+                </div>
+            </div>
+
+            <!-- SVG Donut -->
+            <div class="flex justify-center mb-3">
+                <svg id="alloc-svg" width="160" height="160" viewBox="0 0 160 160"></svg>
+            </div>
+
+            <!-- Hint -->
+            <p id="alloc-hint" class="text-xs text-gray-600 mb-2">点击分类查看持仓明细 →</p>
+
+            <!-- Legend -->
+            <div id="alloc-legend" class="space-y-1"></div>
+
+            <!-- Footer -->
+            <div class="border-t border-dark-600 pt-2 mt-2 flex justify-between text-xs">
+                <span id="alloc-footer-label" class="text-gray-500">-- 类资产</span>
+                <span id="alloc-footer-total" class="font-mono text-white pv"></span>
+            </div>
+        </div>
+
+        <!-- 持仓数据供 JS 使用 -->
+        <script id="alloc-data" type="application/json">
+        {{ holdings | tojson }}
+        </script>
+
+        <!-- 收益分解 -->
+        <div class="bg-dark-700 border border-dark-600 rounded-xl p-4">
+            <div class="text-sm font-semibold text-white mb-3">收益分解</div>
+            <div class="space-y-2">
+                <div class="flex justify-between text-xs">
+                    <span class="text-gray-500">浮动盈亏</span>
+                    <span class="font-mono pv {{ 'text-green-400' if unrealized_pl >= 0 else 'text-red-400' }}">
+                        {% if unrealized_pl %}{{ '+' if unrealized_pl >= 0 else '' }}${{ "{:,.0f}".format(unrealized_pl) }}{% else %}--{% endif %}
+                    </span>
+                </div>
+                <div class="flex justify-between text-xs">
+                    <span class="text-gray-500">已实现盈亏</span>
+                    <span class="font-mono pv {{ 'text-green-400' if fpl >= 0 else 'text-red-400' }}">
+                        {% if fpl %}{{ '+' if fpl >= 0 else '' }}${{ "{:,.0f}".format(fpl) }}{% else %}--{% endif %}
+                    </span>
+                </div>
+                <div class="flex justify-between text-xs">
+                    <span class="text-gray-500">股息收入</span>
+                    <span class="font-mono text-green-400 pv">
+                        {% if total_dividends %}+${{ "{:,.0f}".format(total_dividends) }}{% else %}--{% endif %}
+                    </span>
+                </div>
+                <div class="flex justify-between text-xs">
+                    <span class="text-gray-500">手续费支出</span>
+                    <span class="font-mono text-red-400 pv">
+                        {% if total_fees %}-${{ "{:,.0f}".format(total_fees) }}{% else %}--{% endif %}
+                    </span>
+                </div>
+                <div class="border-t border-dark-600 pt-2 flex justify-between text-xs font-semibold">
+                    <span class="text-gray-400">净收益</span>
+                    <span class="font-mono pv {{ 'text-green-400' if total_return >= 0 else 'text-red-400' }}">
+                        {% if total_return %}{{ '+' if total_return >= 0 else '' }}${{ "{:,.0f}".format(total_return) }}{% else %}--{% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+<!-- /主内容区 -->
+
+{% endif %}
+
+<script>
+// ===== 隐私模式 =====
+let privacyOn = false;
+function togglePrivacy() {
+    privacyOn = !privacyOn;
+    document.querySelectorAll('.pv').forEach(el => {
+        if (privacyOn) {
+            el.dataset.orig = el.textContent;
+            el.style.filter = 'blur(6px)';
+            el.style.userSelect = 'none';
+        } else {
+            el.style.filter = '';
+            el.style.userSelect = '';
+        }
+    });
+    document.getElementById('privacy-icon').textContent = privacyOn ? '🙈' : '👁';
+    document.getElementById('privacy-label').textContent = privacyOn ? '隐藏中' : '显示金额';
+}
+
+// ===== Tab 切换 =====
+function switchTab(tab) {
+    const tabs = ['holdings', 'trades'];
+    tabs.forEach(t => {
+        const btn = document.getElementById('tab-' + t);
+        const panel = document.getElementById('panel-' + t);
+        if (t === tab) {
+            btn.classList.add('bg-accent-blue', 'text-white');
+            btn.classList.remove('text-gray-400');
+            panel.classList.remove('hidden');
+        } else {
+            btn.classList.remove('bg-accent-blue', 'text-white');
+            btn.classList.add('text-gray-400');
+            panel.classList.add('hidden');
+        }
+    });
+    // 显示/隐藏 STK/OPT 过滤器
+    document.getElementById('sec-filter').style.display = tab === 'holdings' ? 'flex' : 'none';
+    // 切换到成交记录时主动触发加载，确保每次都拿到最新数据
+    if (tab === 'trades') {
+        const search = document.getElementById('trades-search');
+        const secFilter = document.getElementById('trades-sec-filter');
+        const params = new URLSearchParams({
+            search: search ? search.value : '',
+            sec_type: secFilter ? secFilter.value : 'ALL'
+        });
+        htmx.ajax('GET', '/api/portfolio/trades-partial?' + params.toString(), {
+            target: '#trades-content',
+            swap: 'innerHTML'
+        });
+    }
+}
+
+// ===== ALL/STK/OPT 过滤 =====
+let currentSecType = 'ALL';
+function filterSec(secType) {
+    currentSecType = secType;
+    ['ALL', 'STK', 'OPT'].forEach(s => {
+        const btn = document.getElementById('filter-' + s);
+        if (!btn) return;
+        if (s === secType) {
+            btn.classList.add('text-white', 'bg-dark-500', 'border-dark-500');
+            btn.classList.remove('text-gray-400', 'border-dark-600');
+        } else {
+            btn.classList.remove('text-white', 'bg-dark-500', 'border-dark-500');
+            btn.classList.add('text-gray-400', 'border-dark-600');
+        }
+    });
+    htmx.ajax('GET', '/api/portfolio/holdings-partial?sec_type=' + secType, {
+        target: '#holdings-tbody',
+        swap: 'innerHTML'
+    });
+}
+
+// ===== 行展开 =====
+function toggleTradeRow(key, rowEl) {
+    const expandId = 'expand-' + key.replace(/\s+/g, '_');
+    const expandRow = document.getElementById(expandId);
+    if (!expandRow) return;
+    const isHidden = expandRow.classList.contains('hidden');
+    // 收起其他展开行
+    document.querySelectorAll('[id^="expand-"]').forEach(r => r.classList.add('hidden'));
+    if (isHidden) {
+        expandRow.classList.remove('hidden');
+        // 触发 HTMX lazy load
+        htmx.trigger(expandRow.querySelector('[hx-trigger="revealed"]'), 'revealed');
+    }
+}
+
+// ===== 仓位分布图（资产类型 / 行业分布 + 下钻）=====
+(function () {
+    const rawHoldings = JSON.parse(document.getElementById('alloc-data')?.textContent || '[]');
+
+    // ── 颜色 / 映射 ──
+    const SECTOR_MAP = {
+        AAPL:'科技',MSFT:'科技',NVDA:'科技',GOOGL:'科技',GOOG:'科技',META:'科技',
+        AMZN:'科技',TSLA:'科技',AMD:'科技',INTC:'科技',TSM:'科技',AVGO:'科技',
+        MU:'科技',QCOM:'科技',AMAT:'科技',LRCX:'科技',ASML:'科技',CRM:'科技',
+        ADBE:'科技',ORCL:'科技',IBM:'科技',TXN:'科技',KLAC:'科技',MRVL:'科技',
+        SMCI:'科技',ARM:'科技',PLTR:'科技',SNOW:'科技',SHOP:'科技',NOW:'科技',
+        PANW:'科技',CRWD:'科技',NET:'科技',DDOG:'科技',ZS:'科技',FTNT:'科技',
+        MDB:'科技',UBER:'科技',LYFT:'科技',ABNB:'科技',DASH:'科技',COIN:'科技',
+        JPM:'金融',GS:'金融',MS:'金融',BAC:'金融',WFC:'金融',V:'金融',MA:'金融',
+        AXP:'金融',BLK:'金融',BRKB:'金融',C:'金融',USB:'金融',PYPL:'金融',SQ:'金融',
+        NKE:'消费',SBUX:'消费',MCD:'消费',HD:'消费',LOW:'消费',TGT:'消费',WMT:'消费',
+        COST:'消费',PG:'消费',KO:'消费',PEP:'消费',PM:'消费',MO:'消费',
+        BABA:'消费',JD:'消费',PDD:'消费',
+        JNJ:'医疗',PFE:'医疗',MRNA:'医疗',ABBV:'医疗',LLY:'医疗',UNH:'医疗',
+        CVS:'医疗',GILD:'医疗',AMGN:'医疗',BMY:'医疗',ISRG:'医疗',MDT:'医疗',
+        XOM:'能源',CVX:'能源',COP:'能源',SLB:'能源',EOG:'能源',OXY:'能源',
+        MPC:'能源',PSX:'能源',VLO:'能源',
+        SGOV:'国债',BIL:'国债',SHV:'国债',TBIL:'国债',GOVT:'国债',IEF:'国债',
+        SHY:'国债',TLT:'国债',AGG:'国债',BND:'国债',VGIT:'国债',VGLT:'国债',
+        QQQ:'ETF',SPY:'ETF',IWM:'ETF',DIA:'ETF',VTI:'ETF',VOO:'ETF',ARKK:'ETF',
+        XLK:'ETF',XLF:'ETF',XLE:'ETF',TQQQ:'ETF',SQQQ:'ETF',UVXY:'ETF',VXX:'ETF',
+        SOXL:'ETF',SOXS:'ETF',GLD:'ETF',SLV:'ETF',USO:'ETF',COPX:'ETF',
+        YANG:'ETF',YINN:'ETF',LABU:'ETF',LABD:'ETF',
+        T:'通信',VZ:'通信',DIS:'通信',NFLX:'通信',CMCSA:'通信',ROKU:'通信',
+        GE:'工业',CAT:'工业',HON:'工业',UPS:'工业',BA:'工业',DE:'工业',
+        MMM:'工业',RTX:'工业',LMT:'工业',NOC:'工业',
+        AMT:'地产',PLD:'地产',EQIX:'地产',SPG:'地产',
+        FCX:'材料',NEM:'材料',BHP:'材料',VALE:'材料',AA:'材料',
+        NEE:'公用事业',DUK:'公用事业',SO:'公用事业',D:'公用事业',
+    };
+    const ASSET_COLORS  = { STK:'#5e6ad2', OPT:'#10b981', ETF:'#f59e0b', BOND:'#0891b2', CASH:'#6b7280' };
+    const ASSET_LABELS  = { STK:'正股', OPT:'期权', ETF:'ETF', BOND:'国债/现金', CASH:'现金' };
+    const SECTOR_COLORS = {
+        '科技':'#5e6ad2','金融':'#2563eb','消费':'#10b981','医疗':'#059669',
+        '能源':'#ef4444','ETF':'#f59e0b','国债':'#0891b2','通信':'#8b5cf6',
+        '工业':'#b45309','地产':'#065f46','材料':'#9f1239','公用事业':'#0369a1','其他':'#6b7280',
+    };
+    const DRILL_COLORS = [
+        '#5e6ad2','#10b981','#f59e0b','#8b5cf6','#ef4444','#0891b2',
+        '#b45309','#059669','#0369a1','#9f1239','#92400e','#065f46',
+        '#1d4ed8','#9333ea','#be123c','#047857','#b91c1c','#6d28d9',
+    ];
+
+    // ── 计算函数 ──
+    function holdingMV(h) {
+        const p = h.lastPrice || 0, q = h.quantity || 0, m = h.multiplier || 1;
+        if (p) return Math.abs(p * q * (h.secType === 'OPT' ? m : 1));
+        return Math.abs(h.totalInvestment || 0);
+    }
+    function assetKey(h) {
+        if (h.secType === 'OPT') return 'OPT';
+        if (h.secType === 'CASH') return 'CASH';
+        const s = SECTOR_MAP[(h.symbol||'').split(' ')[0].toUpperCase()];
+        if (s === 'ETF' || h.secType === 'ETF') return 'ETF';
+        if (s === '国债') return 'BOND';
+        return 'STK';
+    }
+    function sectorKey(h) {
+        if (h.secType === 'CASH') return 'CASH';
+        return SECTOR_MAP[(h.symbol||'').split(' ')[0].toUpperCase()] || '其他';
+    }
+    function buildTop(items, view) {
+        const m = {};
+        for (const h of items) {
+            const k = view === 'asset' ? assetKey(h) : sectorKey(h);
+            if (k !== 'CASH') m[k] = (m[k]||0) + holdingMV(h);
+        }
+        return Object.entries(m).filter(([,v])=>v>0)
+            .map(([key,value])=>({ name: view==='asset'?(ASSET_LABELS[key]||key):key, key, value, drillable:true }))
+            .sort((a,b)=>b.value-a.value);
+    }
+    function buildDrill(items, dk, view) {
+        const m = {};
+        for (const h of items) {
+            const k = view === 'asset' ? assetKey(h) : sectorKey(h);
+            if (k !== dk) continue;
+            const base = (h.symbol||'').split(' ')[0].toUpperCase();
+            const label = h.secType === 'OPT' ? `${base} 期权` : base;
+            m[label] = (m[label]||0) + holdingMV(h);
+        }
+        return Object.entries(m).filter(([,v])=>v>0)
+            .map(([key,value])=>({ name:key, key, value }))
+            .sort((a,b)=>b.value-a.value);
+    }
+    function fmt(v) {
+        if (v>=1e6) return `$${(v/1e6).toFixed(2)}M`;
+        if (v>=1e3) return `$${(v/1e3).toFixed(1)}K`;
+        return `$${Math.round(v).toLocaleString()}`;
+    }
+    function getColor(d, i) {
+        if (state.drillKey) return DRILL_COLORS[i % DRILL_COLORS.length];
+        return state.view==='asset' ? (ASSET_COLORS[d.key]||'#6b7280') : (SECTOR_COLORS[d.key]||'#6b7280');
+    }
+
+    // ── 状态 ──
+    const state = { view:'asset', drillKey:null, drillLabel:'' };
+    let currentData = [];
+
+    // ── Tooltip ──
+    const tt = document.createElement('div');
+    tt.id = 'alloc-tt';
+    tt.style.cssText = 'display:none;position:fixed;z-index:9999;background:#1f2333;border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:8px 12px;font-size:12px;pointer-events:none;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,0.5)';
+    document.body.appendChild(tt);
+
+    function showTT(e, d, total) {
+        const pct = total > 0 ? (d.value/total*100).toFixed(1) : '0';
+        tt.innerHTML = `<div style="font-weight:600;color:#f7f8f8;margin-bottom:3px">${d.name}</div>
+            <div style="color:#8a8f98">${fmt(d.value)} · <strong style="color:#818cf8">${pct}%</strong></div>`;
+        tt.style.display = 'block';
+        moveTT(e);
+    }
+    function moveTT(e) {
+        tt.style.left = (e.clientX + 14) + 'px';
+        tt.style.top  = (e.clientY - 36) + 'px';
+    }
+    function hideTT() { tt.style.display = 'none'; }
+
+    // ── 直接操作 hover（不重绘 SVG）──
+    function applyHover(idx) {
+        document.querySelectorAll('#alloc-svg path[data-i]').forEach(p => {
+            p.setAttribute('opacity', idx === null || +p.dataset.i === idx ? '1' : '0.3');
+        });
+        document.querySelectorAll('#alloc-legend [data-li]').forEach(row => {
+            const i = +row.dataset.li;
+            row.style.background = (idx !== null && i === idx) ? 'rgba(255,255,255,0.05)' : 'transparent';
+            const arr = row.querySelector('.arrow');
+            if (arr) arr.style.opacity = (idx !== null && i === idx) ? '1' : '0';
+        });
+    }
+
+    // ── 渲染 SVG ──
+    function drawDonut(data) {
+        const svg = document.getElementById('alloc-svg');
+        if (!svg) return;
+        const total = data.reduce((s,d)=>s+d.value, 0);
+        if (!total) { svg.innerHTML = ''; return; }
+        const cx=80, cy=80, R=70, r=44, GAP=data.length>1?0.025:0;
+        let a = -Math.PI/2, html = '';
+        data.forEach((d,i) => {
+            const slice = Math.max(0.001, d.value/total * Math.PI*2 - GAP);
+            const end = a + slice;
+            const lg  = slice > Math.PI ? 1 : 0;
+            const col = getColor(d, i);
+            const [x1,y1] = [cx+R*Math.cos(a), cy+R*Math.sin(a)];
+            const [x2,y2] = [cx+R*Math.cos(end), cy+R*Math.sin(end)];
+            const [ix1,iy1] = [cx+r*Math.cos(a), cy+r*Math.sin(a)];
+            const [ix2,iy2] = [cx+r*Math.cos(end), cy+r*Math.sin(end)];
+            html += `<path data-i="${i}"
+                d="M${ix1} ${iy1}L${x1} ${y1}A${R} ${R} 0 ${lg} 1 ${x2} ${y2}L${ix2} ${iy2}A${r} ${r} 0 ${lg} 0 ${ix1} ${iy1}Z"
+                fill="${col}" opacity="1"
+                style="cursor:${state.drillKey?'default':'pointer'};transition:opacity 120ms"/>`;
+            a = end + GAP;
+        });
+        const cLabel = state.drillKey ? state.drillLabel : (state.view==='asset'?'资产':'行业');
+        svg.innerHTML = html
+            + `<circle cx="${cx}" cy="${cy}" r="${r-2}" fill="#1a1d24"/>`
+            + `<text x="${cx}" y="${cy-5}" text-anchor="middle" fill="#f7f8f8" font-size="14" font-weight="700">${data.length}</text>`
+            + `<text x="${cx}" y="${cy+12}" text-anchor="middle" fill="#8a8f98" font-size="10">${cLabel}</text>`;
+
+        // SVG 事件 — hover 直接改 opacity，click 触发下钻
+        const paths = svg.querySelectorAll('path[data-i]');
+        const total2 = total;
+        paths.forEach(p => {
+            const i = +p.dataset.i;
+            const d = data[i];
+            p.addEventListener('mouseenter', e => { applyHover(i); showTT(e, d, total2); });
+            p.addEventListener('mousemove',  e => moveTT(e));
+            p.addEventListener('mouseleave', () => { applyHover(null); hideTT(); });
+            p.addEventListener('click', () => {
+                if (!state.drillKey && d?.drillable) {
+                    state.drillKey = d.key;
+                    state.drillLabel = d.name;
+                    hideTT();
+                    render();
+                }
+            });
+        });
+    }
+
+    // ── 渲染图例 ──
+    function drawLegend(data) {
+        const el = document.getElementById('alloc-legend');
+        if (!el) return;
+        const total = data.reduce((s,d)=>s+d.value, 0);
+        el.innerHTML = data.map((d,i) => {
+            const pct = total > 0 ? (d.value/total*100).toFixed(1) : '0';
+            const col = getColor(d, i);
+            const canDrill = !state.drillKey;
+            return `<div class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs"
+                    style="cursor:${canDrill?'pointer':'default'};transition:background 120ms"
+                    data-li="${i}">
+                <span class="w-2 h-2 rounded-full flex-shrink-0" style="background:${col}"></span>
+                <span class="flex-1 truncate" style="color:#c4c9d4">${d.name}</span>
+                ${canDrill?`<span class="arrow" style="color:#818cf8;opacity:0;transition:opacity 120ms;font-size:10px">→</span>`:''}
+                <div style="width:44px;height:3px;background:rgba(255,255,255,0.08);border-radius:9px;flex-shrink:0;overflow:hidden">
+                    <div style="width:${pct}%;height:100%;background:${col};border-radius:9px;transition:width 400ms"></div>
+                </div>
+                <span class="font-mono font-semibold w-10 text-right" style="color:#f7f8f8">${pct}%</span>
+                <span class="font-mono w-16 text-right pv" style="color:#62666d">${fmt(d.value)}</span>
+            </div>`;
+        }).join('');
+
+        // 图例事件 — 同步高亮 SVG，click 下钻
+        el.querySelectorAll('[data-li]').forEach(row => {
+            const i   = +row.dataset.li;
+            const d   = data[i];
+            const tot = total;
+            row.addEventListener('mouseenter', e => { applyHover(i); showTT(e, d, tot); });
+            row.addEventListener('mousemove',  e => moveTT(e));
+            row.addEventListener('mouseleave', () => { applyHover(null); hideTT(); });
+            row.addEventListener('click', () => {
+                if (!state.drillKey && d?.drillable) {
+                    state.drillKey   = d.key;
+                    state.drillLabel = d.name;
+                    hideTT();
+                    render();
+                }
+            });
+        });
+    }
+
+    // ── Header（面包屑 + 视图切换）──
+    function updateHeader() {
+        const crumb  = document.getElementById('alloc-breadcrumb');
+        const toggle = document.getElementById('alloc-view-toggle');
+        const hint   = document.getElementById('alloc-hint');
+        if (state.drillKey) {
+            crumb.innerHTML = `
+                <button onclick="allocBack()"
+                    style="background:rgba(94,106,210,0.15);color:#818cf8;border:1px solid rgba(94,106,210,0.3)"
+                    class="text-xs px-2 py-0.5 rounded font-medium">← 返回</button>
+                <span style="color:#4a4f5c;font-size:11px">${state.view==='asset'?'资产类型':'行业分布'}</span>
+                <span style="color:#4a4f5c;font-size:11px">›</span>
+                <span class="font-semibold text-white text-xs">${state.drillLabel}</span>`;
+            toggle.style.cssText = 'opacity:0.3;pointer-events:none';
+            if (hint) hint.style.display = 'none';
+        } else {
+            crumb.innerHTML = `<span class="font-semibold text-white text-sm">仓位分布</span>`;
+            toggle.style.cssText = '';
+            if (hint) hint.style.display = '';
+        }
+        ['asset','sector'].forEach(v => {
+            const btn = document.getElementById(`btn-${v}`);
+            if (!btn) return;
+            if (v === state.view) {
+                btn.style.cssText = 'color:#f7f8f8;background:rgba(255,255,255,0.1)';
+            } else {
+                btn.style.cssText = 'color:#6b7280;background:transparent';
+            }
+        });
+    }
+
+    // ── Footer ──
+    function updateFooter(data) {
+        const total = data.reduce((s,d)=>s+d.value, 0);
+        const lbl = document.getElementById('alloc-footer-label');
+        const tot = document.getElementById('alloc-footer-total');
+        if (lbl) lbl.textContent = state.drillKey
+            ? `${data.length} 个持仓`
+            : `${data.length} ${state.view==='asset'?'类资产':'个行业'}`;
+        if (tot) tot.textContent = `合计 ${fmt(total)}`;
+    }
+
+    // ── 主渲染（只在状态变化时调用）──
+    function render() {
+        const items = rawHoldings.filter(h => (h.quantity||0) !== 0);
+        currentData = state.drillKey
+            ? buildDrill(items, state.drillKey, state.view)
+            : buildTop(items, state.view);
+        updateHeader();
+        drawDonut(currentData);
+        drawLegend(currentData);
+        updateFooter(currentData);
+    }
+
+    // ── 全局 API（HTML onclick 调用）──
+    window.allocSetView = function(v) {
+        state.view = v; state.drillKey = null; state.drillLabel = '';
+        render();
+    };
+    window.allocBack = function() {
+        state.drillKey = null; state.drillLabel = '';
+        render();
+    };
+
+    render();
+})();
+</script>
+
+{% endblock %}

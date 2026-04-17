@@ -48,6 +48,36 @@ app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="stat
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 
+def _fmt_trade_time(value) -> str:
+    """将 tradeTime 格式化为 YYYY-MM-DD HH:MM:SS。
+    支持 Unix 时间戳（秒/毫秒）和字符串格式。"""
+    import datetime as _dt
+    if not value:
+        return "--"
+    try:
+        ts = float(value)
+        # 毫秒时间戳（>1e10）转秒
+        if ts > 1e10:
+            ts /= 1000
+        return _dt.datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
+    except (ValueError, TypeError, OSError):
+        # 已是字符串，解析 IBKR 格式 "YYYYMMDD HH:MM:S[S]" 或标准 ISO 格式
+        s = str(value).strip()
+        import re as _re
+        m = _re.match(r'^(\d{4})(\d{2})(\d{2})[\s;\-]+(\d{2}):(\d{2})(?::(\d{1,2}))?', s)
+        if m:
+            y, mo, d, h, mi, sec = m.group(1), m.group(2), m.group(3), m.group(4), m.group(5), (m.group(6) or '0')
+            return f"{y}-{mo}-{d} {h}:{mi}:{int(sec):02d}"
+        if len(s) >= 19:
+            return s[:19]
+        if len(s) >= 10:
+            return s[:10]
+        return s
+
+
+templates.env.filters["trade_time"] = _fmt_trade_time
+
+
 def _normalize_goal_assets(
     asset_classes: str | None = None,
     assets: list[str] | None = None,
@@ -3165,9 +3195,245 @@ def redirect_screener():
     return RedirectResponse("/scan", status_code=301)
 
 
-@app.get("/portfolio", response_class=RedirectResponse)
-def redirect_portfolio():
-    return RedirectResponse("/risk", status_code=301)
+# ===================== IBKR 持仓管理 (AlphaLens 数据桥) =====================
+
+import asyncio as _asyncio
+import httpx as _httpx
+
+_NEURYNX_BASE = os.getenv("NEURYNX_BASE_URL", "https://neurynx.com")
+_NEURYNX_TOKEN = os.getenv("NEURYNX_INTERNAL_TOKEN", "")
+
+
+def _al_headers() -> dict:
+    h = {"Accept": "application/json"}
+    if _NEURYNX_TOKEN:
+        h["x-api-key"] = _NEURYNX_TOKEN
+    return h
+
+
+async def _al_fetch(path: str, params: dict | None = None) -> dict | list:
+    url = f"{_NEURYNX_BASE}{path}"
+    try:
+        async with _httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+            r = await client.get(url, params=params, headers=_al_headers())
+            if r.status_code in (401, 403):
+                return {"__error": "auth", "status": r.status_code}
+            r.raise_for_status()
+            return r.json()
+    except _httpx.TimeoutException:
+        return {"__error": "timeout", "message": "请求超时（IB Gateway 可能离线）"}
+    except Exception as exc:
+        return {"__error": "network", "message": str(exc)}
+
+
+def _safe(data: dict | list, key: str, default=None):
+    """从 dict 安全取值，忽略错误响应。"""
+    if isinstance(data, dict) and not data.get("__error"):
+        return data.get(key, default)
+    return default
+
+
+@app.get("/portfolio", response_class=HTMLResponse)
+async def ibkr_portfolio_page(request: Request):
+    """IBKR 持仓管理 — 数据桥接自 neurynx.com"""
+    configured = bool(_NEURYNX_TOKEN)
+    if not configured:
+        return templates.TemplateResponse("qp_portfolio.html", {
+            "request": request,
+            "configured": False,
+        })
+
+    account_data, status_data, trades_data, cashflow_data = await _asyncio.gather(
+        _al_fetch("/api/ibkr/account"),
+        _al_fetch("/api/ibkr/status"),
+        _al_fetch("/api/ibkr/trades"),
+        _al_fetch("/api/ibkr/cash-flow"),
+    )
+
+    auth_error = isinstance(account_data, dict) and account_data.get("__error") == "auth"
+
+    # 从 trades 响应里解出 holdings
+    holdings_raw: list = _safe(trades_data, "holdings", []) or []
+    if isinstance(trades_data, list):
+        holdings_raw = trades_data
+
+    # 拉行情数据并合并到 holdings
+    opt_quotes: dict = {}  # positionKey → option quote (from _options)
+    if holdings_raw and not auth_error:
+        stk_syms = list({h["symbol"] for h in holdings_raw
+                         if h.get("secType") in ("STK", "ETF") and h.get("quantity", 0) != 0})
+        opt_keys = [h["positionKey"] for h in holdings_raw
+                    if h.get("secType") == "OPT" and h.get("quantity", 0) != 0]
+        mkt_params: dict = {}
+        if stk_syms:
+            mkt_params["symbols"] = ",".join(stk_syms)
+        if opt_keys:
+            mkt_params["options"] = ",".join(opt_keys)
+        mkt_data = await _al_fetch("/api/ibkr/market-data", mkt_params) if mkt_params else {}
+
+        if isinstance(mkt_data, dict) and not mkt_data.get("__error"):
+            opt_quotes = mkt_data.get("_options") or {}
+            for h in holdings_raw:
+                sec = h.get("secType", "STK")
+                key = h.get("positionKey") or h.get("symbol")
+                if sec == "OPT":
+                    # ⚠️  期权只用期权行情，绝不 fallback 到底层股票价格
+                    # （否则 QQQ C600 期权会错用 QQQ=$640 再×100 严重虚高）
+                    quote = opt_quotes.get(key) or {}
+                else:
+                    quote = mkt_data.get(key) or mkt_data.get(h.get("symbol", "")) or {}
+                if quote:
+                    h["lastPrice"] = quote.get("price") or quote.get("last") or 0
+                    h["changePercent"] = quote.get("changePercent") or 0
+                    h["changeAmount"] = quote.get("change") or 0
+                    h["marketCap"] = quote.get("marketCap") or 0
+                    h["ytd"] = quote.get("ytdChangePercent") or 0
+                    h["sparkline"] = quote.get("sparkline") or []
+                    h["session"] = quote.get("session") or ""
+
+    # 计算资产类型分布
+    # 期权 market value：有行情用行情，无行情用持仓成本（totalInvestment，已含 multiplier）
+    alloc: dict[str, float] = {}
+    for h in holdings_raw:
+        if h.get("quantity", 0) == 0:
+            continue
+        sec = h.get("secType", "STK")
+        label = {"STK": "正股", "OPT": "期权", "BOND": "国债/现金", "ETF": "ETF", "CASH": "现金"}.get(sec, sec)
+        price = h.get("lastPrice", 0) or 0
+        qty = h.get("quantity", 0)
+        multiplier = h.get("multiplier", 1) or 1
+        if sec == "OPT":
+            # 期权：有 lastPrice 则用行情价 × qty × multiplier；
+            # 否则 fallback 到 totalInvestment（已含 multiplier，勿重复乘）
+            mv = abs(price * qty * multiplier) if price else abs(h.get("totalInvestment", 0))
+        else:
+            mv = abs(price * qty) if price else abs(h.get("totalInvestment", 0))
+        alloc[label] = alloc.get(label, 0) + mv
+
+    total_mv = sum(alloc.values()) or 1
+    alloc_pct = {k: round(v / total_mv * 100, 1) for k, v in alloc.items()}
+
+    # FIFO 已实现 PL（用于整体收益分解）
+    fifo_realized_pl = _safe(trades_data, "fifo", {}).get("totalRealizedPL", 0) if isinstance(trades_data, dict) else 0
+
+    return templates.TemplateResponse("qp_portfolio.html", {
+        "request": request,
+        "configured": True,
+        "auth_error": auth_error,
+        "account": account_data if not auth_error else {},
+        "ib_status": status_data if not (isinstance(status_data, dict) and status_data.get("__error")) else {},
+        "holdings": holdings_raw,
+        "trades_raw": trades_data,
+        "cashflow": cashflow_data if not (isinstance(cashflow_data, dict) and cashflow_data.get("__error")) else {},
+        "alloc_pct": alloc_pct,
+        "alloc_values": alloc,
+        "fifo_realized_pl": fifo_realized_pl,
+        "neurynx_base": _NEURYNX_BASE,
+    })
+
+
+@app.get("/api/portfolio/holdings-partial", response_class=HTMLResponse)
+async def portfolio_holdings_partial(request: Request, sec_type: str = "STK", refresh: bool = False):
+    """HTMX: 持仓明细（STK/OPT 切换 + 刷新行情）"""
+    params: dict = {}
+    if refresh:
+        params["refresh"] = "true"
+    trades_data = await _al_fetch("/api/ibkr/trades", params if params else None)
+    holdings: list = []
+    if isinstance(trades_data, dict) and "holdings" in trades_data:
+        holdings = trades_data["holdings"]
+    elif isinstance(trades_data, list):
+        holdings = trades_data
+    if sec_type != "ALL":
+        holdings = [h for h in holdings if h.get("secType") == sec_type]
+    return templates.TemplateResponse("partials/portfolio_holdings.html", {
+        "request": request,
+        "holdings": holdings,
+        "sec_type": sec_type,
+    })
+
+
+def _flatten_trade_details(trades_data: dict) -> list:
+    """
+    API 返回 tradeDetails: {positionKey: [tradeDetail, ...], ...}
+    将其展开为带 symbol/positionKey/secType 字段的扁平列表，按日期降序排列。
+    """
+    all_trades = []
+    trade_details = trades_data.get("tradeDetails", {})
+    # 从 holdings 建立 positionKey → secType 映射
+    sec_map: dict = {}
+    for h in trades_data.get("holdings", []):
+        sec_map[h.get("positionKey", h.get("symbol", ""))] = h.get("secType", "STK")
+        sec_map[h.get("symbol", "")] = h.get("secType", "STK")
+
+    for pos_key, detail_list in trade_details.items():
+        base_sym = pos_key.split(" ")[0]
+        sec_type = sec_map.get(pos_key) or sec_map.get(base_sym) or ("OPT" if " " in pos_key else "STK")
+        for t in (detail_list or []):
+            all_trades.append({
+                **t,
+                "symbol": base_sym,
+                "positionKey": pos_key,
+                "secType": sec_type,
+            })
+
+    # 按交易时间降序（最新在前）
+    all_trades.sort(key=lambda t: t.get("tradeTime", ""), reverse=True)
+    return all_trades
+
+
+@app.get("/api/portfolio/trades-partial", response_class=HTMLResponse)
+async def portfolio_trades_partial(
+    request: Request,
+    page: int = 1,
+    per_page: int = 50,
+    search: str = "",
+    sec_type: str = "ALL",
+):
+    """HTMX: 成交记录（搜索 + 分页）"""
+    trades_data = await _al_fetch("/api/ibkr/trades")
+    all_trades: list = []
+    if isinstance(trades_data, dict) and not trades_data.get("__error"):
+        all_trades = _flatten_trade_details(trades_data)
+    if search:
+        s = search.upper()
+        all_trades = [t for t in all_trades if s in t.get("symbol", "").upper()]
+    if sec_type != "ALL":
+        all_trades = [t for t in all_trades if t.get("secType") == sec_type]
+    total = len(all_trades)
+    start = (page - 1) * per_page
+    page_trades = all_trades[start: start + per_page]
+    return templates.TemplateResponse("partials/portfolio_trades.html", {
+        "request": request,
+        "trades": page_trades,
+        "page": page,
+        "per_page": per_page,
+        "total": total,
+        "pages": max(1, (total + per_page - 1) // per_page),
+        "search": search,
+        "sec_type": sec_type,
+    })
+
+
+@app.get("/api/portfolio/holding-trades/{symbol}", response_class=HTMLResponse)
+async def portfolio_holding_trades(request: Request, symbol: str):
+    """HTMX: 单持仓的逐笔成交（行展开）"""
+    sym = symbol.upper()
+    trades_data = await _al_fetch("/api/ibkr/trades", {"symbol": sym})
+    trades: list = []
+    if isinstance(trades_data, dict) and not trades_data.get("__error"):
+        # tradeDetails keyed by positionKey; for options the key includes strike/expiry
+        trade_details = trades_data.get("tradeDetails", {})
+        for pos_key, detail_list in trade_details.items():
+            base = pos_key.split(" ")[0]
+            if base == sym or pos_key == sym:
+                trades.extend(detail_list or [])
+        trades.sort(key=lambda t: t.get("tradeTime", ""), reverse=True)
+    return templates.TemplateResponse("partials/portfolio_row_trades.html", {
+        "request": request,
+        "symbol": sym,
+        "trades": trades,
+    })
 
 
 @app.get("/positions", response_class=RedirectResponse)
