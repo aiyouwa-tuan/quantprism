@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "installCommand": "pip install fastapi httpx",
   "builds": [
     {
       "src": "vercel_app/index.py",
@@ -16,7 +17,6 @@
     }
   ],
   "env": {
-    "DATABASE_URL": "@supabase_database_url",
-    "AI_PROVIDER": "deepseek"
+    "VPS_URL": "https://caotaibanzi.xyz"
   }
 }

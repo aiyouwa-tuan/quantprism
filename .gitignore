@@ -35,3 +35,4 @@ venv/
 dist/
 build/
 .ipynb_checkpoints/
+.vercel
