@@ -98,13 +98,22 @@
 
 {% set calc_total_mv = alloc_values.values() | sum %}
 
-{# 整体收益 = 持仓总市值 − 本金 #}
-{% set total_return = (calc_total_mv - net_deposits) if (calc_total_mv and net_deposits) else 0 %}
-{% set return_pct = (total_return / net_deposits * 100) if net_deposits else 0 %}
-
-{# 分解：未实现 = 整体收益 − FIFO已实现 − 股息 − 利息 + 费用 #}
+{# 收益计算：优先用 Flex Query 的净入金（若有），否则回退到 IB unrealized + FIFO realized #}
 {% set fpl = fifo_realized_pl if fifo_realized_pl else 0 %}
-{% set unrealized_pl = (total_return - fpl - total_dividends - total_interest + total_fees) if total_return else 0 %}
+{% set ib_unrealized = acct.get('unrealizedPL', 0) or 0 %}
+{% set total_cost = holdings | sum(attribute='totalInvestment') if holdings else 0 %}
+
+{% if net_deposits %}
+  {# 精确公式：有 Flex Query 数据 #}
+  {% set total_return = calc_total_mv - net_deposits %}
+  {% set return_pct = (total_return / net_deposits * 100) %}
+  {% set unrealized_pl = total_return - fpl - total_dividends - total_interest + total_fees %}
+{% else %}
+  {# 回退：IB 未实现 + FIFO 已实现；% 以持仓成本为分母 #}
+  {% set unrealized_pl = ib_unrealized %}
+  {% set total_return = unrealized_pl + fpl %}
+  {% set return_pct = (total_return / total_cost * 100) if total_cost else 0 %}
+{% endif %}
 
 <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
     <!-- 持仓总市值 -->
