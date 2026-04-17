@@ -48,17 +48,7 @@ jobs:
             # === 注入 Supabase DATABASE_URL 并做连接预检 ===
             if [ -n "$SUPABASE_DATABASE_URL" ]; then
               # 先测试连接，避免写错 URL 导致 VPS 启动失败
-              if venv/bin/python3 -c "
-import sqlalchemy, sys
-try:
-    e = sqlalchemy.create_engine('$SUPABASE_DATABASE_URL', connect_args={'connect_timeout': 10})
-    with e.connect() as c:
-        c.execute(sqlalchemy.text('SELECT 1'))
-    print('SUPABASE_OK')
-except Exception as ex:
-    print('SUPABASE_FAIL:', ex, file=sys.stderr)
-    sys.exit(1)
-" 2>/tmp/supabase_test.log; then
+              if venv/bin/python3 -c "import sqlalchemy,sys; e=sqlalchemy.create_engine('$SUPABASE_DATABASE_URL',connect_args={'connect_timeout':10}); c=e.connect(); c.execute(sqlalchemy.text('SELECT 1')); c.close(); print('SUPABASE_OK')" 2>/tmp/supabase_test.log; then
                 # 连接成功，写入 .env
                 if grep -q "^DATABASE_URL=" .env 2>/dev/null; then
                   sed -i "s|^DATABASE_URL=.*|DATABASE_URL=$SUPABASE_DATABASE_URL|" .env
