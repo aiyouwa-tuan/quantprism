@@ -78,4 +78,4 @@ jobs:
             systemctl restart quantprism
             sleep 5
             systemctl is-active --quiet quantprism && echo "✅ Deploy OK" || \
-              (systemctl status quantprism --no-pager && exit 1)
+              (systemctl status quantprism --no-pager; journalctl -u quantprism -n 50 --no-pager; exit 1)
