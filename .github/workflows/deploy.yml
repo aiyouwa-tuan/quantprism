@@ -43,10 +43,19 @@ jobs:
             fi
 
             # 同步 nginx 配置（proxy_pass 到 uvicorn）
+            cp /etc/nginx/sites-enabled/caotaibanzi.xyz.conf /tmp/nginx_caotaibanzi.bak 2>/dev/null || true
             if ! diff -q deploy/caotaibanzi.xyz.conf /etc/nginx/sites-enabled/caotaibanzi.xyz.conf > /dev/null 2>&1; then
               cp deploy/caotaibanzi.xyz.conf /etc/nginx/sites-enabled/caotaibanzi.xyz.conf
-              nginx -t && systemctl reload nginx
-              echo "✅ nginx config updated"
+              echo "=== nginx -t ==="
+              if nginx -t 2>&1; then
+                systemctl reload nginx && echo "✅ nginx config updated"
+              else
+                echo "⚠️ nginx -t failed, reverting"
+                cp /tmp/nginx_caotaibanzi.bak /etc/nginx/sites-enabled/caotaibanzi.xyz.conf 2>/dev/null || true
+              fi
+            else
+              echo "nginx config unchanged, force-reloading anyway"
+              nginx -t 2>&1 && systemctl reload nginx || true
             fi
 
             # Install dependencies (including psycopg2-binary for Supabase)
