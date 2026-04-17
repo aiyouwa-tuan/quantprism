@@ -74,8 +74,17 @@ jobs:
                 echo "IBKR_BACKEND_SECRET=$IBKR_BACKEND_SECRET" >> .env
             fi
 
+            # Quick startup sanity check before systemd restart
+            echo "=== App import test ==="
+            sudo -u www-data bash -c 'cd /opt/quant/Quant/app && /opt/quant/Quant/venv/bin/python3 -c "import main; print(\"IMPORT_OK\")"' 2>&1 || true
+
             # Restart
             systemctl restart quantprism
-            sleep 5
+            sleep 8
+
+            # Always dump recent logs for visibility
+            echo "=== journalctl last 30 lines ==="
+            journalctl -u quantprism -n 30 --no-pager || true
+
             systemctl is-active --quiet quantprism && echo "✅ Deploy OK" || \
-              (systemctl status quantprism --no-pager; journalctl -u quantprism -n 50 --no-pager; exit 1)
+              (systemctl status quantprism --no-pager; exit 1)
