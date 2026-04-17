@@ -14,23 +14,40 @@
 
 | 项目 | 地址 | 服务 |
 |---|---|---|
-| QuantPrism | `caotaibanzi.xyz` | systemd `quantprism.service`，uvicorn，VPS 端口 8001 |
+| QuantPrism | `caotaibanzi.xyz` | systemd `quantprism.service`，uvicorn 2 workers，VPS 端口 8000 |
 | IBKR 数据 | `localhost:3001` | `ibkr-service`（pm2），直连 IB Gateway Docker 容器（端口 4003） |
 | VPS | `82.180.131.159` | 根目录 `/opt/quant/Quant/`，服务用户 `www-data` |
+| Vercel | `quantprism.vercel.app` | 备用入口，proxy 到 VPS |
 
-## 部署命令（参考）
+## CI/CD 流程（GitHub Actions）
 
-```bash
-# 推送代码
-cd /Volumes/MaiTuan2T/Quant && git add -A && git commit -m "xxx" && git push origin main
+每次 `git push origin main` 自动触发 `.github/workflows/deploy.yml`：
 
-# 同步到 VPS（排除数据库和缓存）
-rsync -avz --exclude='__pycache__' --exclude='*.pyc' --exclude='trading_os.db' \
-  /Volumes/MaiTuan2T/Quant/app/ root@82.180.131.159:/opt/quant/Quant/app/
+1. **SCP 同步**：`app/`, `requirements.txt`, `scripts/`, `deploy/` → VPS `/opt/quant/Quant/`
+2. **SSH 远程执行** `scripts/remote_deploy.sh`，该脚本：
+   - `chown -R www-data:www-data`（修复文件权限）
+   - 对比并同步 systemd service（`deploy/systemd/quantprism.service`）
+   - 对比并同步 nginx config（`deploy/nginx/caotaibanzi.xyz.conf`）
+   - `pip install -r requirements.txt`
+   - `systemctl stop quantprism` → 清理端口 8000 残留进程 → `systemctl start quantprism`
+   - 健康检查：`curl http://127.0.0.1:8000/` 返回 302 为正常
 
-# 修复权限 + 重启
-ssh root@82.180.131.159 "chown -R www-data:www-data /opt/quant/Quant/app/ && systemctl restart quantprism && sleep 5 && systemctl is-active quantprism"
-```
+## 关键文件路径
+
+| 文件 | 说明 |
+|---|---|
+| `scripts/remote_deploy.sh` | VPS 上执行的部署脚本（随 SCP 同步） |
+| `scripts/run_prod.sh` | uvicorn 启动脚本，由 systemd 调用 |
+| `deploy/systemd/quantprism.service` | systemd 服务定义 |
+| `deploy/nginx/caotaibanzi.xyz.conf` | nginx 反向代理配置 |
+| `.github/workflows/deploy.yml` | GitHub Actions CI/CD |
+
+## 常见故障排查
+
+- **端口 8000 占用**：`fuser 8000/tcp` 找到 PID，`kill -9 <PID>`，再 `systemctl start quantprism`
+- **nginx 502**：检查 `deploy/nginx/caotaibanzi.xyz.conf` 是否有 `proxy_pass http://quantprism_app`，运行 `nginx -t` 验证配置
+- **SSH key type -1**：secrets.VPS_SSH_KEY 写入方式必须用 `echo`，不能用 `printf '%s'`（后者会丢失换行导致 OpenSSH 无法识别）
+- **pkill 危险**：绝不用 `pkill -f uvicorn`，会匹配并杀死运行脚本的 bash 进程。改用 `fuser 8000/tcp` 获取 PID 后精确 kill
 
 ---
 
