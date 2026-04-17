@@ -17,6 +17,9 @@ statsmodels>=0.14         # ADF 单位根检验、OLS 回归 (CAPM/Fama-French)
 rank_bm25>=0.2.2          # 交易记忆 BM25 文本检索
 python-dotenv>=1.0        # 从 .env 文件加载环境变量
 
+# === 数据库驱动 ===
+psycopg2-binary>=2.9      # PostgreSQL 驱动 (Supabase 用户数据)
+
 # === 投资组合优化引擎 ===
 PyPortfolioOpt>=1.5       # 有效前沿优化：目标收益 → 最优持仓权重
 riskfolio-lib>=6.0        # CDaR 回撤约束优化（Riskfolio-Lib）

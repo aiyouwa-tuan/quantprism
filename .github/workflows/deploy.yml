@@ -20,12 +20,13 @@ jobs:
           target: "/opt/quant/Quant/"
           strip_components: 0
 
-      - name: Restart service
+      - name: Configure env and restart service
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
           username: root
           key: ${{ secrets.VPS_SSH_KEY }}
+          envs: SUPABASE_DATABASE_URL,DEEPSEEK_API_KEY,IBKR_BACKEND_SECRET
           script: |
             set -e
             cd /opt/quant/Quant
@@ -33,6 +34,30 @@ jobs:
             # Fix ownership after rsync (rsync preserves source ownership)
             chown -R www-data:www-data app/ requirements.txt scripts/ 2>/dev/null || true
             chmod +x scripts/run_prod.sh
+
+            # === 注入 Supabase DATABASE_URL（如已配置该 secret）===
+            # 如果 SUPABASE_DATABASE_URL secret 存在且非空，写入 .env 覆盖 SQLite 配置
+            if [ -n "$SUPABASE_DATABASE_URL" ]; then
+              # 更新或追加 DATABASE_URL
+              if grep -q "^DATABASE_URL=" .env 2>/dev/null; then
+                sed -i "s|^DATABASE_URL=.*|DATABASE_URL=$SUPABASE_DATABASE_URL|" .env
+              else
+                echo "DATABASE_URL=$SUPABASE_DATABASE_URL" >> .env
+              fi
+              echo "✅ Supabase DATABASE_URL configured"
+            fi
+
+            # 同步其他可选 secret（只在 secret 非空时才写入）
+            if [ -n "$DEEPSEEK_API_KEY" ]; then
+              grep -q "^DEEPSEEK_API_KEY=" .env 2>/dev/null && \
+                sed -i "s|^DEEPSEEK_API_KEY=.*|DEEPSEEK_API_KEY=$DEEPSEEK_API_KEY|" .env || \
+                echo "DEEPSEEK_API_KEY=$DEEPSEEK_API_KEY" >> .env
+            fi
+            if [ -n "$IBKR_BACKEND_SECRET" ]; then
+              grep -q "^IBKR_BACKEND_SECRET=" .env 2>/dev/null && \
+                sed -i "s|^IBKR_BACKEND_SECRET=.*|IBKR_BACKEND_SECRET=$IBKR_BACKEND_SECRET|" .env || \
+                echo "IBKR_BACKEND_SECRET=$IBKR_BACKEND_SECRET" >> .env
+            fi
 
             # Install any new dependencies
             venv/bin/pip install -q -r requirements.txt 2>/dev/null || true

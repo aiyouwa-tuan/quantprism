@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "vercel_app/index.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "50mb"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "vercel_app/index.py"
+    }
+  ],
+  "env": {
+    "DATABASE_URL": "@supabase_database_url",
+    "AI_PROVIDER": "deepseek"
+  }
+}
