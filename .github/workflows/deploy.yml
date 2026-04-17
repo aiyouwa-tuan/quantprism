@@ -35,21 +35,41 @@ jobs:
             chown -R www-data:www-data app/ requirements.txt scripts/ 2>/dev/null || true
             chmod +x scripts/run_prod.sh
 
-            # 同步 systemd service（使用 EnvironmentFile 读取 .env，不再硬编码 DATABASE_URL）
+            # 同步 systemd service（EnvironmentFile 模式，读取 .env）
             if ! diff -q deploy/systemd/quantprism.service /etc/systemd/system/quantprism.service > /dev/null 2>&1; then
               cp deploy/systemd/quantprism.service /etc/systemd/system/quantprism.service
               systemctl daemon-reload
               echo "✅ systemd service updated"
             fi
 
-            # === 注入 Supabase DATABASE_URL（如已配置该 secret）===
+            # Install dependencies (including psycopg2-binary for Supabase)
+            venv/bin/pip install -q -r requirements.txt
+
+            # === 注入 Supabase DATABASE_URL 并做连接预检 ===
             if [ -n "$SUPABASE_DATABASE_URL" ]; then
-              if grep -q "^DATABASE_URL=" .env 2>/dev/null; then
-                sed -i "s|^DATABASE_URL=.*|DATABASE_URL=$SUPABASE_DATABASE_URL|" .env
+              # 先测试连接，避免写错 URL 导致 VPS 启动失败
+              if venv/bin/python3 -c "
+import sqlalchemy, sys
+try:
+    e = sqlalchemy.create_engine('$SUPABASE_DATABASE_URL', connect_args={'connect_timeout': 10})
+    with e.connect() as c:
+        c.execute(sqlalchemy.text('SELECT 1'))
+    print('SUPABASE_OK')
+except Exception as ex:
+    print('SUPABASE_FAIL:', ex, file=sys.stderr)
+    sys.exit(1)
+" 2>/tmp/supabase_test.log; then
+                # 连接成功，写入 .env
+                if grep -q "^DATABASE_URL=" .env 2>/dev/null; then
+                  sed -i "s|^DATABASE_URL=.*|DATABASE_URL=$SUPABASE_DATABASE_URL|" .env
+                else
+                  echo "DATABASE_URL=$SUPABASE_DATABASE_URL" >> .env
+                fi
+                echo "✅ Supabase 连接成功，DATABASE_URL 已更新"
               else
-                echo "DATABASE_URL=$SUPABASE_DATABASE_URL" >> .env
+                echo "⚠️ Supabase 连接测试失败，保持 SQLite（详情见 /tmp/supabase_test.log）"
+                cat /tmp/supabase_test.log || true
               fi
-              echo "✅ Supabase DATABASE_URL configured"
             fi
 
             # 同步其他可选 secret
@@ -63,9 +83,6 @@ jobs:
                 sed -i "s|^IBKR_BACKEND_SECRET=.*|IBKR_BACKEND_SECRET=$IBKR_BACKEND_SECRET|" .env || \
                 echo "IBKR_BACKEND_SECRET=$IBKR_BACKEND_SECRET" >> .env
             fi
-
-            # Install any new dependencies
-            venv/bin/pip install -q -r requirements.txt 2>/dev/null || true
 
             # Restart
             systemctl restart quantprism
