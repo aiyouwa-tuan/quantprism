@@ -3243,7 +3243,8 @@ def _normalize_positions(raw: dict | list) -> list:
         mult = p.get("multiplier", 1) or 1
         avg_cost = p.get("avgCost", 0) or 0
         sec = p.get("secType", "STK")
-        total_inv = abs(avg_cost * qty * mult) if sec == "OPT" else abs(avg_cost * qty)
+        # avgCost from ibkr-service is per-contract for OPT (already includes multiplier)
+        total_inv = abs(avg_cost * qty)
         holdings.append({
             "symbol": p.get("symbol", ""),
             "positionKey": p.get("symbol", ""),
@@ -3368,6 +3369,15 @@ async def ibkr_portfolio_page(request: Request):
 
     holdings = _normalize_positions(positions_raw)
     account = _normalize_account(account_raw)
+
+    # 期权：从 IB marketValue 反推 lastPrice（marketValue 已含 qty×mult）
+    for h in holdings:
+        if h["secType"] == "OPT":
+            mv = h.get("marketValue") or 0
+            qty_h = h.get("quantity") or 0
+            mult_h = h.get("multiplier") or 1
+            if mv and qty_h and mult_h:
+                h["lastPrice"] = abs(mv) / (abs(qty_h) * mult_h)
 
     # 行情：用 yfinance 拉 STK/ETF 当前价（在线程池中同步执行，避免 asyncio 嵌套）
     if holdings and not gateway_down:
