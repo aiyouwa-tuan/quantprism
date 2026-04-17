@@ -19,8 +19,8 @@ fi
 
 # Sync nginx config (proxy_pass to uvicorn)
 cp /etc/nginx/sites-enabled/caotaibanzi.xyz.conf /tmp/nginx_caotaibanzi.bak 2>/dev/null || true
-if ! diff -q deploy/caotaibanzi.xyz.conf /etc/nginx/sites-enabled/caotaibanzi.xyz.conf > /dev/null 2>&1; then
-  cp deploy/caotaibanzi.xyz.conf /etc/nginx/sites-enabled/caotaibanzi.xyz.conf
+if ! diff -q deploy/nginx/caotaibanzi.xyz.conf /etc/nginx/sites-enabled/caotaibanzi.xyz.conf > /dev/null 2>&1; then
+  cp deploy/nginx/caotaibanzi.xyz.conf /etc/nginx/sites-enabled/caotaibanzi.xyz.conf
   echo "=== nginx -t ==="
   if nginx -t 2>&1; then
     systemctl reload nginx && echo "nginx config updated"
