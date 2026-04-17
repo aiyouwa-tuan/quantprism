@@ -5,33 +5,23 @@
 <!-- ===== 未配置状态 ===== -->
 <div class="flex flex-col items-center justify-center min-h-96 text-center">
     <div style="font-size:48px; margin-bottom:16px;">🔌</div>
-    <h2 class="text-xl font-bold text-white mb-2">需要配置 AlphaLens 连接</h2>
+    <h2 class="text-xl font-bold text-white mb-2">IBKR 服务未配置</h2>
     <p class="text-gray-400 text-sm max-w-md mb-6">
-        持仓管理数据来自 neurynx.com（AlphaLens），需要在 <code class="text-accent-blue">.env</code> 中配置认证 Cookie 才能访问。
+        需要在 VPS 的 <code class="text-green-400">.env</code> 中配置 IBKR 服务密钥才能访问持仓数据。
     </p>
-    <div class="bg-dark-700 border border-dark-600 rounded-xl p-5 text-left max-w-lg w-full mb-4">
-        <div class="text-xs text-gray-500 mb-2">在 QuantPrism 根目录的 <code>.env</code> 文件中添加：</div>
-        <pre class="text-green-400 text-sm font-mono">NEURYNX_COOKIE=your_session_cookie_here
-NEURYNX_BASE_URL=https://neurynx.com</pre>
-    </div>
     <div class="bg-dark-700 border border-dark-600 rounded-xl p-5 text-left max-w-lg w-full">
-        <div class="text-xs text-gray-500 mb-2 font-semibold">如何获取 Cookie：</div>
-        <ol class="text-xs text-gray-400 space-y-1 list-decimal list-inside">
-            <li>在浏览器中登录 <a href="https://neurynx.com" class="text-accent-blue">neurynx.com</a></li>
-            <li>打开 DevTools → Network → 任意请求 → 复制 Cookie 请求头的值</li>
-            <li>将完整 cookie 字符串粘贴到 .env 中</li>
-            <li>重启 QuantPrism 服务</li>
-        </ol>
+        <div class="text-xs text-gray-500 mb-2">在 <code>/opt/quant/Quant/.env</code> 中添加：</div>
+        <pre class="text-green-400 text-sm font-mono">IBKR_BACKEND_SECRET=your_secret_here</pre>
     </div>
 </div>
 
-{% elif auth_error %}
-<!-- ===== 认证失败状态 ===== -->
+{% elif gateway_down %}
+<!-- ===== IB Gateway 未连接 ===== -->
 <div class="flex flex-col items-center justify-center min-h-96 text-center">
-    <div style="font-size:48px; margin-bottom:16px;">🔒</div>
-    <h2 class="text-xl font-bold text-white mb-2">认证失败</h2>
+    <div style="font-size:48px; margin-bottom:16px;">📡</div>
+    <h2 class="text-xl font-bold text-white mb-2">IB Gateway 未连接</h2>
     <p class="text-gray-400 text-sm max-w-md">
-        NEURYNX_COOKIE 已配置，但 neurynx.com 返回了认证错误。Cookie 可能已过期，请重新获取。
+        ibkr-service 正在运行，但尚未连接到 IB Gateway。请检查 IB Gateway Docker 容器是否已登录。
     </p>
 </div>
 
@@ -42,7 +32,7 @@ NEURYNX_BASE_URL=https://neurynx.com</pre>
 <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
     <div>
         <h1 class="text-2xl font-bold text-white">持仓管理</h1>
-        <p class="text-xs text-gray-500 mt-0.5">IB 实时持仓 · 中式成本计算 · 数据来源：neurynx.com</p>
+        <p class="text-xs text-gray-500 mt-0.5">IB 实时持仓 · 中式成本计算 · 直连 ibkr-service</p>
     </div>
     <div class="flex items-center gap-2">
         <!-- 隐私模式 -->
