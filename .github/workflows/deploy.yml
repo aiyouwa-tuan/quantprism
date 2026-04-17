@@ -30,11 +30,15 @@ jobs:
             set -e
             cd /opt/quant/Quant
 
+            # Fix ownership after rsync (rsync preserves source ownership)
+            chown -R www-data:www-data app/ requirements.txt scripts/ 2>/dev/null || true
+            chmod +x scripts/run_prod.sh
+
             # Install any new dependencies
             venv/bin/pip install -q -r requirements.txt 2>/dev/null || true
 
             # Restart
             systemctl restart quantprism
-            sleep 3
+            sleep 5
             systemctl is-active --quiet quantprism && echo "✅ Deploy OK" || \
               (systemctl status quantprism --no-pager && exit 1)
