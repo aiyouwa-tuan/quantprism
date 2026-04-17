@@ -27,11 +27,21 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -p 22 -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
 
+      - name: Test SSH connectivity
+        run: |
+          echo "Testing SSH with verbose output..."
+          ssh -v -i ~/.ssh/id_rsa \
+            -o StrictHostKeyChecking=no \
+            -o ConnectTimeout=10 \
+            root@${{ secrets.VPS_HOST }} \
+            'echo SSH_OK' 2>&1 || true
+          echo "SSH test exit: $?"
+
       - name: Run remote deploy script
-        run: >
-          ssh -i ~/.ssh/id_rsa
-          -o StrictHostKeyChecking=no
-          -o ConnectTimeout=30
-          -o ServerAliveInterval=10
-          root@${{ secrets.VPS_HOST }}
-          'chmod +x /opt/quant/Quant/scripts/remote_deploy.sh && /opt/quant/Quant/scripts/remote_deploy.sh'
+        run: |
+          ssh -i ~/.ssh/id_rsa \
+            -o StrictHostKeyChecking=no \
+            -o ConnectTimeout=30 \
+            -o ServerAliveInterval=10 \
+            root@${{ secrets.VPS_HOST }} \
+            'chmod +x /opt/quant/Quant/scripts/remote_deploy.sh && /opt/quant/Quant/scripts/remote_deploy.sh'
