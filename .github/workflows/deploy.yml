@@ -101,3 +101,11 @@ jobs:
 
             systemctl is-active --quiet quantprism && echo "✅ Deploy OK" || \
               (systemctl status quantprism --no-pager; journalctl -u quantprism -n 50 --no-pager; exit 1)
+
+            # Diagnose nginx → uvicorn routing
+            echo "=== nginx sites-enabled ==="
+            ls /etc/nginx/sites-enabled/ 2>/dev/null || true
+            echo "=== nginx config grep proxy_pass ==="
+            grep -r "proxy_pass\|upstream\|listen\|server_name" /etc/nginx/sites-enabled/ 2>/dev/null || true
+            echo "=== port 8000 listener ==="
+            ss -tlnp | grep 8000 || true
