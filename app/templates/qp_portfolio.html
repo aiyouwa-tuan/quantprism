@@ -271,13 +271,14 @@
                                                     {% if sec == 'OPT' %}约{% elif sec == 'ETF' %}ETF{% else %}股{% endif %}
                                                 </span>
                                             </div>
+                                            {% set h_trade_cnt = (trades_raw.get('tradeDetails', {}).get(h.get('positionKey', sym), []) | length) %}
                                             {% if sec == 'OPT' %}
                                             <div style="font-size:10px;color:#62666d;margin-top:2px;">
                                                 {{ h.get('right','') }}{{ h.get('strike','')|int if h.get('strike') else '' }}
                                                 {% if expiry_fmt %} · {{ expiry_fmt }}{% endif %}
+                                                {% if h_trade_cnt %} · {{ h_trade_cnt }} 笔{% endif %}
                                             </div>
                                             {% else %}
-                                            {% set h_trade_cnt = (trades_raw.get('tradeDetails', {}).get(h.get('positionKey', sym), []) | length) %}
                                             <div style="font-size:10px;color:#62666d;margin-top:2px;">{{ h_trade_cnt }} 笔</div>
                                             {% endif %}
                                         </div>
