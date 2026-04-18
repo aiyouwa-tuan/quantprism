@@ -277,7 +277,8 @@
                                                 {% if expiry_fmt %} · {{ expiry_fmt }}{% endif %}
                                             </div>
                                             {% else %}
-                                            <div style="font-size:10px;color:#62666d;margin-top:2px;">{{ h.get('tradeCount',0) }} 笔</div>
+                                            {% set h_trade_cnt = (trades_raw.get('tradeDetails', {}).get(h.get('positionKey', sym), []) | length) %}
+                                            <div style="font-size:10px;color:#62666d;margin-top:2px;">{{ h_trade_cnt }} 笔</div>
                                             {% endif %}
                                         </div>
                                     </div>
