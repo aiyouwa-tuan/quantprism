@@ -35,7 +35,7 @@ log = logging.getLogger(__name__)
 
 FLEX_BASE = "https://www.interactivebrokers.com/Universal/servlet/FlexStatementService"
 CACHE_DIR = Path("/tmp/ibkr_flex_cache")
-CACHE_TTL_SECONDS = 3600  # 1 hour
+CACHE_TTL_SECONDS = 43200  # 12 hours
 
 
 def _cache_path(query_id: str) -> Path:
