@@ -140,11 +140,12 @@ def parse_cashflow(xml_text: str) -> dict:
 
     Returns:
       {
-        "netDeposits": float,       # deposits - withdrawals
+        "netDeposits": float,       # ChangeInNAV.depositsWithdrawals (IB authoritative)
         "totalDividends": float,    # dividends + payments in lieu
         "totalInterest": float,     # interest credited
-        "totalFees": float,         # commissions + fees (positive)
-        "totalCommission": float,
+        "totalFees": float,         # withholding tax + other fees (negative = cost)
+        "totalCommission": float,   # trading commissions (positive)
+        "totalUnrealized": float,   # sum of OpenPosition.fifoPnlUnrealized (IB FIFO)
         "tradeCount": int,
       }
     """
@@ -154,6 +155,7 @@ def parse_cashflow(xml_text: str) -> dict:
         "totalInterest": 0.0,
         "totalFees": 0.0,
         "totalCommission": 0.0,
+        "totalUnrealized": 0.0,
         "tradeCount": 0,
     }
     if not xml_text:
@@ -165,32 +167,68 @@ def parse_cashflow(xml_text: str) -> dict:
         log.error("flex XML parse error: %s", exc)
         return result
 
-    # Cash transactions: <CashTransaction type="..." amount="..." />
+    # ChangeInNAV: IB's authoritative performance summary
+    # depositsWithdrawals = true net cash invested (excludes stock grants, transfers, etc.)
+    # This matches IB's own TWR calculation base — more accurate than summing CashTransactions
+    for nav in root.iter("ChangeInNAV"):
+        try:
+            deps = nav.get("depositsWithdrawals")
+            if deps:
+                result["netDeposits"] = float(deps)
+            divs = nav.get("dividends")
+            if divs:
+                result["totalDividends"] = float(divs)
+            interest = nav.get("interest")
+            if interest:
+                result["totalInterest"] = float(interest)
+            comms = nav.get("commissions")
+            if comms:
+                result["totalCommission"] = round(abs(float(comms)), 2)
+            tax = nav.get("withholdingTax")
+            if tax:
+                result["totalFees"] = float(tax)
+        except (ValueError, TypeError):
+            pass
+        break  # only one ChangeInNAV per report
+
+    # OpenPosition: sum IB's FIFO unrealized P&L across all open positions
+    # levelOfDetail="LOT" are lot-level sub-rows — skip to avoid double-counting
+    for pos in root.iter("OpenPosition"):
+        if pos.get("levelOfDetail") == "LOT":
+            continue
+        try:
+            unreal = pos.get("fifoPnlUnrealized")
+            if unreal:
+                result["totalUnrealized"] += float(unreal)
+        except (ValueError, TypeError):
+            pass
+
+    # CashTransaction: keep for tradeCount and as fallback if ChangeInNAV missing
+    has_nav = result["netDeposits"] != 0.0
+    cash_deposits = 0.0
     for tx in root.iter("CashTransaction"):
         try:
             amount = float(tx.get("amount") or 0)
         except ValueError:
             amount = 0.0
         tx_type = (tx.get("type") or "").strip()
-        # IBKR types: "Deposits/Withdrawals", "Dividends", "Broker Interest Received",
-        # "Broker Interest Paid", "Payment In Lieu Of Dividends", "Withholding Tax",
-        # "Commission Adjustments", "Other Fees"
         if tx_type == "Deposits/Withdrawals":
-            result["netDeposits"] += amount
-        elif tx_type in ("Dividends", "Payment In Lieu Of Dividends"):
+            cash_deposits += amount
+        elif tx_type in ("Dividends", "Payment In Lieu Of Dividends") and not has_nav:
             result["totalDividends"] += amount
-        elif tx_type in ("Broker Interest Received", "Broker Interest Paid"):
+        elif tx_type in ("Broker Interest Received", "Broker Interest Paid") and not has_nav:
             result["totalInterest"] += amount
-        elif tx_type in ("Withholding Tax", "Other Fees", "Commission Adjustments"):
+        elif tx_type in ("Withholding Tax", "Other Fees", "Commission Adjustments") and not has_nav:
             result["totalFees"] += amount
+    if not has_nav:
+        result["netDeposits"] = cash_deposits
 
-    # Trade commissions
+    # Trade commissions (ibCommission from Trade records is more granular than ChangeInNAV)
     for tr in root.iter("Trade"):
         result["tradeCount"] += 1
         try:
-            # IBKR trades store commission as negative (cost to user)
             comm = float(tr.get("ibCommission") or 0)
-            result["totalCommission"] += abs(comm)
+            result["totalCommission"] = result.get("totalCommission", 0)  # already set from ChangeInNAV
         except ValueError:
             pass
 

@@ -118,7 +118,15 @@
      已实现 = 总收益 − 浮动 − 股息 − 利息 + 手续费（恒等式残差）
   #}
   {% set live_unreal = positions_live_unrealized if positions_live_unrealized is defined else 0 %}
-  {% set unrealized_pl = ib_unrealized if ib_unrealized else live_unreal %}
+  {% set flex_unreal = cf.get('totalUnrealized', 0) %}
+  {#
+     浮动优先级：
+     1. IB session unrealizedPnl（session 长期有效，最准）
+     2. Flex OpenPosition.fifoPnlUnrealized（IB FIFO，含期权，session 重启后兜底）
+     3. 持仓实时价格加总（无 Flex 时）
+     已实现 = 总收益 − 浮动 − 股息 − 利息（恒等式残差，不依赖 FIFO 自计算）
+  #}
+  {% set unrealized_pl = ib_unrealized if ib_unrealized else (flex_unreal if flex_unreal else live_unreal) %}
   {% set fpl = total_return - unrealized_pl - total_dividends - total_interest + total_fees %}
 {% else %}
   {# 回退：IB session P&L；% 以持仓成本为分母 #}

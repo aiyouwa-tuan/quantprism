@@ -41,7 +41,12 @@ from strategy_hunter import compute_match_score, compute_factor_bonus, search_gi
 from ai_analysis import get_active_provider
 from scanner import scan_index, INDEX_MAP
 
-app = FastAPI(title="Goal-Driven Trading OS", version="3.2.0")
+app = FastAPI(title="Goal-Driven Trading OS", version="3.2.1")
+
+# yfinance 行情内存缓存：5分钟 TTL，避免每次页面加载都重新拉取（是加载慢的主因）
+import time as _time_mod
+_yf_price_cache: dict = {}          # {"SYM": {"last": float, "prev": float, "ts": float}}
+_YF_CACHE_TTL = 300                 # 5 minutes
 
 BASE_DIR = Path(__file__).resolve().parent
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
@@ -3381,40 +3386,55 @@ async def ibkr_portfolio_page(request: Request):
             if mv and qty_h and mult_h:
                 h["lastPrice"] = abs(mv) / (abs(qty_h) * mult_h)
 
-    # 行情：用 yfinance 拉 STK/ETF 当前价（在线程池中同步执行，避免 asyncio 嵌套）
+    # 行情：用 yfinance 拉 STK/ETF 当前价（5分钟内存缓存，命中缓存时无网络请求）
     if holdings and not gateway_down:
         stk_syms = list({h["symbol"].split(" ")[0] for h in holdings
                          if h["secType"] in ("STK", "ETF") and h["quantity"] != 0})
         if stk_syms:
-            import concurrent.futures as _cf
-            def _yf_download(syms):
-                try:
-                    import yfinance as yf
-                    return yf.download(" ".join(syms), period="2d", progress=False, auto_adjust=True)
-                except Exception:
-                    return None
+            now_ts = _time_mod.time()
+            syms_to_fetch = [s for s in stk_syms
+                             if s not in _yf_price_cache
+                             or now_ts - _yf_price_cache[s].get("ts", 0) > _YF_CACHE_TTL]
 
-            loop = _asyncio.get_event_loop()
-            prices = await loop.run_in_executor(_cf.ThreadPoolExecutor(max_workers=1), _yf_download, stk_syms)
-            if prices is not None and hasattr(prices, "columns") and len(prices) >= 2:
-                try:
-                    close_df = prices["Close"] if "Close" in prices.columns else prices
-                    for h in holdings:
-                        if h["secType"] not in ("STK", "ETF"):
-                            continue
-                        sym = h["symbol"].split(" ")[0]
-                        try:
-                            col = close_df[sym] if sym in close_df.columns else None
-                            if col is not None:
-                                last = float(col.iloc[-1])
-                                prev = float(col.iloc[-2])
-                                h["lastPrice"] = last
-                                h["changeAmount"] = last - prev
-                                h["changePercent"] = (last - prev) / prev * 100 if prev else 0
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
+            if syms_to_fetch:
+                import concurrent.futures as _cf
+                def _yf_download(syms):
+                    try:
+                        import yfinance as yf
+                        return yf.download(" ".join(syms), period="2d", progress=False, auto_adjust=True)
+                    except Exception:
+                        return None
+
+                loop = _asyncio.get_event_loop()
+                prices = await loop.run_in_executor(
+                    _cf.ThreadPoolExecutor(max_workers=1), _yf_download, syms_to_fetch
+                )
+                if prices is not None and hasattr(prices, "columns") and len(prices) >= 2:
+                    try:
+                        close_df = prices["Close"] if "Close" in prices.columns else prices
+                        for sym in syms_to_fetch:
+                            try:
+                                col = close_df[sym] if sym in close_df.columns else None
+                                if col is not None:
+                                    last = float(col.iloc[-1])
+                                    prev = float(col.iloc[-2])
+                                    _yf_price_cache[sym] = {"last": last, "prev": prev, "ts": now_ts}
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+
+            # 将缓存中的价格填入 holdings
+            for h in holdings:
+                if h["secType"] not in ("STK", "ETF"):
+                    continue
+                sym = h["symbol"].split(" ")[0]
+                cached = _yf_price_cache.get(sym)
+                if cached:
+                    last, prev = cached["last"], cached["prev"]
+                    h["lastPrice"] = last
+                    h["changeAmount"] = last - prev
+                    h["changePercent"] = (last - prev) / prev * 100 if prev else 0
 
     # 成交记录 FIFO 标注
     # Flex Query: 拉历史交易 + cashflow（netDeposits/dividends/interest/fees）
