@@ -50,28 +50,30 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 def _fmt_trade_time(value) -> str:
     """将 tradeTime 格式化为 YYYY-MM-DD HH:MM:SS。
-    支持 Unix 时间戳（秒/毫秒）和字符串格式。"""
-    import datetime as _dt
+    支持 IBKR Flex 格式（YYYYMMDD 或 YYYYMMDD;HHMMSS）、ISO 格式、Unix 时间戳。"""
+    import datetime as _dt, re as _re
     if not value:
         return "--"
+    s = str(value).strip()
+    # IBKR Flex: "20260114;054929" or "20260114;05:49:29"
+    m = _re.match(r'^(\d{4})(\d{2})(\d{2})[;\s](\d{2}):?(\d{2}):?(\d{2})?', s)
+    if m:
+        y, mo, d, h, mi, sec = m.group(1), m.group(2), m.group(3), m.group(4), m.group(5), (m.group(6) or '0')
+        return f"{y}-{mo}-{d} {h}:{mi}:{int(sec):02d}"
+    # IBKR Flex date only: "20260114"
+    m2 = _re.match(r'^(\d{4})(\d{2})(\d{2})$', s)
+    if m2:
+        return f"{m2.group(1)}-{m2.group(2)}-{m2.group(3)}"
+    # ISO or partial ISO
+    if len(s) >= 10 and s[4] == '-':
+        return s[:19] if len(s) >= 19 else s[:10]
+    # Unix timestamp fallback
     try:
-        ts = float(value)
-        # 毫秒时间戳（>1e10）转秒
+        ts = float(s)
         if ts > 1e10:
             ts /= 1000
         return _dt.datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
     except (ValueError, TypeError, OSError):
-        # 已是字符串，解析 IBKR 格式 "YYYYMMDD HH:MM:S[S]" 或标准 ISO 格式
-        s = str(value).strip()
-        import re as _re
-        m = _re.match(r'^(\d{4})(\d{2})(\d{2})[\s;\-]+(\d{2}):(\d{2})(?::(\d{1,2}))?', s)
-        if m:
-            y, mo, d, h, mi, sec = m.group(1), m.group(2), m.group(3), m.group(4), m.group(5), (m.group(6) or '0')
-            return f"{y}-{mo}-{d} {h}:{mi}:{int(sec):02d}"
-        if len(s) >= 19:
-            return s[:19]
-        if len(s) >= 10:
-            return s[:10]
         return s
 
 

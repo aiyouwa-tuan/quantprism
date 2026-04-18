@@ -231,16 +231,23 @@ def parse_trades(xml_text: str) -> list[dict]:
             continue
         symbol = tr.get("symbol") or tr.get("underlyingSymbol") or ""
         sec_type = tr.get("assetCategory") or "STK"
-        # IBKR sides: "BUY" / "SELL"; quantity sign indicates direction
-        side = "BUY" if qty > 0 else "SELL"
+        # Flex XML: buySell="BUY"/"SELL", quantity is always positive
+        buy_sell = (tr.get("buySell") or "").upper()
+        if buy_sell in ("BUY", "SELL"):
+            side = buy_sell
+        else:
+            side = "BUY" if qty > 0 else "SELL"
         # Build positionKey: for options, include strike+expiry+right
         if sec_type == "OPT":
             strike = tr.get("strike") or ""
-            expiry = tr.get("expiry") or ""
+            expiry = (tr.get("expiry") or "").replace("-", "")
             right = tr.get("putCall") or ""
+            # Format: "SYMBOL YYYYMMDD[C/P]STRIKE" e.g. "MSFT 20270115C400"
             pos_key = f"{symbol} {expiry}{right}{strike}".strip()
         else:
             pos_key = symbol
+        # Prefer dateTime (has time component) over tradeDate (date only)
+        raw_dt = tr.get("dateTime") or tr.get("tradeDate") or ""
         trades.append({
             "symbol": symbol,
             "positionKey": pos_key,
@@ -250,7 +257,7 @@ def parse_trades(xml_text: str) -> list[dict]:
             "price": price,
             "multiplier": int(mult),
             "commission": comm,
-            "tradeTime": tr.get("tradeDate") or tr.get("dateTime") or "",
+            "tradeTime": raw_dt,
         })
     return trades
 
