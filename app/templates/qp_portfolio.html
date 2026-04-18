@@ -103,18 +103,27 @@
 {% set display_total_mv = ib_net_liq if ib_net_liq > 0 else calc_total_mv %}
 
 {# 收益计算：优先用 Flex Query 的净入金（若有），否则回退到 IB unrealized + FIFO realized #}
-{% set fpl = fifo_realized_pl if fifo_realized_pl else 0 %}
 {% set ib_unrealized = acct.get('unrealizedPL', 0) or 0 %}
+{% set ib_realized = acct.get('realizedPL', 0) or 0 %}
 {% set total_cost = holdings | sum(attribute='totalInvestment') if holdings else 0 %}
 
 {% if net_deposits %}
-  {# 精确公式：有 Flex Query 数据，用真实市值（netLiquidation 或持仓加总） #}
+  {# 精确公式：有 Flex Query 净入金，总收益 = 净清算值 − 本金 #}
   {% set total_return = display_total_mv - net_deposits %}
   {% set return_pct = (total_return / net_deposits * 100) %}
-  {% set unrealized_pl = total_return - fpl - total_dividends - total_interest + total_fees %}
+  {#
+     浮动优先级：
+     1. IB session 累积 unrealizedPnl（session 长时有效，最准）
+     2. 持仓实时价格加总（IB session 刚重启时 unrealizedPnl = 0，用此兜底）
+     已实现 = 总收益 − 浮动 − 股息 − 利息 + 手续费（恒等式残差）
+  #}
+  {% set live_unreal = positions_live_unrealized if positions_live_unrealized is defined else 0 %}
+  {% set unrealized_pl = ib_unrealized if ib_unrealized else live_unreal %}
+  {% set fpl = total_return - unrealized_pl - total_dividends - total_interest + total_fees %}
 {% else %}
-  {# 回退：IB 未实现 + FIFO 已实现；% 以持仓成本为分母 #}
+  {# 回退：IB session P&L；% 以持仓成本为分母 #}
   {% set unrealized_pl = ib_unrealized %}
+  {% set fpl = ib_realized %}
   {% set total_return = unrealized_pl + fpl %}
   {% set return_pct = (total_return / total_cost * 100) if total_cost else 0 %}
 {% endif %}

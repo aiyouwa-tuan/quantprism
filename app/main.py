@@ -3466,6 +3466,18 @@ async def ibkr_portfolio_page(request: Request):
     alloc_pct = {k: round(v / total_mv * 100, 1) for k, v in alloc.items()}
     fifo_realized_pl = sum(t.get("realizedPL", 0) for t in trades_annotated if t.get("side") == "SELL")
 
+    # 从持仓实时价格直接计算浮动盈亏（只统计有实时报价的仓位，期权无价格则跳过）
+    positions_live_unrealized = 0.0
+    for h in holdings:
+        price = h.get("lastPrice", 0) or 0
+        if price > 0:
+            qty = h.get("quantity", 0)
+            mult = h.get("multiplier", 1) or 1
+            sec = h.get("secType", "STK")
+            mv = price * qty * mult if sec == "OPT" else price * qty
+            cost = h.get("totalInvestment", 0) or 0
+            positions_live_unrealized += mv - cost
+
     return templates.TemplateResponse("qp_portfolio.html", {
         "request": request,
         "configured": True,
@@ -3479,6 +3491,7 @@ async def ibkr_portfolio_page(request: Request):
         "alloc_pct": alloc_pct,
         "alloc_values": alloc,
         "fifo_realized_pl": fifo_realized_pl,
+        "positions_live_unrealized": round(positions_live_unrealized, 2),
     })
 
 
