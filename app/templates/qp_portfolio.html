@@ -98,9 +98,10 @@
 {% set withholding_tax = total_fees %}
 
 {% set calc_total_mv = alloc_values.values() | sum %}
-{# 优先用 IB 账户 netLiquidation（含期权实时估值），回退到持仓加总 #}
+{# 优先用 IB 账户 netLiquidation（含期权实时估值），回退到持仓加总，最后回退到 Flex markPrice 加总 #}
 {% set ib_net_liq = acct.get('netLiquidation', 0) or 0 %}
-{% set display_total_mv = ib_net_liq if ib_net_liq > 0 else calc_total_mv %}
+{% set flex_total_mv = cf.get('totalMV', 0) %}
+{% set display_total_mv = ib_net_liq if ib_net_liq > 0 else (calc_total_mv if calc_total_mv > 0 else flex_total_mv) %}
 
 {# 收益计算：优先用 Flex Query 的净入金（若有），否则回退到 IB unrealized + FIFO realized #}
 {% set ib_unrealized = acct.get('unrealizedPL', 0) or 0 %}
@@ -111,12 +112,6 @@
   {# 精确公式：有 Flex Query 净入金，总收益 = 净清算值 − 本金 #}
   {% set total_return = display_total_mv - net_deposits %}
   {% set return_pct = (total_return / net_deposits * 100) %}
-  {#
-     浮动优先级：
-     1. IB session 累积 unrealizedPnl（session 长时有效，最准）
-     2. 持仓实时价格加总（IB session 刚重启时 unrealizedPnl = 0，用此兜底）
-     已实现 = 总收益 − 浮动 − 股息 − 利息 + 手续费（恒等式残差）
-  #}
   {% set live_unreal = positions_live_unrealized if positions_live_unrealized is defined else 0 %}
   {% set flex_unreal = cf.get('totalUnrealized', 0) %}
   {#
@@ -177,7 +172,7 @@
         <div class="text-xl font-bold text-gray-300 pv">${{ "{:,.0f}".format(total_commission) if total_commission else '--' }}</div>
         <div class="text-xs text-gray-600 mt-1">
             {{ "{:,.0f}".format(cf.get('tradeCount', 0)) if cf.get('tradeCount') else '' }} 笔交易
-            {% if withholding_tax %} · 预扣税 ${{ "{:,.0f}".format(withholding_tax) }}{% endif %}
+            {% if withholding_tax %} · 预扣税 -${{ "{:,.0f}".format(withholding_tax | abs) }}{% endif %}
         </div>
     </div>
 </div>
@@ -495,7 +490,7 @@
                 <div class="flex justify-between text-xs">
                     <span class="text-gray-500">手续费支出</span>
                     <span class="font-mono text-red-400 pv">
-                        {% if total_fees %}-${{ "{:,.0f}".format(total_fees) }}{% else %}--{% endif %}
+                        {% if total_fees %}-${{ "{:,.0f}".format(total_fees | abs) }}{% else %}--{% endif %}
                     </span>
                 </div>
                 <div class="border-t border-dark-600 pt-2 flex justify-between text-xs font-semibold">

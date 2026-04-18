@@ -146,6 +146,7 @@ def parse_cashflow(xml_text: str) -> dict:
         "totalFees": float,         # withholding tax + other fees (negative = cost)
         "totalCommission": float,   # trading commissions (positive)
         "totalUnrealized": float,   # sum of OpenPosition.fifoPnlUnrealized (IB FIFO)
+        "totalMV": float,           # sum of OpenPosition.markPrice × position × multiplier
         "tradeCount": int,
       }
     """
@@ -156,6 +157,7 @@ def parse_cashflow(xml_text: str) -> dict:
         "totalFees": 0.0,
         "totalCommission": 0.0,
         "totalUnrealized": 0.0,
+        "totalMV": 0.0,
         "tradeCount": 0,
     }
     if not xml_text:
@@ -191,7 +193,7 @@ def parse_cashflow(xml_text: str) -> dict:
             pass
         break  # only one ChangeInNAV per report
 
-    # OpenPosition: sum IB's FIFO unrealized P&L across all open positions
+    # OpenPosition: sum IB's FIFO unrealized P&L and market value across all open positions
     # levelOfDetail="LOT" are lot-level sub-rows — skip to avoid double-counting
     for pos in root.iter("OpenPosition"):
         if pos.get("levelOfDetail") == "LOT":
@@ -200,6 +202,12 @@ def parse_cashflow(xml_text: str) -> dict:
             unreal = pos.get("fifoPnlUnrealized")
             if unreal:
                 result["totalUnrealized"] += float(unreal)
+            # Market value = markPrice × |position| × multiplier
+            mark = pos.get("markPrice")
+            qty = pos.get("position")
+            mult = pos.get("multiplier") or "1"
+            if mark and qty:
+                result["totalMV"] += abs(float(qty)) * float(mark) * float(mult)
         except (ValueError, TypeError):
             pass
 
