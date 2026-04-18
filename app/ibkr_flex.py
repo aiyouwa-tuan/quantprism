@@ -229,8 +229,13 @@ def parse_trades(xml_text: str) -> list[dict]:
             continue
         if qty == 0:
             continue
-        symbol = tr.get("symbol") or tr.get("underlyingSymbol") or ""
         sec_type = tr.get("assetCategory") or "STK"
+        # For OPT: Flex XML symbol is OSI format (e.g. "MSFT  270115C00400000")
+        # Use underlyingSymbol for clean display (e.g. "MSFT")
+        if sec_type == "OPT":
+            symbol = tr.get("underlyingSymbol") or tr.get("symbol") or ""
+        else:
+            symbol = tr.get("symbol") or tr.get("underlyingSymbol") or ""
         # Flex XML: buySell="BUY"/"SELL", quantity is always positive
         buy_sell = (tr.get("buySell") or "").upper()
         if buy_sell in ("BUY", "SELL"):
