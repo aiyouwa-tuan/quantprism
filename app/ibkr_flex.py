@@ -313,6 +313,82 @@ def parse_trades(xml_text: str) -> list[dict]:
     return trades
 
 
+def parse_positions(xml_text: str) -> list[dict]:
+    """
+    Parse Flex XML OpenPosition records into holdings format compatible with
+    _normalize_positions() output. Used as fallback when IB Gateway is disconnected.
+
+    Returns list of dicts with keys matching the template's holdings format.
+    """
+    holdings: list[dict] = []
+    if not xml_text:
+        return holdings
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        return holdings
+
+    for pos in root.iter("OpenPosition"):
+        # Skip lot-level sub-rows to avoid double-counting
+        if pos.get("levelOfDetail") == "LOT":
+            continue
+        try:
+            qty = float(pos.get("position") or 0)
+            if qty == 0:
+                continue
+            sec = pos.get("assetCategory") or "STK"
+            mult = float(pos.get("multiplier") or 1) or 1
+            avg_cost = float(pos.get("costBasisPrice") or 0)
+            mark_price = float(pos.get("markPrice") or 0)
+            unreal = float(pos.get("fifoPnlUnrealized") or 0)
+            total_inv = abs(avg_cost * qty * (mult if sec == "OPT" else 1))
+
+            if sec == "OPT":
+                symbol = pos.get("underlyingSymbol") or pos.get("symbol") or ""
+                strike = pos.get("strike") or ""
+                expiry = (pos.get("expiry") or "").replace("-", "")
+                right = pos.get("putCall") or ""
+                pos_key = f"{symbol} {expiry}{right}{strike}".strip()
+            else:
+                symbol = pos.get("symbol") or ""
+                pos_key = symbol
+                strike = expiry = right = None
+
+            mv = mark_price * qty * mult if sec == "OPT" else mark_price * qty
+
+            holdings.append({
+                "symbol": symbol,
+                "positionKey": pos_key,
+                "secType": sec,
+                "quantity": qty,
+                "avgCost": avg_cost,
+                "totalInvestment": total_inv,
+                "multiplier": int(mult),
+                "unrealizedPL": unreal,
+                "realizedPL": 0,
+                "marketValue": round(mv, 2),
+                "lastPrice": mark_price,
+                "changePercent": 0,
+                "changeAmount": 0,
+                "marketCap": 0,
+                "ytd": 0,
+                "sparkline": [],
+                "session": "",
+                "strike": strike,
+                "expiry": expiry,
+                "right": right,
+                "delta": None,
+                "gamma": None,
+                "theta": None,
+                "vega": None,
+                "impliedVol": None,
+            })
+        except (ValueError, TypeError):
+            continue
+
+    return holdings
+
+
 def get_cashflow_summary() -> dict:
     """
     Convenience wrapper: reads env vars, fetches report, returns summary.

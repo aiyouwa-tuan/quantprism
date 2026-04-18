@@ -3447,9 +3447,12 @@ async def ibkr_portfolio_page(request: Request):
 
     if _flex_cached:
         # Cache hit: parse immediately, no blocking
-        from ibkr_flex import parse_cashflow, parse_trades
+        from ibkr_flex import parse_cashflow, parse_trades, parse_positions as _parse_flex_positions
         flex_cashflow = parse_cashflow(_flex_cached)
         flex_trades = parse_trades(_flex_cached)
+        # Fallback: when gateway is down and live positions empty, use Flex OpenPosition data
+        if gateway_down and not holdings:
+            holdings = _parse_flex_positions(_flex_cached)
     else:
         # No cache: kick off background fetch, don't block this request
         import asyncio as _aio
