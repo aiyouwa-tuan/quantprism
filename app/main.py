@@ -3415,7 +3415,20 @@ async def ibkr_portfolio_page(request: Request):
                     pass
 
     # 成交记录 FIFO 标注
-    trades_list = trades_raw if isinstance(trades_raw, list) else []
+    # Flex Query: 拉历史交易 + cashflow（netDeposits/dividends/interest/fees）
+    # Live socket API 不给历史数据，必须走 Flex Web Service
+    from ibkr_flex import get_cashflow_summary, get_historical_trades
+    import concurrent.futures as _cf_flex
+    loop = _asyncio.get_event_loop()
+    with _cf_flex.ThreadPoolExecutor(max_workers=2) as _ex:
+        flex_cashflow_fut = loop.run_in_executor(_ex, get_cashflow_summary)
+        flex_trades_fut = loop.run_in_executor(_ex, get_historical_trades)
+        flex_cashflow = await flex_cashflow_fut
+        flex_trades = await flex_trades_fut
+
+    live_trades = trades_raw if isinstance(trades_raw, list) else []
+    # 合并：优先用 Flex 的历史交易（完整），live 交易只有当日
+    trades_list = flex_trades if flex_trades else live_trades
     trades_annotated = _fifo_annotate(trades_list)
 
     # 按 positionKey 分组，用于持仓行展开
@@ -3451,7 +3464,7 @@ async def ibkr_portfolio_page(request: Request):
         "ib_status": status_raw if isinstance(status_raw, dict) else {},
         "holdings": holdings,
         "trades_raw": {"tradeDetails": dict(trade_details), "holdings": holdings},
-        "cashflow": {},
+        "cashflow": flex_cashflow or {},
         "alloc_pct": alloc_pct,
         "alloc_values": alloc,
         "fifo_realized_pl": fifo_realized_pl,
@@ -3472,6 +3485,21 @@ async def portfolio_holdings_partial(request: Request, sec_type: str = "STK", re
     })
 
 
+async def _get_trades_annotated() -> list:
+    """获取并 FIFO 标注成交记录：优先 Flex 历史（有缓存），回退到 live socket 当日交易。"""
+    from ibkr_flex import get_historical_trades as _flex_trades
+    import asyncio as _aio
+    try:
+        flex = await _aio.to_thread(_flex_trades)
+    except Exception:
+        flex = []
+    if flex:
+        return _fifo_annotate(flex)
+    trades_raw = await _ibkr_fetch("/api/trades")
+    trades_list = trades_raw if isinstance(trades_raw, list) else []
+    return _fifo_annotate(trades_list)
+
+
 @app.get("/api/portfolio/trades-partial", response_class=HTMLResponse)
 async def portfolio_trades_partial(
     request: Request,
@@ -3481,9 +3509,7 @@ async def portfolio_trades_partial(
     sec_type: str = "ALL",
 ):
     """HTMX: 成交记录（搜索 + 分页）"""
-    trades_raw = await _ibkr_fetch("/api/trades")
-    trades_list = trades_raw if isinstance(trades_raw, list) else []
-    all_trades = _fifo_annotate(trades_list)
+    all_trades = await _get_trades_annotated()
     if search:
         s = search.upper()
         all_trades = [t for t in all_trades if s in t.get("symbol", "").upper()]
@@ -3508,9 +3534,7 @@ async def portfolio_trades_partial(
 async def portfolio_holding_trades(request: Request, symbol: str):
     """HTMX: 单持仓的逐笔成交（行展开）"""
     sym = symbol.upper()
-    trades_raw = await _ibkr_fetch("/api/trades")
-    trades_list = trades_raw if isinstance(trades_raw, list) else []
-    all_trades = _fifo_annotate(trades_list)
+    all_trades = await _get_trades_annotated()
     trades = [
         t for t in all_trades
         if t.get("symbol", "").upper() == sym or t.get("positionKey", "").upper().startswith(sym)
