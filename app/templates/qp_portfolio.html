@@ -238,10 +238,11 @@
                             {% set total_invest = h.get('totalInvestment', 0) or 0 %}
                             {% set multiplier = h.get('multiplier', 1) or 1 %}
                             {% set mkt_val = last_price * qty * (multiplier if sec == 'OPT' else 1) if last_price else 0 %}
-                            {% set unrealized = mkt_val - total_invest %}
+                            {% set has_price = last_price > 0 %}
+                            {% set unrealized = (mkt_val - total_invest) if has_price else 0 %}
                             {% set realized = h.get('realizedPL', 0) or 0 %}
                             {% set total_pl = unrealized + realized %}
-                            {% set pl_pct = (total_pl / total_invest * 100) if total_invest else 0 %}
+                            {% set pl_pct = (total_pl / total_invest * 100) if (total_invest and has_price) else 0 %}
                             {% set day_chg = h.get('changePercent', 0) or 0 %}
                             {% set day_amt = h.get('changeAmount', 0) or 0 %}
                             {% set day_pl = last_price * qty * (multiplier if sec == 'OPT' else 1) * day_chg / 100 if (last_price and day_chg) else 0 %}
@@ -328,7 +329,7 @@
 
                                 <!-- 总盈亏 -->
                                 <td class="text-right px-3 py-3" style="font-family:'Berkeley Mono',ui-monospace,monospace;">
-                                    {% if total_invest %}
+                                    {% if has_price and total_invest %}
                                     <div class="pv" style="color:{{ '#4ade80' if total_pl >= 0 else '#f87171' }};font-weight:600;">
                                         {{ '+' if total_pl >= 0 else '' }}${{ "{:,.0f}".format(total_pl) }}
                                     </div>
@@ -339,6 +340,11 @@
                                         浮 {{ '+' if unrealized >= 0 else '' }}${{ "{:,.0f}".format(unrealized) }}
                                         {% if realized %} 实 {{ '+' if realized >= 0 else '' }}${{ "{:,.0f}".format(realized) }}{% endif %}
                                     </div>
+                                    {% elif realized %}
+                                    <div class="pv" style="color:{{ '#4ade80' if realized >= 0 else '#f87171' }};font-weight:600;">
+                                        {{ '+' if realized >= 0 else '' }}${{ "{:,.0f}".format(realized) }}
+                                    </div>
+                                    <div style="font-size:10px;color:#62666d;">已实现</div>
                                     {% else %}<span style="color:#3e3e44;">--</span>{% endif %}
                                 </td>
 
