@@ -101,25 +101,33 @@ def fetch_flex_xml(token: str, query_id: str, use_cache: bool = True) -> Optiona
                 return None
 
             # Step 2: wait and retrieve (IBKR needs time to generate)
-            # Retry up to 12 times with backoff (2s .. 24s)
-            for attempt in range(12):
-                time.sleep(2 + attempt)
+            # Poll up to 24 times: first 5s then every 10s (up to ~4 minutes total)
+            time.sleep(5)
+            for attempt in range(24):
                 r2 = client.get(url, params={"q": ref_code, "t": token, "v": "3"})
                 if r2.status_code != 200:
+                    time.sleep(10)
                     continue
                 # If still generating, response is <FlexStatementResponse><Status>Warn</Status>...
                 try:
                     root2 = ET.fromstring(r2.text)
                     status2 = root2.findtext("Status")
                     if status2 == "Warn":
-                        continue  # still generating
+                        log.debug("flex still generating, attempt %d/24", attempt + 1)
+                        time.sleep(10)
+                        continue
+                    if status2 not in ("Success", None):
+                        code2 = root2.findtext("ErrorCode") or "?"
+                        msg2 = root2.findtext("ErrorMessage") or "?"
+                        log.error("flex GetStatement error %s: %s", code2, msg2)
+                        return None
                 except ET.ParseError:
                     pass
                 # Got the report
                 _write_cache(query_id, r2.text)
                 return r2.text
 
-            log.error("flex GetStatement timed out after retries")
+            log.error("flex GetStatement timed out after 24 retries (~4 min)")
             return None
     except Exception as exc:
         log.exception("flex fetch exception: %s", exc)

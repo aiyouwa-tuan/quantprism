@@ -3417,14 +3417,23 @@ async def ibkr_portfolio_page(request: Request):
     # 成交记录 FIFO 标注
     # Flex Query: 拉历史交易 + cashflow（netDeposits/dividends/interest/fees）
     # Live socket API 不给历史数据，必须走 Flex Web Service
-    from ibkr_flex import get_cashflow_summary, get_historical_trades
-    import concurrent.futures as _cf_flex
-    loop = _asyncio.get_event_loop()
-    with _cf_flex.ThreadPoolExecutor(max_workers=2) as _ex:
-        flex_cashflow_fut = loop.run_in_executor(_ex, get_cashflow_summary)
-        flex_trades_fut = loop.run_in_executor(_ex, get_historical_trades)
-        flex_cashflow = await flex_cashflow_fut
-        flex_trades = await flex_trades_fut
+    # 策略：优先读磁盘缓存（快），无缓存时后台触发拉取（不阻塞页面）
+    from ibkr_flex import get_cashflow_summary, get_historical_trades, _read_cache, fetch_flex_xml
+    import os as _os
+    _flex_query_id = _os.getenv("IBKR_FLEX_QUERY_CASH", "").strip()
+    _flex_cached = _read_cache(_flex_query_id) if _flex_query_id else None
+
+    if _flex_cached:
+        # Cache hit: parse immediately, no blocking
+        from ibkr_flex import parse_cashflow, parse_trades
+        flex_cashflow = parse_cashflow(_flex_cached)
+        flex_trades = parse_trades(_flex_cached)
+    else:
+        # No cache: kick off background fetch, don't block this request
+        import asyncio as _aio
+        _aio.get_event_loop().run_in_executor(None, get_cashflow_summary)
+        flex_cashflow = {}
+        flex_trades = []
 
     live_trades = trades_raw if isinstance(trades_raw, list) else []
     # 合并：优先用 Flex 的历史交易（完整），live 交易只有当日
@@ -3486,15 +3495,14 @@ async def portfolio_holdings_partial(request: Request, sec_type: str = "STK", re
 
 
 async def _get_trades_annotated() -> list:
-    """获取并 FIFO 标注成交记录：优先 Flex 历史（有缓存），回退到 live socket 当日交易。"""
-    from ibkr_flex import get_historical_trades as _flex_trades
-    import asyncio as _aio
-    try:
-        flex = await _aio.to_thread(_flex_trades)
-    except Exception:
-        flex = []
-    if flex:
-        return _fifo_annotate(flex)
+    """获取并 FIFO 标注成交记录：优先 Flex 磁盘缓存（快），无缓存回退 live socket。"""
+    from ibkr_flex import _read_cache, parse_trades
+    import os as _os
+    query_id = _os.getenv("IBKR_FLEX_QUERY_CASH", "").strip()
+    if query_id:
+        cached = _read_cache(query_id)
+        if cached:
+            return _fifo_annotate(parse_trades(cached))
     trades_raw = await _ibkr_fetch("/api/trades")
     trades_list = trades_raw if isinstance(trades_raw, list) else []
     return _fifo_annotate(trades_list)
