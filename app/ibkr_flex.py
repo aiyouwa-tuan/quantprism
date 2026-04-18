@@ -80,7 +80,7 @@ def fetch_flex_xml(token: str, query_id: str, use_cache: bool = True) -> Optiona
             return cached
 
     try:
-        with httpx.Client(timeout=30.0) as client:
+        with httpx.Client(timeout=30.0, follow_redirects=True) as client:
             # Step 1: request report generation
             r = client.get(
                 f"{FLEX_BASE}.SendRequest",
