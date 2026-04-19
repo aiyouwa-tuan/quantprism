@@ -46,7 +46,7 @@
         </button>
         <!-- 刷新（只读缓存，不触发 IB 写操作） -->
         <button
-            hx-get="/api/portfolio/holdings-partial?sec_type=STK"
+            hx-get="/api/portfolio/holdings-partial?sec_type=ALL"
             hx-target="#holdings-tbody"
             hx-swap="innerHTML"
             hx-indicator="#sync-loading"

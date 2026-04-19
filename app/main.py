@@ -3519,10 +3519,21 @@ async def ibkr_portfolio_page(request: Request):
 
 
 @app.get("/api/portfolio/holdings-partial", response_class=HTMLResponse)
-async def portfolio_holdings_partial(request: Request, sec_type: str = "STK", refresh: bool = False):
+async def portfolio_holdings_partial(request: Request, sec_type: str = "ALL", refresh: bool = False):
     """HTMX: 持仓明细（STK/OPT 切换 + 刷新行情）"""
     positions_raw = await _ibkr_fetch("/api/positions")
+    status_raw = await _ibkr_fetch("/api/status")
+    gateway_down = not (isinstance(status_raw, dict) and status_raw.get("connected", False))
     holdings = _normalize_positions(positions_raw)
+    # Fallback: when gateway is down and live positions empty, use Flex OpenPosition cache
+    if gateway_down and not holdings:
+        from ibkr_flex import _read_cache, parse_positions as _parse_flex_positions
+        import os as _os
+        _q = _os.getenv("IBKR_FLEX_QUERY_CASH", "").strip()
+        if _q:
+            _xml = _read_cache(_q)
+            if _xml:
+                holdings = _parse_flex_positions(_xml)
     if sec_type != "ALL":
         holdings = [h for h in holdings if h.get("secType") == sec_type]
     return templates.TemplateResponse("partials/portfolio_holdings.html", {
