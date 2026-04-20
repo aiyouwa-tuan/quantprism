@@ -695,38 +695,56 @@ function submitJigeQuery(ticker, question) {
     }
   }, 90000);
 
-  // store cancel handle globally so CANCEL button can reach it
-  window._jigeAbort = function() {
-    clearInterval(_timerInterval);
-    clearTimeout(_hardTimeout);
-    if (btn) { btn.disabled = false; btn.textContent = 'ASK JIGE ↵'; }
-    if (result) result.innerHTML = '';
-  };
-
   function _cleanup() {
     clearInterval(_timerInterval);
     clearTimeout(_hardTimeout);
     window._jigeAbort = null;
   }
 
-  htmx.ajax('POST', '/api/jige/' + ticker, {
-    target: '#jige-result',
-    swap: 'innerHTML',
-    values: { question: question }
-  }).then(function() {
+  // ── Use fetch directly instead of htmx.ajax to avoid Promise chain issues ──
+  var _controller = new AbortController();
+  window._jigeAbort = function() {
+    _controller.abort();
+    clearInterval(_timerInterval);
+    clearTimeout(_hardTimeout);
+    if (btn) { btn.disabled = false; btn.textContent = 'ASK JIGE ↵'; }
+    if (result) result.innerHTML = '';
+  };
+
+  var formData = new FormData();
+  formData.append('question', question);
+
+  fetch('/api/jige/' + ticker, {
+    method: 'POST',
+    body: formData,
+    signal: _controller.signal
+  })
+  .then(function(resp) {
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    return resp.text();
+  })
+  .then(function(html) {
     _cleanup();
     if (btn) { btn.disabled = false; btn.textContent = 'ASK JIGE ↵'; }
-    // 保存结果到历史
-    var html = document.getElementById('jige-result').innerHTML;
-    if (html && !html.includes('ERROR') && !html.includes('jige-loading-wrap')) {
-      saveToHistory(ticker, question, html);
-    }
-  }).catch(function() {
+    if (result) result.innerHTML = html;
+    // 保存结果到历史 — 独立 try/catch，失败不影响结果展示
+    try {
+      if (html && !html.includes('jige-loading-wrap')) {
+        saveToHistory(ticker, question, html);
+      }
+    } catch(e) { /* localStorage 失败，忽略 */ }
+  })
+  .catch(function(err) {
     _cleanup();
     if (btn) { btn.disabled = false; btn.textContent = 'ASK JIGE ↵'; }
-    if (result) {
-      result.innerHTML =
-        '<div style="padding:40px 22px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--t-neg);">[ REQUEST FAILED · PLEASE RETRY ]</div>';
+    // 只有在内容还是 loading 状态时才显示错误（防止覆盖已成功加载的结果）
+    var cur = result ? result.innerHTML : '';
+    if (err && err.name === 'AbortError') return; // user cancelled, no error message
+    if (cur.includes('jige-loading-wrap') || cur.length < 50) {
+      if (result) result.innerHTML =
+        '<div style="padding:40px 22px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--t-neg);letter-spacing:0.1em;">[ REQUEST FAILED · PLEASE RETRY ]' +
+        '<div style="margin-top:14px;"><button onclick="submitJigeQuery(\'' + ticker + '\',\'' + question.replace(/'/g,"&#39;") + '\')" ' +
+        'style="font-family:var(--mono);font-size:10px;color:var(--t-hot);background:none;border:1px solid var(--t-hot);border-radius:4px;padding:4px 12px;cursor:pointer;">RETRY ↵</button></div></div>';
     }
   });
 }
