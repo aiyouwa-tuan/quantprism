@@ -3930,13 +3930,21 @@ async def api_jige_analyze(request: Request, symbol: str):
 
     diag = result.get("diag", {}) if isinstance(result, dict) else {}
 
+    # Convert markdown analysis to HTML for display
+    _raw_analysis = result.get("analysis") or ""
+    try:
+        import markdown as _md
+        _analysis_html = _md.markdown(_raw_analysis, extensions=["nl2br"]) if _raw_analysis else ""
+    except Exception:
+        _analysis_html = _raw_analysis  # fallback to raw text
+
     return templates.TemplateResponse("partials/jige_result.html", {
         "request":        request,
         "error":          result.get("error"),
         "symbol":         symbol,
         "price":          result.get("price"),
         "change_pct":     result.get("change_pct"),
-        "analysis":       result.get("analysis"),
+        "analysis":       _analysis_html,
         "timestamp":      result.get("timestamp"),
         "sector":         fund.get("sector"),
         "pe":             fund.get("pe_ratio"),

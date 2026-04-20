@@ -219,6 +219,17 @@
   }
   .jige-kpi .v { font-family: var(--mono); font-size: 14px; font-weight: 500; color: var(--t-ink); }
 
+  /* ── Analysis body markdown styles ── */
+  .jige-analysis-body p { margin: 0 0 10px; }
+  .jige-analysis-body strong { color: var(--t-ink); font-weight: 600; }
+  .jige-analysis-body ul, .jige-analysis-body ol { margin: 4px 0 10px 18px; padding: 0; }
+  .jige-analysis-body li { margin-bottom: 4px; }
+  .jige-analysis-body h1, .jige-analysis-body h2, .jige-analysis-body h3 {
+    color: var(--t-ink); font-size: 12px; font-weight: 600;
+    letter-spacing: 0.06em; margin: 14px 0 6px;
+  }
+  .jige-analysis-body hr { border: none; border-top: 1px solid var(--t-line-h); margin: 12px 0; }
+
   /* ── Verdict strip ── */
   .jige-verdict {
     padding: 12px 22px; display: flex; align-items: center; gap: 16px;
@@ -490,10 +501,16 @@
 
 <script>
 function updateJigeAction(e) {
+  e.preventDefault();  // prevent native form GET submission
   const ticker = document.getElementById('jige-ticker').value.trim().toUpperCase() || 'NVDA';
-  const form = document.getElementById('jige-form');
-  form.setAttribute('hx-post', '/api/jige/' + ticker);
-  htmx.process(form);
+  const question = document.getElementById('jige-query').value.trim();
+  // Use htmx.ajax directly so the dynamic ticker URL is always respected
+  htmx.ajax('POST', '/api/jige/' + ticker, {
+    target: '#jige-result',
+    swap: 'innerHTML',
+    values: { question: question },
+    indicator: '#jige-form'
+  });
 }
 
 function setQuery(q) {
