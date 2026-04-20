@@ -3889,3 +3889,66 @@ async def api_calendar_earnings(db: Session = Depends(get_db)):
         symbols = ["AAPL", "MSFT", "NVDA", "GOOGL", "META"]  # defaults
 
     return JSONResponse(fetch_earnings_calendar(symbols))
+
+
+# ---------------------------------------------------------------------------
+# 鸡哥顾问 — JiGe Advisor
+# ---------------------------------------------------------------------------
+
+@app.get("/jige-advisor", response_class=HTMLResponse)
+async def jige_advisor_page(request: Request):
+    """鸡哥顾问页面"""
+    return templates.TemplateResponse("jige_advisor.html", {"request": request})
+
+
+@app.post("/api/jige/{symbol}", response_class=HTMLResponse)
+async def api_jige_analyze(request: Request, symbol: str):
+    """鸡哥顾问 AI 分析 (HTMX partial)"""
+    from jige_advisor import run_jige_analysis
+    from data_providers import fetch_fundamentals
+
+    form = await request.form()
+    question = form.get("question", "").strip()
+    symbol = symbol.upper()
+
+    result = run_jige_analysis(symbol, question)
+
+    # Extra template context from fundamentals
+    fund = fetch_fundamentals(symbol)
+
+    def _fmt_large(v):
+        if v is None:
+            return "—"
+        try:
+            v = float(v)
+            if v >= 1e12: return f"${v/1e12:.2f}T"
+            if v >= 1e9:  return f"${v/1e9:.2f}B"
+            if v >= 1e6:  return f"${v/1e6:.2f}M"
+            return f"${v:,.0f}"
+        except Exception:
+            return str(v)
+
+    diag = result.get("diag", {}) if isinstance(result, dict) else {}
+
+    return templates.TemplateResponse("partials/jige_result.html", {
+        "request":        request,
+        "error":          result.get("error"),
+        "symbol":         symbol,
+        "price":          result.get("price"),
+        "change_pct":     result.get("change_pct"),
+        "analysis":       result.get("analysis"),
+        "timestamp":      result.get("timestamp"),
+        "sector":         fund.get("sector"),
+        "pe":             fund.get("pe_ratio"),
+        "roe":            fund.get("return_on_equity"),
+        "margins":        fund.get("profit_margins"),
+        "beta":           fund.get("beta"),
+        "rsi":            result.get("rsi"),
+        "trend":          result.get("trend"),
+        "mkt_cap":        _fmt_large(fund.get("market_cap")),
+        "analyst_rating": fund.get("analyst_rating"),
+        "analyst_target": fund.get("analyst_target"),
+        "week_52_high":   fund.get("week_52_high"),
+        "week_52_low":    fund.get("week_52_low"),
+        "earnings_date":  fund.get("earnings_date"),
+    })

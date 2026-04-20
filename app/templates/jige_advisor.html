@@ -1,0 +1,525 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+  /* ── Financial Terminal 廃 — JiGe Advisor ── */
+  :root {
+    --t-bg:        #0b0d10;
+    --t-panel:     #0f1216;
+    --t-alt:       #12161b;
+    --t-line:      #1e242c;
+    --t-line-h:    #2b333d;
+    --t-line-s:    #181d22;
+    --t-ink:       #e6eaef;
+    --t-ink2:      #aab3bd;
+    --t-ink3:      #6b7480;
+    --t-ink4:      #424a54;
+    --t-pos:       #3ad18b;
+    --t-pos-dim:   #1d6f49;
+    --t-neg:       #ff5c66;
+    --t-neg-dim:   #80292f;
+    --t-hot:       #ffb454;
+    --mono:        'IBM Plex Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    --sans-t:      'IBM Plex Sans', -apple-system, system-ui, sans-serif;
+    --cond:        'IBM Plex Sans Condensed', 'IBM Plex Sans', sans-serif;
+  }
+
+  /* override base bg for this page */
+  .jige-wrap {
+    background: var(--t-bg);
+    color: var(--t-ink);
+    font-family: var(--sans-t);
+    font-size: 12px;
+    line-height: 1.45;
+    margin: -24px -32px; /* bleed out of base padding */
+    min-height: 100vh;
+  }
+
+  .jige-wrap .mono { font-family: var(--mono); }
+  .jige-wrap .num  { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .jige-wrap .pos  { color: var(--t-pos) !important; }
+  .jige-wrap .neg  { color: var(--t-neg) !important; }
+  .jige-wrap .hot  { color: var(--t-hot) !important; }
+  .jige-wrap .dim  { color: var(--t-ink3); }
+  .jige-wrap .dimmer { color: var(--t-ink4); }
+
+  /* ── Ticker crawl ── */
+  .jige-crawl {
+    height: 24px; border-bottom: 1px solid var(--t-line-h);
+    background: var(--t-panel); overflow: hidden; position: relative;
+    display: flex; align-items: center;
+  }
+  .jige-crawl .tag {
+    flex: none; padding: 0 10px; height: 100%; display: flex; align-items: center;
+    border-right: 1px solid var(--t-line-h); color: var(--t-ink3);
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
+  }
+  .jige-crawl .track { flex: 1; overflow: hidden; position: relative; height: 100%; }
+  .jige-crawl .line {
+    position: absolute; white-space: nowrap; display: flex; gap: 26px; align-items: center;
+    height: 100%; top: 0; animation: jige-scroll 120s linear infinite;
+    font-family: var(--mono); font-size: 11px;
+  }
+  .jige-crawl .it { display: inline-flex; gap: 8px; align-items: baseline; }
+  .jige-crawl .it b { color: var(--t-ink); font-weight: 500; }
+  @keyframes jige-scroll { to { transform: translateX(-50%); } }
+
+  /* ── Top tabs ── */
+  .jige-topbar {
+    display: flex; align-items: stretch; height: 36px;
+    border-bottom: 1px solid var(--t-line-h); background: var(--t-panel);
+  }
+  .jige-tabs { display: flex; flex: 1; }
+  .jige-tabs a {
+    padding: 0 16px; display: flex; align-items: center; color: var(--t-ink3);
+    border-right: 1px solid var(--t-line-h); font-family: var(--mono); font-size: 11px;
+    letter-spacing: 0.08em; cursor: pointer; text-decoration: none;
+    transition: color 0.1s;
+  }
+  .jige-tabs a:hover { color: var(--t-ink); }
+  .jige-tabs a.on { color: var(--t-ink); background: var(--t-bg); box-shadow: inset 0 -2px 0 var(--t-pos); }
+  .jige-topbar-meta {
+    padding: 0 16px; display: flex; align-items: center; gap: 14px;
+    font-family: var(--mono); font-size: 10px; color: var(--t-ink3); letter-spacing: 0.08em;
+  }
+
+  /* ── Hero ASK module ── */
+  .jige-ask {
+    padding: 24px 22px 20px;
+    border-bottom: 1px solid var(--t-line-h);
+    background: linear-gradient(180deg, var(--t-panel), var(--t-bg));
+  }
+  .jige-ask-title {
+    display: flex; align-items: baseline; gap: 14px; margin-bottom: 14px;
+  }
+  .jige-ask-label {
+    font-family: var(--mono); font-size: 11px; color: var(--t-pos); letter-spacing: 0.14em;
+  }
+  .jige-ask-heading {
+    font-family: var(--cond); font-size: 24px; font-weight: 700;
+    letter-spacing: -0.01em; color: var(--t-ink);
+  }
+  .jige-ask-hint {
+    margin-left: auto; font-family: var(--mono); font-size: 10px;
+    color: var(--t-ink3); letter-spacing: 0.1em;
+  }
+
+  /* Composer */
+  .jige-composer {
+    display: grid; grid-template-columns: 160px 1fr auto;
+    border: 1px solid var(--t-line-h); background: var(--t-bg);
+  }
+  .jige-composer-ticker {
+    padding: 12px 14px; border-right: 1px solid var(--t-line-h);
+    background: var(--t-panel);
+  }
+  .jige-composer-ticker label {
+    display: block; font-family: var(--mono); font-size: 9.5px; color: var(--t-ink4);
+    letter-spacing: 0.14em; margin-bottom: 5px;
+  }
+  .jige-ticker-input {
+    background: transparent; border: 0; outline: 0; color: var(--t-ink);
+    font-family: var(--mono); font-size: 22px; font-weight: 600;
+    width: 100%; padding: 0; letter-spacing: 0.02em; text-transform: uppercase;
+  }
+  .jige-composer-query {
+    padding: 12px 14px; display: flex; flex-direction: column; gap: 4px;
+  }
+  .jige-composer-query label {
+    font-family: var(--mono); font-size: 9.5px; color: var(--t-ink4); letter-spacing: 0.14em;
+  }
+  .jige-query-input {
+    background: transparent; border: 0; outline: 0; color: var(--t-ink);
+    font-family: var(--sans-t); font-size: 15px; width: 100%; padding: 0;
+  }
+  .jige-query-input::placeholder { color: var(--t-ink4); }
+  .jige-submit-btn {
+    padding: 0 24px; border: 0; border-left: 1px solid var(--t-line-h);
+    background: var(--t-pos); color: #0a1510;
+    font-family: var(--mono); font-size: 12px; font-weight: 600;
+    letter-spacing: 0.12em; cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+    transition: filter 0.12s;
+  }
+  .jige-submit-btn:hover { filter: brightness(1.12); }
+  .jige-submit-btn.htmx-request { filter: brightness(0.8); cursor: wait; }
+
+  /* Quick grid: intents + watchlist */
+  .jige-quick {
+    display: grid; grid-template-columns: auto 1fr;
+    gap: 12px 20px; margin-top: 12px; align-items: start;
+  }
+  .jige-quick-lbl {
+    font-family: var(--mono); font-size: 9.5px; color: var(--t-ink4);
+    letter-spacing: 0.14em; padding-top: 4px;
+  }
+  .jige-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .jige-intent {
+    padding: 4px 10px; border: 1px solid var(--t-line-h); color: var(--t-ink2);
+    background: var(--t-panel); font-family: var(--mono); font-size: 11px;
+    cursor: pointer; transition: border-color 0.1s, color 0.1s;
+  }
+  .jige-intent:hover { border-color: var(--t-pos-dim); color: var(--t-pos); }
+  .jige-intent.buy-intent { border-color: var(--t-pos-dim); color: var(--t-pos); background: rgba(58,209,139,0.07); }
+  .jige-intent.sell-intent { border-color: var(--t-neg-dim); color: var(--t-neg); background: rgba(255,92,102,0.07); }
+  .jige-wl-chip {
+    padding: 4px 9px; border: 1px solid var(--t-line-h); color: var(--t-ink2);
+    font-family: var(--mono); font-size: 11px; cursor: pointer;
+    transition: border-color 0.1s;
+  }
+  .jige-wl-chip:hover { border-color: var(--t-ink3); color: var(--t-ink); }
+  .jige-wl-chip.active { border-color: var(--t-pos-dim); background: rgba(58,209,139,0.09); }
+
+  /* Recent row */
+  .jige-recent {
+    margin-top: 12px; padding-top: 12px;
+    border-top: 1px dotted var(--t-line-h);
+    display: flex; gap: 18px; font-family: var(--mono);
+    font-size: 11px; color: var(--t-ink3); flex-wrap: wrap;
+    align-items: center;
+  }
+  .jige-recent-item { cursor: pointer; }
+  .jige-recent-item:hover b { color: var(--t-pos); }
+
+  /* ── Title bar ── */
+  .jige-title {
+    display: grid; grid-template-columns: auto 1fr auto;
+    gap: 24px; align-items: baseline; padding: 16px 22px;
+    border-bottom: 1px solid var(--t-line-h);
+  }
+  .jige-ticker-word {
+    font-family: var(--cond); font-weight: 700;
+    font-size: 44px; letter-spacing: -0.02em; line-height: 1; color: var(--t-ink);
+  }
+  .jige-ticker-word .sub {
+    font-family: var(--sans-t); font-weight: 400; font-size: 11px;
+    color: var(--t-ink3); letter-spacing: 0.04em; display: block; margin-top: 5px;
+  }
+  .jige-bigprice { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  .jige-bigprice .p { font-family: var(--mono); font-size: 38px; font-weight: 600; letter-spacing: -0.02em; }
+  .jige-bigprice .d { font-family: var(--mono); font-size: 16px; color: var(--t-pos); }
+  .jige-bigprice .d.neg { color: var(--t-neg); }
+  .jige-bigprice .bp { font-family: var(--mono); font-size: 11px; color: var(--t-ink3); }
+  .jige-ses { text-align: right; font-family: var(--mono); font-size: 11px; color: var(--t-ink3); line-height: 1.8; }
+  .jige-ses b { color: var(--t-ink); }
+
+  /* ── KPI strip ── */
+  .jige-kpis {
+    display: grid; grid-template-columns: repeat(8, 1fr);
+    border-bottom: 1px solid var(--t-line-h);
+  }
+  .jige-kpi {
+    padding: 10px 14px; border-right: 1px solid var(--t-line);
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .jige-kpi:last-child { border-right: 0; }
+  .jige-kpi .k {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--t-ink3);
+  }
+  .jige-kpi .v { font-family: var(--mono); font-size: 14px; font-weight: 500; color: var(--t-ink); }
+
+  /* ── Verdict strip ── */
+  .jige-verdict {
+    padding: 12px 22px; display: flex; align-items: center; gap: 16px;
+    border-bottom: 1px solid var(--t-line-h); background: var(--t-panel);
+    flex-wrap: wrap;
+  }
+  .jige-vtag {
+    padding: 3px 9px; border: 1px solid var(--t-pos-dim); color: var(--t-pos);
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; flex-shrink: 0;
+  }
+  .jige-vmsg { color: var(--t-ink2); font-size: 12.5px; flex: 1; }
+  .jige-vmsg b { color: var(--t-ink); }
+  .jige-vscores { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--t-ink3); }
+  .jige-vscores b { color: var(--t-ink); }
+
+  /* ── Analysis grid ── */
+  .jige-grid {
+    display: grid; grid-template-columns: 1fr 1fr 460px;
+    border-bottom: 1px solid var(--t-line-h);
+  }
+  .jige-cell {
+    padding: 16px 20px; border-right: 1px solid var(--t-line);
+    border-bottom: 1px solid var(--t-line); min-height: 220px;
+  }
+  .jige-cell:nth-child(3n) { border-right: 0; }
+  .jige-hd {
+    display: flex; align-items: center; gap: 9px; margin-bottom: 10px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--t-ink3);
+  }
+  .jige-hd .idx {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; font-size: 9px; color: var(--t-ink);
+    border: 1px solid var(--t-line-h); background: var(--t-panel); flex-shrink: 0;
+  }
+  .jige-hd .name { color: var(--t-ink); font-weight: 500; letter-spacing: 0.08em; }
+  .jige-hd .score { margin-left: auto; font-family: var(--mono); font-size: 13px; color: var(--t-pos); }
+  .jige-hd .score.mid { color: var(--t-hot); }
+  .jige-body { color: var(--t-ink2); font-size: 12.5px; line-height: 1.72; }
+  .jige-meta-row { display: flex; gap: 16px; margin-top: 12px; flex-wrap: wrap; }
+  .jige-meta { font-family: var(--mono); font-size: 11px; color: var(--t-ink3); }
+  .jige-meta b { color: var(--t-ink); }
+
+  /* Bar meter */
+  .jige-bars { display: grid; gap: 7px; margin-top: 12px; }
+  .jige-bar-row {
+    display: grid; grid-template-columns: 56px 1fr 36px; gap: 8px; align-items: center;
+    font-family: var(--mono); font-size: 10.5px; color: var(--t-ink3);
+  }
+  .jige-bar { height: 7px; background: var(--t-bg); border: 1px solid var(--t-line); position: relative; }
+  .jige-bar i { position: absolute; inset: 0 auto 0 0; background: var(--t-pos); }
+  .jige-bar i.mid { background: var(--t-hot); }
+  .jige-bar-v { color: var(--t-ink); text-align: right; }
+
+  /* Pyramid side */
+  .jige-pyramid {
+    grid-row: span 2; border-right: 0;
+    border-left: 1px solid var(--t-line-h);
+    display: flex; flex-direction: column;
+  }
+  .jige-pyramid .sect { padding: 14px 18px; border-bottom: 1px solid var(--t-line); }
+  .jige-pyramid .sect:last-child { border-bottom: 0; flex: 1; }
+
+  /* Book table */
+  table.jige-book {
+    width: 100%; border-collapse: collapse;
+    font-family: var(--mono); font-size: 11px;
+  }
+  table.jige-book th {
+    text-align: left; font-weight: 400; color: var(--t-ink4);
+    font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase;
+    padding: 5px 6px; border-bottom: 1px solid var(--t-line);
+  }
+  table.jige-book th.r { text-align: right; }
+  table.jige-book td {
+    padding: 6px 6px; border-bottom: 1px dotted var(--t-line); color: var(--t-ink2);
+  }
+  table.jige-book tr:last-child td { border-bottom: 0; }
+  table.jige-book td.r { text-align: right; color: var(--t-ink); }
+  .jige-depth {
+    position: relative; height: 13px; background: transparent;
+  }
+  .jige-depth i {
+    position: absolute; top: 0; bottom: 0; background: rgba(58,209,139,0.18);
+  }
+  .jige-depth.sell i { background: rgba(255,92,102,0.18); right: 0; }
+  .jige-depth span {
+    position: relative; z-index: 2; font-family: var(--mono); font-size: 10.5px;
+    color: var(--t-ink); padding: 0 5px; line-height: 13px;
+  }
+
+  /* ── Chart row ── */
+  .jige-chart-row {
+    display: grid; grid-template-columns: 1fr 300px;
+    border-bottom: 1px solid var(--t-line-h);
+  }
+  .jige-chart-main { padding: 16px 20px; border-right: 1px solid var(--t-line); }
+  .jige-chart-svg { width: 100%; height: 210px; display: block; }
+  .jige-chart-side { padding: 16px 20px; }
+  .jige-chart-side .lr {
+    display: flex; justify-content: space-between;
+    font-family: var(--mono); font-size: 11px; padding: 6px 0;
+    border-bottom: 1px dotted var(--t-line); color: var(--t-ink3);
+  }
+  .jige-chart-side .lr:last-child { border-bottom: 0; }
+  .jige-chart-side .lr b { color: var(--t-ink); }
+  .jige-legend {
+    display: flex; gap: 16px; margin-top: 7px;
+    font-family: var(--mono); font-size: 10px; color: var(--t-ink3); letter-spacing: 0.08em;
+  }
+  .jige-legend i { display: inline-block; width: 12px; height: 2px; background: var(--t-pos); margin-right: 5px; vertical-align: middle; }
+  .jige-legend .l-ma200 i { background: var(--t-hot); }
+  .jige-legend .l-ma50 i { background: none; height: 0; border-top: 1px dashed var(--t-ink3); }
+
+  /* ── Risk + quote row ── */
+  .jige-bot-row {
+    display: grid; grid-template-columns: 1.4fr 1fr;
+    border-bottom: 1px solid var(--t-line-h);
+  }
+
+  /* ── Result area (HTMX) ── */
+  #jige-result .jige-loading {
+    padding: 40px 22px; font-family: var(--mono); font-size: 12px; color: var(--t-ink3);
+  }
+  .jige-spinner { display: inline-block; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Footer ── */
+  .jige-foot {
+    display: flex; justify-content: space-between; padding: 9px 22px;
+    font-family: var(--mono); font-size: 10px; color: var(--t-ink4);
+    border-top: 1px solid var(--t-line-h); letter-spacing: 0.08em;
+  }
+
+  /* Responsive */
+  @media (max-width: 1100px) {
+    .jige-grid { grid-template-columns: 1fr 1fr; }
+    .jige-pyramid { grid-column: span 2; grid-row: auto; border-left: 0; border-top: 1px solid var(--t-line-h); }
+    .jige-kpis { grid-template-columns: repeat(4, 1fr); }
+    .jige-chart-row, .jige-bot-row { grid-template-columns: 1fr; }
+  }
+</style>
+
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+
+<div class="jige-wrap">
+
+  <!-- Ticker crawl -->
+  <div class="jige-crawl">
+    <div class="tag">MKT ▸</div>
+    <div class="track">
+      <div class="line" id="jige-crawl-line">
+        <span class="it"><b>SPX</b> -- <span class="pos">--</span></span>
+        <span class="it"><b>NDX</b> -- <span class="pos">--</span></span>
+        <span class="it"><b>VIX</b> -- <span class="neg">--</span></span>
+        <span class="it"><b>DXY</b> -- <span class="neg">--</span></span>
+        <span class="it"><b>US10Y</b> --</span>
+        <span class="it"><b>NVDA</b> -- <span class="pos">--</span></span>
+        <span class="it"><b>MSFT</b> -- <span class="pos">--</span></span>
+        <span class="it"><b>GOOGL</b> -- <span class="pos">--</span></span>
+        <span class="it"><b>TSM</b> -- <span class="pos">--</span></span>
+        <span class="it"><b>AMZN</b> -- <span class="pos">--</span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page tabs -->
+  <div class="jige-topbar">
+    <nav class="jige-tabs">
+      <a href="/portfolio">PORTFOLIO</a>
+      <a href="/scan">SCAN</a>
+      <a href="/macro">MACRO</a>
+      <a href="/jige-advisor" class="on">JIGE ADVISOR</a>
+      <a href="/backtest">BACKTEST</a>
+    </nav>
+    <div class="jige-topbar-meta">
+      <span>CTX · JIGE-LM</span>
+      <span>MODEL <b style="color:var(--t-ink)">jg-lm-0420</b></span>
+    </div>
+  </div>
+
+  <!-- ── Hero ASK module ── -->
+  <div class="jige-ask">
+    <div class="jige-ask-title">
+      <span class="jige-ask-label">[ ASK JIGE ]</span>
+      <span class="jige-ask-heading">问鸡哥 — 问股票 · 问买卖 · 问策略</span>
+      <span class="jige-ask-hint">⌘K 唤起 · ⏎ 发送</span>
+    </div>
+
+    <!-- Composer -->
+    <form id="jige-form"
+          hx-post="/api/jige/NVDA"
+          hx-target="#jige-result"
+          hx-swap="innerHTML"
+          hx-indicator="#jige-form"
+          onsubmit="updateJigeAction(event)">
+      <div class="jige-composer">
+        <div class="jige-composer-ticker">
+          <label>TICKER</label>
+          <input id="jige-ticker" class="jige-ticker-input"
+                 type="text" name="ticker" value="NVDA"
+                 placeholder="NVDA" maxlength="8"
+                 oninput="this.value=this.value.toUpperCase()">
+        </div>
+        <div class="jige-composer-query">
+          <label>QUERY · 问鸡哥</label>
+          <input id="jige-query" class="jige-query-input"
+                 type="text" name="question"
+                 value="NVDA 当前价位，现在适合加仓吗？要不要分批建仓？"
+                 placeholder="如：现在适合加仓吗？要不要分批建仓？">
+        </div>
+        <button type="submit" class="jige-submit-btn">
+          ASK JIGE <span style="font-size:17px;line-height:1">↵</span>
+        </button>
+      </div>
+    </form>
+
+    <!-- Quick intents + watchlist -->
+    <div class="jige-quick">
+      <span class="jige-quick-lbl">INTENTS</span>
+      <div class="jige-chips" id="jige-intents">
+        <span class="jige-intent buy-intent" onclick="setQuery('现在能买吗？')">▶ 现在能买吗？</span>
+        <span class="jige-intent sell-intent" onclick="setQuery('该减仓了吗？')">◀ 该减仓了吗？</span>
+        <span class="jige-intent" onclick="setQuery('估值合理吗？')">◇ 估值合理吗？</span>
+        <span class="jige-intent" onclick="setQuery('财报前要不要减仓？')">◇ 财报前要不要减仓？</span>
+        <span class="jige-intent" onclick="setQuery('止损放哪里合适？')">◇ 止损放哪里合适？</span>
+        <span class="jige-intent" onclick="setQuery('给我一个金字塔加仓方案')">◇ 给我一个金字塔方案</span>
+      </div>
+
+      <span class="jige-quick-lbl">WATCHLIST</span>
+      <div class="jige-chips" id="jige-watchlist">
+        <span class="jige-wl-chip active" onclick="setTicker('NVDA')">NVDA <span class="pos">+2.34%</span></span>
+        <span class="jige-wl-chip" onclick="setTicker('MSFT')">MSFT <span class="pos">+0.72%</span></span>
+        <span class="jige-wl-chip" onclick="setTicker('GOOGL')">GOOGL <span class="pos">+1.02%</span></span>
+        <span class="jige-wl-chip" onclick="setTicker('AMZN')">AMZN <span class="pos">+0.45%</span></span>
+        <span class="jige-wl-chip" onclick="setTicker('AAPL')">AAPL <span class="neg">-0.18%</span></span>
+        <span class="jige-wl-chip" onclick="setTicker('TSM')">TSM <span class="pos">+2.10%</span></span>
+        <span class="jige-wl-chip" onclick="setTicker('AVGO')">AVGO <span class="pos">+1.82%</span></span>
+        <span class="jige-wl-chip" onclick="setTicker('AMD')">AMD <span class="neg">-0.44%</span></span>
+      </div>
+    </div>
+
+    <!-- Recent -->
+    <div class="jige-recent">
+      <span style="color:var(--t-ink4); letter-spacing:0.12em; font-family:var(--mono); font-size:10px;">RECENT ▸</span>
+      <span class="jige-recent-item" onclick="setTickerQuery('TSM','TSM 能追吗？')">10:04 · <b>TSM 能追吗？</b></span>
+      <span class="jige-recent-item" onclick="setTickerQuery('MSFT','MSFT 财报前要减吗？')">09:41 · <b>MSFT 财报前要减吗？</b></span>
+      <span class="jige-recent-item" onclick="setQuery('组合要不要调防御？')">昨日 · <b>组合要不要调防御？</b></span>
+    </div>
+  </div>
+
+  <!-- ── Result area (rendered by HTMX) ── -->
+  <div id="jige-result">
+    <!-- placeholder shown before first query -->
+    <div style="padding: 60px 22px; text-align: center; font-family: var(--mono); font-size: 12px; color: var(--t-ink4);">
+      <div style="letter-spacing: 0.14em; margin-bottom: 8px;">[ AWAITING QUERY ]</div>
+      <div>输入股票代码和问题，点击 ASK JIGE 开始分析</div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="jige-foot">
+    <span>QUANTPRISM © 2026 · JIGE ADVISOR v1.0</span>
+    <span>DATA DELAY 15MIN · NOT INVESTMENT ADVICE</span>
+    <span>POWERED BY DEEPSEEK · 金渐成投资体系</span>
+  </div>
+
+</div><!-- /jige-wrap -->
+
+<script>
+function updateJigeAction(e) {
+  const ticker = document.getElementById('jige-ticker').value.trim().toUpperCase() || 'NVDA';
+  const form = document.getElementById('jige-form');
+  form.setAttribute('hx-post', '/api/jige/' + ticker);
+  htmx.process(form);
+}
+
+function setQuery(q) {
+  document.getElementById('jige-query').value = q;
+}
+
+function setTicker(t) {
+  document.getElementById('jige-ticker').value = t;
+  // update watchlist active state
+  document.querySelectorAll('.jige-wl-chip').forEach(c => {
+    c.classList.toggle('active', c.textContent.trim().startsWith(t));
+  });
+}
+
+function setTickerQuery(t, q) {
+  setTicker(t);
+  setQuery(q);
+}
+
+// Keyboard shortcut: Cmd/Ctrl+K to focus query
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault();
+    document.getElementById('jige-query').focus();
+    document.getElementById('jige-query').select();
+  }
+});
+</script>
+{% endblock %}

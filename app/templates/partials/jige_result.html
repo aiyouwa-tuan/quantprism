@@ -1,0 +1,71 @@
+{# JiGe Advisor — HTMX result partial (Financial Terminal 廃 style) #}
+{% if error %}
+<div style="padding: 28px 22px; font-family: var(--mono, 'IBM Plex Mono', monospace); font-size: 12px; color: #ff5c66; border-bottom: 1px solid #2b333d;">
+  <span style="color:#424a54">[ ERROR ]</span> &nbsp;{{ error }}
+</div>
+{% else %}
+
+{# ── Ticker bigprice ── #}
+<div class="jige-title">
+  <div class="jige-ticker-word">
+    {{ symbol }}
+    <span class="sub">{{ sector | upper if sector else symbol }} · NASDAQ · USD</span>
+  </div>
+  <div class="jige-bigprice">
+    {% if price %}
+    <div class="p">${{ "%.2f"|format(price) }}</div>
+    <div class="d {% if change_pct and change_pct < 0 %}neg{% endif %}">
+      {% if change_pct %}{{ "%+.2f%%"|format(change_pct) }}{% endif %}
+    </div>
+    {% endif %}
+    <div class="bp">
+      {% if week_52_high %}52W H {{ "%.2f"|format(week_52_high) }} &nbsp;{% endif %}
+      {% if week_52_low %}L {{ "%.2f"|format(week_52_low) }} &nbsp;{% endif %}
+      {% if beta %}BETA {{ "%.2f"|format(beta) }}{% endif %}
+    </div>
+  </div>
+  <div class="jige-ses">
+    ANALYSIS TIME &nbsp; <b>{{ timestamp }}</b><br>
+    {% if earnings_date %}NEXT EARN &nbsp; <b>{{ earnings_date }}</b><br>{% endif %}
+    {% if analyst_target %}ANALYST PT &nbsp; <b>${{ "%.0f"|format(analyst_target) }}</b>{% endif %}
+  </div>
+</div>
+
+{# ── KPI strip ── #}
+<div class="jige-kpis">
+  <div class="jige-kpi"><span class="k">MKT CAP</span><span class="v">{{ mkt_cap }}</span></div>
+  <div class="jige-kpi"><span class="k">P/E (TTM)</span><span class="v {% if pe and pe > 40 %}hot{% endif %}">{{ "%.1f"|format(pe) if pe else "—" }}</span></div>
+  <div class="jige-kpi"><span class="k">ROE</span><span class="v pos">{{ "%.1f%%"|format(roe*100) if roe else "—" }}</span></div>
+  <div class="jige-kpi"><span class="k">NET MGN</span><span class="v pos">{{ "%.1f%%"|format(margins*100) if margins else "—" }}</span></div>
+  <div class="jige-kpi"><span class="k">BETA 5Y</span><span class="v {% if beta and beta > 1.5 %}hot{% endif %}">{{ "%.2f"|format(beta) if beta else "—" }}</span></div>
+  <div class="jige-kpi"><span class="k">RSI 14</span><span class="v {% if rsi and rsi > 65 %}hot{% elif rsi and rsi < 35 %}pos{% endif %}">{{ "%.0f"|format(rsi) if rsi else "—" }}</span></div>
+  <div class="jige-kpi"><span class="k">TREND</span><span class="v {% if trend == 'bullish' %}pos{% elif trend == 'bearish' %}neg{% else %}hot{% endif %}">{{ trend | upper if trend else "—" }}</span></div>
+  <div class="jige-kpi"><span class="k">ANALYST</span><span class="v">{{ analyst_rating | upper if analyst_rating else "—" }}</span></div>
+</div>
+
+{# ── AI Analysis (rendered from markdown-like text) ── #}
+{% if analysis %}
+<div style="padding: 18px 22px 0; border-bottom: 1px solid var(--t-line-h, #2b333d);">
+  <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;
+              font-family:var(--mono,'IBM Plex Mono',monospace); font-size:10px;
+              color:var(--t-ink3,#6b7480); letter-spacing:0.12em; text-transform:uppercase;">
+    <span style="display:inline-flex;align-items:center;justify-content:center;
+                 width:18px;height:18px;border:1px solid var(--t-line-h,#2b333d);
+                 background:var(--t-panel,#0f1216); color:var(--t-ink,#e6eaef); font-size:9px;">AI</span>
+    <span style="color:var(--t-ink,#e6eaef); font-weight:500;">鸡哥分析报告 · JIGE ANALYSIS</span>
+    <span style="margin-left:auto;">{{ timestamp }}</span>
+  </div>
+  <div class="jige-analysis-body" style="font-family:var(--sans-t,'IBM Plex Sans',sans-serif);
+       font-size:13px; line-height:1.78; color:var(--t-ink2,#aab3bd);
+       padding-bottom:18px; white-space:pre-wrap; word-break:break-word;">{{ analysis }}</div>
+</div>
+{% endif %}
+
+{# ── Footer of result ── #}
+<div class="jige-foot">
+  <span>JIGE ANALYSIS COMPLETE · {{ timestamp }}</span>
+  <span>DATA 15MIN DELAY · NOT INVESTMENT ADVICE</span>
+  <span>MODEL jg-lm-0420 · 金渐成投资体系</span>
+</div>
+
+{% endif %}
