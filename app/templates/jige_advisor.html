@@ -540,8 +540,10 @@ function labelTime(ts) {
 }
 
 // ─── localStorage 历史 ───────────────────────────────────────
-const HIST_KEY = 'jige_history_v1';
+const HIST_KEY = 'jige_history_v2';  // 版本升级自动清除旧缓存
 const MAX_HIST = 30;
+// 清除旧版本缓存
+['jige_history_v1'].forEach(k => localStorage.removeItem(k));
 
 function loadHistory() {
   try { return JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); }
