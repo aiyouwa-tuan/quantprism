@@ -3911,7 +3911,8 @@ async def api_jige_analyze(request: Request, symbol: str):
     question = form.get("question", "").strip()
     symbol = symbol.upper()
 
-    result = run_jige_analysis(symbol, question)
+    import asyncio
+    result = await asyncio.to_thread(run_jige_analysis, symbol, question)
 
     # Extra template context from fundamentals
     fund = fetch_fundamentals(symbol)

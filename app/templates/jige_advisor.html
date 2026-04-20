@@ -657,8 +657,56 @@ function submitJigeQuery(ticker, question) {
   const btn    = document.getElementById('jige-submit-btn');
 
   if (btn) { btn.disabled = true; btn.textContent = 'ANALYZING…'; }
+
+  // ── loading state with live elapsed timer ──────────────────
+  var _startTs = Date.now();
+  var _timerEl = null;
   if (result) {
-    result.innerHTML = '<div style="padding:60px 22px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--t-hot);letter-spacing:0.14em;">[ ANALYZING ' + ticker + ' · PLEASE WAIT ]</div>';
+    result.innerHTML =
+      '<div id="jige-loading-wrap" style="padding:60px 22px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--t-hot);letter-spacing:0.14em;">' +
+        '[ ANALYZING ' + ticker + ' · <span id="jige-elapsed">0s</span> ]' +
+        '<div style="margin-top:14px;">' +
+          '<button onclick="jigeCancel()" style="font-family:var(--mono);font-size:10px;color:var(--t-ink3);background:none;border:1px solid var(--t-line-h);border-radius:4px;padding:4px 12px;cursor:pointer;letter-spacing:0.08em;">CANCEL</button>' +
+        '</div>' +
+      '</div>';
+    _timerEl = document.getElementById('jige-elapsed');
+  }
+
+  // tick every second
+  var _timerInterval = setInterval(function() {
+    var sec = Math.floor((Date.now() - _startTs) / 1000);
+    if (_timerEl) _timerEl.textContent = sec + 's';
+  }, 1000);
+
+  // hard timeout: 90s → show error and allow retry
+  var _hardTimeout = setTimeout(function() {
+    clearInterval(_timerInterval);
+    if (btn) { btn.disabled = false; btn.textContent = 'ASK JIGE ↵'; }
+    if (result) {
+      result.innerHTML =
+        '<div style="padding:40px 22px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--t-neg);letter-spacing:0.1em;">' +
+          '[ TIMEOUT · AI TOOK TOO LONG ]' +
+          '<div style="margin-top:10px;color:var(--t-ink3);font-size:11px;">DeepSeek 响应超时，请稍后重试</div>' +
+          '<div style="margin-top:14px;">' +
+            '<button onclick="submitJigeQuery(\'' + ticker + '\', \'' + question.replace(/'/g,"&#39;") + '\')" ' +
+              'style="font-family:var(--mono);font-size:10px;color:var(--t-hot);background:none;border:1px solid var(--t-hot);border-radius:4px;padding:4px 12px;cursor:pointer;letter-spacing:0.08em;">RETRY ↵</button>' +
+          '</div>' +
+        '</div>';
+    }
+  }, 90000);
+
+  // store cancel handle globally so CANCEL button can reach it
+  window._jigeAbort = function() {
+    clearInterval(_timerInterval);
+    clearTimeout(_hardTimeout);
+    if (btn) { btn.disabled = false; btn.textContent = 'ASK JIGE ↵'; }
+    if (result) result.innerHTML = '';
+  };
+
+  function _cleanup() {
+    clearInterval(_timerInterval);
+    clearTimeout(_hardTimeout);
+    window._jigeAbort = null;
   }
 
   htmx.ajax('POST', '/api/jige/' + ticker, {
@@ -666,15 +714,25 @@ function submitJigeQuery(ticker, question) {
     swap: 'innerHTML',
     values: { question: question }
   }).then(function() {
+    _cleanup();
     if (btn) { btn.disabled = false; btn.textContent = 'ASK JIGE ↵'; }
     // 保存结果到历史
-    const html = document.getElementById('jige-result').innerHTML;
-    if (html && !html.includes('ERROR')) {
+    var html = document.getElementById('jige-result').innerHTML;
+    if (html && !html.includes('ERROR') && !html.includes('jige-loading-wrap')) {
       saveToHistory(ticker, question, html);
     }
   }).catch(function() {
+    _cleanup();
     if (btn) { btn.disabled = false; btn.textContent = 'ASK JIGE ↵'; }
+    if (result) {
+      result.innerHTML =
+        '<div style="padding:40px 22px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--t-neg);">[ REQUEST FAILED · PLEASE RETRY ]</div>';
+    }
   });
+}
+
+function jigeCancel() {
+  if (window._jigeAbort) window._jigeAbort();
 }
 
 function setQuery(q) {
