@@ -583,6 +583,26 @@ def get_vix():
     return fetch_vix()
 
 
+@app.get("/api/crawl")
+def get_crawl_data():
+    """跑马灯行情数据：指数 + 核心个股"""
+    symbol_map = {
+        "^GSPC": "SPX", "^NDX": "NDX", "^VIX": "VIX",
+        "DX-Y.NYB": "DXY", "^TNX": "US10Y",
+        "NVDA": "NVDA", "MSFT": "MSFT", "GOOGL": "GOOGL",
+        "TSM": "TSM", "AMZN": "AMZN",
+    }
+    results = []
+    for sym, label in symbol_map.items():
+        d = fetch_current_price(sym)
+        results.append({
+            "label": label,
+            "price": d.get("price", 0),
+            "change_pct": d.get("change_pct", 0),
+        })
+    return results
+
+
 @app.get("/api/account-type")
 def get_account_type():
     """Return account type: 'live' or 'paper', derived from account ID prefix (U=live, DU=paper)."""

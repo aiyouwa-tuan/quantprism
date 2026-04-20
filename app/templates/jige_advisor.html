@@ -384,19 +384,19 @@
 
   <!-- Ticker crawl -->
   <div class="jige-crawl">
-    <div class="tag">MKT ▸</div>
+    <div class="tag">行情 ▸</div>
     <div class="track">
       <div class="line" id="jige-crawl-line">
-        <span class="it"><b>SPX</b> -- <span class="pos">--</span></span>
-        <span class="it"><b>NDX</b> -- <span class="pos">--</span></span>
-        <span class="it"><b>VIX</b> -- <span class="neg">--</span></span>
-        <span class="it"><b>DXY</b> -- <span class="neg">--</span></span>
-        <span class="it"><b>US10Y</b> --</span>
-        <span class="it"><b>NVDA</b> -- <span class="pos">--</span></span>
-        <span class="it"><b>MSFT</b> -- <span class="pos">--</span></span>
-        <span class="it"><b>GOOGL</b> -- <span class="pos">--</span></span>
-        <span class="it"><b>TSM</b> -- <span class="pos">--</span></span>
-        <span class="it"><b>AMZN</b> -- <span class="pos">--</span></span>
+        <span class="it"><b>SPX</b> <span class="crawl-price">--</span> <span class="crawl-chg pos">--</span></span>
+        <span class="it"><b>NDX</b> <span class="crawl-price">--</span> <span class="crawl-chg pos">--</span></span>
+        <span class="it"><b>VIX</b> <span class="crawl-price">--</span> <span class="crawl-chg neg">--</span></span>
+        <span class="it"><b>DXY</b> <span class="crawl-price">--</span> <span class="crawl-chg neg">--</span></span>
+        <span class="it"><b>US10Y</b> <span class="crawl-price">--</span></span>
+        <span class="it"><b>NVDA</b> <span class="crawl-price">--</span> <span class="crawl-chg pos">--</span></span>
+        <span class="it"><b>MSFT</b> <span class="crawl-price">--</span> <span class="crawl-chg pos">--</span></span>
+        <span class="it"><b>GOOGL</b> <span class="crawl-price">--</span> <span class="crawl-chg pos">--</span></span>
+        <span class="it"><b>TSM</b> <span class="crawl-price">--</span> <span class="crawl-chg pos">--</span></span>
+        <span class="it"><b>AMZN</b> <span class="crawl-price">--</span> <span class="crawl-chg pos">--</span></span>
       </div>
     </div>
   </div>
@@ -404,14 +404,13 @@
   <!-- Page tabs -->
   <div class="jige-topbar">
     <nav class="jige-tabs">
-      <a href="/portfolio">PORTFOLIO</a>
-      <a href="/scan">SCAN</a>
-      <a href="/macro">MACRO</a>
-      <a href="/jige-advisor" class="on">JIGE ADVISOR</a>
-      <a href="/backtest">BACKTEST</a>
+      <a href="/portfolio">投资组合</a>
+      <a href="/scan">扫描选股</a>
+      <a href="/macro">宏观市场</a>
+      <a href="/jige-advisor" class="on">鸡哥顾问</a>
+      <a href="/backtest">策略回测</a>
     </nav>
     <div class="jige-topbar-meta">
-      <span>CTX · JIGE-LM</span>
       <span>MODEL <b style="color:var(--t-ink)">jg-lm-0420</b></span>
     </div>
   </div>
@@ -779,9 +778,34 @@ function setTickerQuery(t, q) {
   setQuery(q);
 }
 
+// ─── 跑马灯行情数据 ──────────────────────────────────────────
+function loadCrawlData() {
+  fetch('/api/crawl')
+    .then(r => r.json())
+    .then(data => {
+      const items = document.querySelectorAll('#jige-crawl-line .it');
+      data.forEach((d, i) => {
+        const el = items[i];
+        if (!el) return;
+        const priceEl = el.querySelector('.crawl-price');
+        const chgEl   = el.querySelector('.crawl-chg');
+        if (priceEl) priceEl.textContent = d.price > 0 ? d.price.toFixed(2) : '--';
+        if (chgEl) {
+          const pct = (d.change_pct * 100).toFixed(2);
+          const sign = d.change_pct >= 0 ? '+' : '';
+          chgEl.textContent = d.price > 0 ? sign + pct + '%' : '--';
+          chgEl.className = 'crawl-chg ' + (d.change_pct >= 0 ? 'pos' : 'neg');
+        }
+      });
+    })
+    .catch(() => {});
+}
+
 // ─── 页面初始化 ──────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
   renderHistory();
+  loadCrawlData();
+  setInterval(loadCrawlData, 60000);
 
   // 恢复上次查看的结果（最新一条，仅当天有效）
   const list = loadHistory();
