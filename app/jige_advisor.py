@@ -144,10 +144,209 @@ _JIGE_SYSTEM_PROMPT = """你是「鸡哥顾问」，基于金渐成（笔名天�
 
 **注意边界**：
 - 所有建议仅供参考，不构成投资建议
-- 价格梯队基于当前数据推算，用户需结合实际判断
+- **价格档位必须基于用户消息中提供的 Volume Profile / Fibonacci / Pivot 数据，严禁自行估算或编造价格**
+- 若用户消息中有"量价结构分析"模块，操作建议中的每个价格必须能对应其中某个数据点，并标注依据（如"Fib 38.2%"、"HVN"、"POC"等）
 - 不提供满仓或加杠杆建议（7:3 原则，始终留子弹）
 - A 股/中概股不作深度推荐（他明确回避这两个市场）
 """
+
+
+# ---------------------------------------------------------------------------
+# 技术分析计算模块 — 基于真实历史 OHLCV，不猜测
+# ---------------------------------------------------------------------------
+
+def _calc_volume_profile(df, bins: int = 30) -> dict:
+    """
+    Volume Profile (价量分布)
+    将过去N根K线的成交量按价格区间分组，找出：
+    - POC  (Point of Control): 成交量最密集的价格
+    - VA   (Value Area 70%): 包含70%成交量的价格区间
+    - HVN  (High Volume Nodes): 前5个高成交量价格区域（强支撑/阻力）
+    - LVN  (Low Volume Nodes): 成交量真空区（价格容易快速穿越）
+    """
+    try:
+        import numpy as np
+        if df is None or len(df) < 20:
+            return {}
+
+        lo, hi = df["Low"].min(), df["High"].max()
+        if hi <= lo:
+            return {}
+
+        edges = np.linspace(lo, hi, bins + 1)
+        centers = (edges[:-1] + edges[1:]) / 2
+        vol_per_bin = np.zeros(bins)
+
+        # 将每根K线成交量按其high-low范围均匀分配到对应bins
+        for _, row in df.iterrows():
+            row_lo, row_hi = row["Low"], row["High"]
+            row_vol = row["Volume"]
+            mask = (edges[1:] >= row_lo) & (edges[:-1] <= row_hi)
+            n = mask.sum()
+            if n > 0:
+                vol_per_bin[mask] += row_vol / n
+
+        # POC: 最大成交量价格
+        poc_idx = int(np.argmax(vol_per_bin))
+        poc = round(float(centers[poc_idx]), 2)
+
+        # Value Area (累积70%成交量)
+        total = vol_per_bin.sum()
+        target = total * 0.70
+        sorted_idx = np.argsort(vol_per_bin)[::-1]
+        acc, va_bins = 0, []
+        for i in sorted_idx:
+            if acc >= target:
+                break
+            va_bins.append(i)
+            acc += vol_per_bin[i]
+        va_high = round(float(centers[max(va_bins)]), 2) if va_bins else None
+        va_low  = round(float(centers[min(va_bins)]), 2) if va_bins else None
+
+        # HVN: 前5高成交量价格节点（阻力/支撑）
+        hvn_idx = sorted_idx[:5]
+        hvn = sorted([round(float(centers[i]), 2) for i in hvn_idx])
+
+        # LVN: 成交量低谷（价格真空带，容易快速穿越）
+        threshold = np.percentile(vol_per_bin, 20)
+        lvn_idx = np.where(vol_per_bin <= threshold)[0]
+        # 合并相邻的低成交量区域，取中点
+        lvn_zones = []
+        if len(lvn_idx) > 0:
+            grp_start = lvn_idx[0]
+            for k in range(1, len(lvn_idx)):
+                if lvn_idx[k] != lvn_idx[k-1] + 1:
+                    mid = (grp_start + lvn_idx[k-1]) // 2
+                    lvn_zones.append(round(float(centers[mid]), 2))
+                    grp_start = lvn_idx[k]
+            mid = (grp_start + lvn_idx[-1]) // 2
+            lvn_zones.append(round(float(centers[mid]), 2))
+
+        return {
+            "poc":     poc,
+            "va_high": va_high,
+            "va_low":  va_low,
+            "hvn":     hvn,       # High Volume Nodes: 强支撑/阻力价格
+            "lvn":     lvn_zones[:4],  # Low Volume Nodes: 真空带
+        }
+    except Exception as e:
+        logger.warning(f"_calc_volume_profile failed: {e}")
+        return {}
+
+
+def _calc_fibonacci(df, lookback: int = 120) -> dict:
+    """
+    斐波那契回调/延伸位
+    从过去lookback天的最高/最低点计算关键Fib位
+    """
+    try:
+        if df is None or len(df) < 20:
+            return {}
+        recent = df.tail(min(lookback, len(df)))
+        swing_high = float(recent["High"].max())
+        swing_low  = float(recent["Low"].min())
+        rng = swing_high - swing_low
+        if rng <= 0:
+            return {}
+
+        current = float(df["Close"].iloc[-1])
+        # 判断主趋势方向（近20日涨跌）
+        trend_up = df["Close"].iloc[-1] > df["Close"].iloc[-20]
+
+        if trend_up:
+            # 上涨趋势：计算回调支撑位（从高往低）
+            levels = {
+                "23.6%": round(swing_high - rng * 0.236, 2),
+                "38.2%": round(swing_high - rng * 0.382, 2),
+                "50.0%": round(swing_high - rng * 0.500, 2),
+                "61.8%": round(swing_high - rng * 0.618, 2),
+                "78.6%": round(swing_high - rng * 0.786, 2),
+            }
+            # 延伸阻力位
+            ext = {
+                "127.2%": round(swing_low + rng * 1.272, 2),
+                "161.8%": round(swing_low + rng * 1.618, 2),
+            }
+        else:
+            # 下跌趋势：计算反弹阻力位（从低往高）
+            levels = {
+                "23.6%": round(swing_low + rng * 0.236, 2),
+                "38.2%": round(swing_low + rng * 0.382, 2),
+                "50.0%": round(swing_low + rng * 0.500, 2),
+                "61.8%": round(swing_low + rng * 0.618, 2),
+                "78.6%": round(swing_low + rng * 0.786, 2),
+            }
+            ext = {}
+
+        # 找出距当前价最近的上方/下方Fib位
+        all_vals = sorted(levels.values())
+        above = [v for v in all_vals if v > current]
+        below = [v for v in all_vals if v <= current]
+
+        return {
+            "swing_high":  round(swing_high, 2),
+            "swing_low":   round(swing_low, 2),
+            "trend":       "上涨" if trend_up else "下跌",
+            "levels":      levels,
+            "extensions":  ext,
+            "nearest_above": above[0] if above else None,
+            "nearest_below": below[-1] if below else None,
+        }
+    except Exception as e:
+        logger.warning(f"_calc_fibonacci failed: {e}")
+        return {}
+
+
+def _calc_pivot_sr(df, n_pivots: int = 3) -> dict:
+    """
+    基于历史K线高/低点识别关键支撑阻力位
+    找出过去N个有效摆动高/低点，作为支撑/阻力区
+    """
+    try:
+        if df is None or len(df) < 30:
+            return {}
+
+        highs = df["High"].values
+        lows  = df["Low"].values
+        current = float(df["Close"].iloc[-1])
+
+        # 简单摆动高/低点检测：左右各3根K线为邻
+        wing = 3
+        pivot_highs, pivot_lows = [], []
+        for i in range(wing, len(df) - wing):
+            if all(highs[i] >= highs[i-k] for k in range(1, wing+1)) and \
+               all(highs[i] >= highs[i+k] for k in range(1, wing+1)):
+                pivot_highs.append(round(float(highs[i]), 2))
+            if all(lows[i] <= lows[i-k] for k in range(1, wing+1)) and \
+               all(lows[i] <= lows[i+k] for k in range(1, wing+1)):
+                pivot_lows.append(round(float(lows[i]), 2))
+
+        # 距当前价最近的n个阻力/支撑
+        resistances = sorted([p for p in pivot_highs if p > current])[:n_pivots]
+        supports    = sorted([p for p in pivot_lows  if p < current], reverse=True)[:n_pivots]
+
+        return {
+            "resistances": resistances,
+            "supports":    supports,
+        }
+    except Exception as e:
+        logger.warning(f"_calc_pivot_sr failed: {e}")
+        return {}
+
+
+def _fetch_ohlcv(symbol: str, period: str = "1y") -> "pd.DataFrame | None":
+    """从 yfinance 拉取历史 OHLCV（与长桥数据等价，适用于美股/ETF）"""
+    try:
+        import yfinance as yf
+        ticker = yf.Ticker(symbol)
+        df = ticker.history(period=period)
+        if df is None or df.empty:
+            return None
+        df = df[["Open", "High", "Low", "Close", "Volume"]].dropna()
+        return df
+    except Exception as e:
+        logger.warning(f"_fetch_ohlcv({symbol}) failed: {e}")
+        return None
 
 
 def _fmt_large(v) -> str:
@@ -215,6 +414,27 @@ def gather_stock_context(symbol: str) -> dict:
         logger.warning(f"detect_market_regime failed: {e}")
         ctx["regime"] = {}
 
+    # ── 基于真实 K 线的技术分析（Volume Profile / Fibonacci / Pivot S/R）──
+    # 数据源：yfinance 历史 OHLCV，与长桥/Bloomberg 等价，消除 AI 猜测
+    try:
+        df = _fetch_ohlcv(symbol, period="1y")
+        if df is not None and len(df) >= 30:
+            ctx["volume_profile"] = _calc_volume_profile(df, bins=30)
+            ctx["fibonacci"]      = _calc_fibonacci(df, lookback=120)
+            ctx["pivot_sr"]       = _calc_pivot_sr(df, n_pivots=3)
+            ctx["ohlcv_ok"]       = True
+        else:
+            ctx["volume_profile"] = {}
+            ctx["fibonacci"]      = {}
+            ctx["pivot_sr"]       = {}
+            ctx["ohlcv_ok"]       = False
+    except Exception as e:
+        logger.warning(f"technical analysis calc failed for {symbol}: {e}")
+        ctx["volume_profile"] = {}
+        ctx["fibonacci"]      = {}
+        ctx["pivot_sr"]       = {}
+        ctx["ohlcv_ok"]       = False
+
     return ctx
 
 
@@ -224,6 +444,9 @@ def build_user_message(symbol: str, ctx: dict, user_question: str = "") -> str:
     fund = ctx.get("fundamentals", {})
     regime = ctx.get("regime", {})
     news = ctx.get("news", [])
+    vp   = ctx.get("volume_profile", {})
+    fib  = ctx.get("fibonacci", {})
+    psr  = ctx.get("pivot_sr", {})
 
     price = ctx.get("price")
     change_pct = ctx.get("change_pct")
@@ -293,6 +516,43 @@ def build_user_message(symbol: str, ctx: dict, user_question: str = "") -> str:
         filtered.append(l)
 
     message = "\n".join(filtered)
+
+    # ── 真实计算的技术层位（非 AI 推测）──────────────────────────────
+    tech_block = ""
+    if vp or fib or psr:
+        tech_block += "\n\n**【量价结构分析 — 基于1年历史OHLCV实时计算，非推测】**"
+
+        if vp:
+            tech_block += "\n\n*Volume Profile（成交量分布）:*"
+            if vp.get("poc"):
+                tech_block += f"\n- POC（成交最密集价格）: ${vp['poc']}"
+            if vp.get("va_high") and vp.get("va_low"):
+                tech_block += f"\n- 价值区间 (70%成交量): ${vp['va_low']} ~ ${vp['va_high']}"
+            if vp.get("hvn"):
+                tech_block += f"\n- 高成交量节点 HVN（强支撑/阻力）: {', '.join(f'${p}' for p in vp['hvn'])}"
+            if vp.get("lvn"):
+                tech_block += f"\n- 低成交量真空带 LVN（价格易快速穿越）: {', '.join(f'${p}' for p in vp['lvn'])}"
+
+        if fib:
+            tech_block += f"\n\n*Fibonacci（近120日，{fib.get('trend','')}{fib.get('swing_low')}~${fib.get('swing_high')}）:*"
+            for name, val in fib.get("levels", {}).items():
+                tech_block += f"\n- {name}: ${val}"
+            for name, val in fib.get("extensions", {}).items():
+                tech_block += f"\n- 延伸{name}: ${val}"
+
+        if psr:
+            if psr.get("resistances"):
+                tech_block += f"\n\n*Pivot阻力位（K线摆动高点）: {', '.join(f'${p}' for p in psr['resistances'])}*"
+            if psr.get("supports"):
+                tech_block += f"\n*Pivot支撑位（K线摆动低点）: {', '.join(f'${p}' for p in psr['supports'])}*"
+
+        tech_block += (
+            "\n\n⚠️ **操作建议中的价格档位必须严格基于以上计算数据**，"
+            "优先选用 HVN、Fibonacci 关键位、Pivot 高低点作为买卖触发价，"
+            "不得使用未经数据支撑的估算数字。"
+        )
+
+    message += tech_block
     message += news_block
     message += question_block
 
