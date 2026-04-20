@@ -44,6 +44,7 @@ def _cache_path(query_id: str) -> Path:
 
 
 def _read_cache(query_id: str) -> Optional[str]:
+    """Return cached XML only if still within TTL. Returns None if expired or missing."""
     p = _cache_path(query_id)
     if not p.exists():
         return None
@@ -53,6 +54,27 @@ def _read_cache(query_id: str) -> Optional[str]:
         return p.read_text()
     except Exception:
         return None
+
+
+def _read_cache_stale(query_id: str) -> Optional[str]:
+    """Return cached XML regardless of TTL (stale-while-revalidate).
+    Use this when fresh cache is unavailable — stale data beats empty screen.
+    Caller is responsible for triggering a background refresh."""
+    p = _cache_path(query_id)
+    if not p.exists():
+        return None
+    try:
+        return p.read_text()
+    except Exception:
+        return None
+
+
+def cache_is_stale(query_id: str) -> bool:
+    """True if cache exists but is past TTL (needs background refresh)."""
+    p = _cache_path(query_id)
+    if not p.exists():
+        return False
+    return time.time() - p.stat().st_mtime > CACHE_TTL_SECONDS
 
 
 def _write_cache(query_id: str, xml_text: str) -> None:

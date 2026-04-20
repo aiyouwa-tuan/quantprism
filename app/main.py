@@ -3440,21 +3440,35 @@ async def ibkr_portfolio_page(request: Request):
     # Flex Query: 拉历史交易 + cashflow（netDeposits/dividends/interest/fees）
     # Live socket API 不给历史数据，必须走 Flex Web Service
     # 策略：优先读磁盘缓存（快），无缓存时后台触发拉取（不阻塞页面）
-    from ibkr_flex import get_cashflow_summary, get_historical_trades, _read_cache, fetch_flex_xml
+    from ibkr_flex import (get_cashflow_summary, get_historical_trades,
+                           _read_cache, _read_cache_stale, cache_is_stale,
+                           fetch_flex_xml,
+                           parse_cashflow, parse_trades,
+                           parse_positions as _parse_flex_positions)
     import os as _os
     _flex_query_id = _os.getenv("IBKR_FLEX_QUERY_CASH", "").strip()
     _flex_cached = _read_cache(_flex_query_id) if _flex_query_id else None
+    _flex_stale_used = False
+
+    if not _flex_cached and _flex_query_id:
+        # Fresh cache miss → try stale (stale data > empty screen)
+        _flex_cached = _read_cache_stale(_flex_query_id)
+        if _flex_cached:
+            _flex_stale_used = True
 
     if _flex_cached:
-        # Cache hit: parse immediately, no blocking
-        from ibkr_flex import parse_cashflow, parse_trades, parse_positions as _parse_flex_positions
+        # Parse from cache (fresh or stale)
         flex_cashflow = parse_cashflow(_flex_cached)
         flex_trades = parse_trades(_flex_cached)
-        # Fallback: when gateway is down and live positions empty, use Flex OpenPosition data
+        # When gateway is down and live positions empty, use Flex OpenPosition data
         if gateway_down and not holdings:
             holdings = _parse_flex_positions(_flex_cached)
+        # Stale cache: trigger background refresh so next request gets fresh data
+        if _flex_stale_used:
+            import asyncio as _aio
+            _aio.get_event_loop().run_in_executor(None, get_cashflow_summary)
     else:
-        # No cache: kick off background fetch, don't block this request
+        # No cache at all (first run): kick off background fetch, don't block this request
         import asyncio as _aio
         _aio.get_event_loop().run_in_executor(None, get_cashflow_summary)
         flex_cashflow = {}
@@ -3525,15 +3539,22 @@ async def portfolio_holdings_partial(request: Request, sec_type: str = "ALL", re
     status_raw = await _ibkr_fetch("/api/status")
     gateway_down = not (isinstance(status_raw, dict) and status_raw.get("connected", False))
     holdings = _normalize_positions(positions_raw)
-    # Fallback: when gateway is down and live positions empty, use Flex OpenPosition cache
+    # Fallback: when gateway is down and live positions empty, use Flex cache
+    # stale-while-revalidate: serve expired cache rather than empty screen
     if gateway_down and not holdings:
-        from ibkr_flex import _read_cache, parse_positions as _parse_flex_positions
+        from ibkr_flex import (_read_cache, _read_cache_stale, cache_is_stale,
+                               get_cashflow_summary,
+                               parse_positions as _parse_flex_positions)
         import os as _os
         _q = _os.getenv("IBKR_FLEX_QUERY_CASH", "").strip()
         if _q:
-            _xml = _read_cache(_q)
+            _xml = _read_cache(_q) or _read_cache_stale(_q)
             if _xml:
                 holdings = _parse_flex_positions(_xml)
+                # If we used stale data, trigger background refresh
+                if cache_is_stale(_q):
+                    import asyncio as _aio
+                    _aio.get_event_loop().run_in_executor(None, get_cashflow_summary)
     if sec_type != "ALL":
         holdings = [h for h in holdings if h.get("secType") == sec_type]
     return templates.TemplateResponse("partials/portfolio_holdings.html", {
