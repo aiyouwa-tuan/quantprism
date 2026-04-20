@@ -562,7 +562,14 @@ function cacheKey(ticker, question) { return ticker + '||' + question; }
 function findCache(ticker, question) {
   const today = todayBeijing();
   const key   = cacheKey(ticker, question);
-  return loadHistory().find(h => h.key === key && h.beijing_date === today) || null;
+  const hit   = loadHistory().find(h => h.key === key && h.beijing_date === today);
+  if (!hit) return null;
+  // 错误结果不走缓存，丢弃并重新请求
+  if (hit.result_html && hit.result_html.includes('[ ERROR ]')) {
+    saveHistory(loadHistory().filter(h => !(h.key === key && h.beijing_date === today)));
+    return null;
+  }
+  return hit;
 }
 
 // 保存一条结果到历史（同 key 同天则覆盖；否则插入到最前面）
@@ -725,7 +732,7 @@ function submitJigeQuery(ticker, question) {
     if (result) result.innerHTML = html;
     // 保存结果到历史 — 独立 try/catch，失败不影响结果展示
     try {
-      if (html && !html.includes('jige-loading-wrap')) {
+      if (html && !html.includes('jige-loading-wrap') && !html.includes('[ ERROR ]')) {
         saveToHistory(ticker, question, html);
       }
     } catch(e) { /* localStorage 失败，忽略 */ }
