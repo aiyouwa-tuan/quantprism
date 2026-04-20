@@ -73,6 +73,7 @@ _ROUTING = {
 def select_model(complexity: str) -> tuple[str, str]:
     """
     Route to best available model for the given complexity tier.
+    如果用户在设置页指定了 AI_PROVIDER，该 provider 始终排在最前面。
 
     Args:
         complexity: "cheap" | "standard" | "strong"
@@ -80,7 +81,13 @@ def select_model(complexity: str) -> tuple[str, str]:
     Returns:
         (provider_name, model_id) tuple, or raises RuntimeError if no key found.
     """
-    order = _ROUTING.get(complexity, _ROUTING["standard"])
+    order = list(_ROUTING.get(complexity, _ROUTING["standard"]))
+
+    # 用户指定的 preferred provider 优先排第一
+    preferred = os.getenv("AI_PROVIDER", "").strip()
+    if preferred and preferred in AI_PROVIDERS:
+        order = [preferred] + [p for p in order if p != preferred]
+
     for provider_name in order:
         config = AI_PROVIDERS.get(provider_name, {})
         if os.getenv(config.get("env_key", "")):
