@@ -195,12 +195,12 @@ def _call_openai_compatible(base_url: str, api_key: str, model: str, prompt: str
     if system:
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt})
-    resp = httpx.post(
-        f"{base_url}/chat/completions",
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-        json={"model": model, "messages": messages, "max_tokens": max_tokens, "temperature": 0.3},
-        timeout=_ai_timeout(max_tokens),
-    )
+    with httpx.Client(trust_env=True, timeout=_ai_timeout(max_tokens)) as client:
+        resp = client.post(
+            f"{base_url}/chat/completions",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={"model": model, "messages": messages, "max_tokens": max_tokens, "temperature": 0.3},
+        )
     data = resp.json()
     if "choices" in data:
         return {"analysis": data["choices"][0]["message"]["content"], "provider": provider, "model": model}
@@ -213,12 +213,12 @@ def _call_claude(api_key: str, model: str, prompt: str, system: str = None, max_
     payload = {"model": model, "max_tokens": max_tokens, "messages": [{"role": "user", "content": prompt}]}
     if system:
         payload["system"] = system
-    resp = httpx.post(
-        "https://api.anthropic.com/v1/messages",
-        headers={"x-api-key": api_key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"},
-        json=payload,
-        timeout=_ai_timeout(max_tokens),
-    )
+    with httpx.Client(trust_env=True, timeout=_ai_timeout(max_tokens)) as client:
+        resp = client.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={"x-api-key": api_key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"},
+            json=payload,
+        )
     data = resp.json()
     if "content" in data:
         return {"analysis": data["content"][0]["text"], "provider": "claude", "model": model}
@@ -228,14 +228,14 @@ def _call_claude(api_key: str, model: str, prompt: str, system: str = None, max_
 def _call_gemini(api_key: str, model: str, prompt: str, max_tokens: int = 500) -> dict:
     """调用 Gemini API"""
     import httpx
-    resp = httpx.post(
-        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}",
-        json={
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"maxOutputTokens": max_tokens},
-        },
-        timeout=_ai_timeout(max_tokens),
-    )
+    with httpx.Client(trust_env=True, timeout=_ai_timeout(max_tokens)) as client:
+        resp = client.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}",
+            json={
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {"maxOutputTokens": max_tokens},
+            },
+        )
     data = resp.json()
     if "candidates" in data:
         return {"analysis": data["candidates"][0]["content"]["parts"][0]["text"], "provider": "gemini", "model": model}
