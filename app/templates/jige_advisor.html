@@ -420,12 +420,7 @@
     </div>
 
     <!-- Composer -->
-    <form id="jige-form"
-          hx-post="/api/jige/NVDA"
-          hx-target="#jige-result"
-          hx-swap="innerHTML"
-          hx-indicator="#jige-form"
-          onsubmit="updateJigeAction(event)">
+    <form id="jige-form" onsubmit="updateJigeAction(event)">
       <div class="jige-composer">
         <div class="jige-composer-ticker">
           <label>TICKER</label>
@@ -441,7 +436,7 @@
                  value="NVDA 当前价位，现在适合加仓吗？要不要分批建仓？"
                  placeholder="如：现在适合加仓吗？要不要分批建仓？">
         </div>
-        <button type="submit" class="jige-submit-btn">
+        <button type="submit" id="jige-submit-btn" class="jige-submit-btn">
           ASK JIGE <span style="font-size:17px;line-height:1">↵</span>
         </button>
       </div>
@@ -501,15 +496,26 @@
 
 <script>
 function updateJigeAction(e) {
-  e.preventDefault();  // prevent native form GET submission
+  e.preventDefault();
   const ticker = document.getElementById('jige-ticker').value.trim().toUpperCase() || 'NVDA';
   const question = document.getElementById('jige-query').value.trim();
-  // Use htmx.ajax directly so the dynamic ticker URL is always respected
+  const result = document.getElementById('jige-result');
+  const btn = document.getElementById('jige-submit-btn');
+
+  // Show loading state
+  if (btn) { btn.disabled = true; btn.textContent = 'ANALYZING…'; }
+  if (result) {
+    result.innerHTML = '<div style="padding:60px 22px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--t-hot);letter-spacing:0.14em;">[ ANALYZING ' + ticker + ' · PLEASE WAIT ]</div>';
+  }
+
   htmx.ajax('POST', '/api/jige/' + ticker, {
     target: '#jige-result',
     swap: 'innerHTML',
-    values: { question: question },
-    indicator: '#jige-form'
+    values: { question: question }
+  }).then(function() {
+    if (btn) { btn.disabled = false; btn.textContent = 'ASK JIGE ↵'; }
+  }).catch(function() {
+    if (btn) { btn.disabled = false; btn.textContent = 'ASK JIGE ↵'; }
   });
 }
 
