@@ -766,8 +766,15 @@ function setTicker(t) {
 
 function onTickerChange(t) {
   document.querySelectorAll('.jige-wl-chip').forEach(c => {
-    c.classList.toggle('active', c.textContent.trim().startsWith(t));
+    c.classList.toggle('active', c.dataset.wl === t);
   });
+  // 如果 query 以某个 ticker 前缀开头，自动替换为新 ticker
+  const qEl = document.getElementById('jige-query');
+  const q = qEl.value;
+  const tickerPrefix = /^[A-Z]{1,5}\s+/;
+  if (tickerPrefix.test(q)) {
+    qEl.value = q.replace(tickerPrefix, t + ' ');
+  }
 }
 
 function setTickerQuery(t, q) {
