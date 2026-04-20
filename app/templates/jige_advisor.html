@@ -501,12 +501,10 @@
       </div>
     </div>
 
-    <!-- Recent -->
-    <div class="jige-recent">
-      <span style="color:var(--t-ink4); letter-spacing:0.12em; font-family:var(--mono); font-size:10px;">RECENT ▸</span>
-      <span class="jige-recent-item" onclick="setTickerQuery('TSM','TSM 能追吗？')">10:04 · <b>TSM 能追吗？</b></span>
-      <span class="jige-recent-item" onclick="setTickerQuery('MSFT','MSFT 财报前要减吗？')">09:41 · <b>MSFT 财报前要减吗？</b></span>
-      <span class="jige-recent-item" onclick="setQuery('组合要不要调防御？')">昨日 · <b>组合要不要调防御？</b></span>
+    <!-- History (dynamic, from localStorage) -->
+    <div class="jige-recent" id="jige-history-bar">
+      <span style="color:var(--t-ink4); letter-spacing:0.12em; font-family:var(--mono); font-size:10px;">HISTORY ▸</span>
+      <span style="color:var(--t-ink4); font-family:var(--mono); font-size:10px;" id="jige-history-empty">暂无历史</span>
     </div>
   </div>
 
@@ -529,14 +527,135 @@
 </div><!-- /jige-wrap -->
 
 <script>
+// ─── 北京时间工具 ───────────────────────────────────────────
+function beijingDateStr(ts) {
+  // ts: ms timestamp，返回北京时间 "YYYY-MM-DD"
+  const d = new Date(ts + 8 * 3600 * 1000);
+  return d.toISOString().slice(0, 10);
+}
+function todayBeijing() { return beijingDateStr(Date.now()); }
+function timeStr(ts) {
+  const d = new Date(ts + 8 * 3600 * 1000);
+  return d.toISOString().slice(11, 16); // HH:mm
+}
+function labelTime(ts) {
+  const today = todayBeijing();
+  const day   = beijingDateStr(ts);
+  if (day === today) return timeStr(ts);
+  const yesterday = beijingDateStr(Date.now() - 86400000);
+  if (day === yesterday) return '昨日';
+  return day.slice(5).replace('-', '/'); // MM/DD
+}
+
+// ─── localStorage 历史 ───────────────────────────────────────
+const HIST_KEY = 'jige_history_v1';
+const MAX_HIST = 30;
+
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); }
+  catch(e) { return []; }
+}
+function saveHistory(list) {
+  localStorage.setItem(HIST_KEY, JSON.stringify(list.slice(0, MAX_HIST)));
+}
+
+// 缓存 key = ticker + "||" + question
+function cacheKey(ticker, question) { return ticker + '||' + question; }
+
+// 查找当天缓存（北京时间）
+function findCache(ticker, question) {
+  const today = todayBeijing();
+  const key   = cacheKey(ticker, question);
+  return loadHistory().find(h => h.key === key && h.beijing_date === today) || null;
+}
+
+// 保存一条结果到历史（同 key 同天则覆盖；否则插入到最前面）
+function saveToHistory(ticker, question, resultHtml) {
+  const key   = cacheKey(ticker, question);
+  const today = todayBeijing();
+  let list = loadHistory().filter(h => !(h.key === key && h.beijing_date === today));
+  list.unshift({
+    key, ticker, question, result_html: resultHtml,
+    beijing_date: today, ts: Date.now()
+  });
+  saveHistory(list);
+  renderHistory();
+}
+
+// ─── 渲染历史栏 ──────────────────────────────────────────────
+function renderHistory() {
+  const bar   = document.getElementById('jige-history-bar');
+  const empty = document.getElementById('jige-history-empty');
+  const list  = loadHistory();
+
+  // 移除旧的历史条目（保留 label + empty span）
+  bar.querySelectorAll('.jige-hist-item').forEach(n => n.remove());
+
+  if (!list.length) {
+    if (empty) empty.style.display = '';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+
+  list.slice(0, 8).forEach(h => {
+    const span = document.createElement('span');
+    span.className = 'jige-recent-item jige-hist-item';
+    const isToday = h.beijing_date === todayBeijing();
+    const cachedBadge = isToday
+      ? '<span style="color:var(--t-pos);font-size:9px;margin-left:3px;">●</span>'
+      : '';
+    span.innerHTML = labelTime(h.ts) + ' · <b>[' + h.ticker + ']</b> ' +
+                     h.question.slice(0, 16) + (h.question.length > 16 ? '…' : '') +
+                     cachedBadge;
+    span.title = '[' + h.ticker + '] ' + h.question + (isToday ? ' (今日缓存)' : '');
+    span.addEventListener('click', () => loadHistoryItem(h));
+    bar.appendChild(span);
+  });
+}
+
+// 点击历史条目：恢复表单 + 显示缓存（当天）或重新分析（跨天）
+function loadHistoryItem(h) {
+  setTicker(h.ticker);
+  setQuery(h.question);
+  const isToday = h.beijing_date === todayBeijing();
+  if (isToday) {
+    // 直接展示缓存，不请求 API
+    document.getElementById('jige-result').innerHTML = h.result_html;
+    // 标记当前选中
+    highlightHistItem(h.key);
+  } else {
+    // 跨天：重新分析
+    submitJigeQuery(h.ticker, h.question);
+  }
+}
+
+function highlightHistItem(key) {
+  document.querySelectorAll('.jige-hist-item').forEach(el => {
+    el.style.color = '';
+  });
+}
+
+// ─── 提交逻辑 ─────────────────────────────────────────────────
 function updateJigeAction(e) {
   e.preventDefault();
-  const ticker = document.getElementById('jige-ticker').value.trim().toUpperCase() || 'NVDA';
+  const ticker   = document.getElementById('jige-ticker').value.trim().toUpperCase() || 'NVDA';
   const question = document.getElementById('jige-query').value.trim();
-  const result = document.getElementById('jige-result');
-  const btn = document.getElementById('jige-submit-btn');
 
-  // Show loading state
+  // 检查今天的缓存
+  const cached = findCache(ticker, question);
+  if (cached) {
+    document.getElementById('jige-result').innerHTML = cached.result_html;
+    renderHistory();
+    return;
+  }
+
+  submitJigeQuery(ticker, question);
+}
+
+function submitJigeQuery(ticker, question) {
+  const result = document.getElementById('jige-result');
+  const btn    = document.getElementById('jige-submit-btn');
+
   if (btn) { btn.disabled = true; btn.textContent = 'ANALYZING…'; }
   if (result) {
     result.innerHTML = '<div style="padding:60px 22px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--t-hot);letter-spacing:0.14em;">[ ANALYZING ' + ticker + ' · PLEASE WAIT ]</div>';
@@ -548,6 +667,11 @@ function updateJigeAction(e) {
     values: { question: question }
   }).then(function() {
     if (btn) { btn.disabled = false; btn.textContent = 'ASK JIGE ↵'; }
+    // 保存结果到历史
+    const html = document.getElementById('jige-result').innerHTML;
+    if (html && !html.includes('ERROR')) {
+      saveToHistory(ticker, question, html);
+    }
   }).catch(function() {
     if (btn) { btn.disabled = false; btn.textContent = 'ASK JIGE ↵'; }
   });
@@ -559,7 +683,6 @@ function setQuery(q) {
 
 function setTicker(t) {
   const sel = document.getElementById('jige-ticker');
-  // 如果下拉里有这个 ticker 就选中，没有就动态添加一个临时选项
   let opt = Array.from(sel.options).find(o => o.value === t);
   if (!opt) {
     opt = new Option(t, t);
@@ -570,7 +693,6 @@ function setTicker(t) {
 }
 
 function onTickerChange(t) {
-  // 同步 watchlist 高亮
   document.querySelectorAll('.jige-wl-chip').forEach(c => {
     c.classList.toggle('active', c.textContent.trim().startsWith(t));
   });
@@ -580,6 +702,19 @@ function setTickerQuery(t, q) {
   setTicker(t);
   setQuery(q);
 }
+
+// ─── 页面初始化 ──────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  renderHistory();
+
+  // 恢复上次查看的结果（最新一条，仅当天有效）
+  const list = loadHistory();
+  if (list.length && list[0].beijing_date === todayBeijing()) {
+    document.getElementById('jige-result').innerHTML = list[0].result_html;
+    setTicker(list[0].ticker);
+    setQuery(list[0].question);
+  }
+});
 
 // Keyboard shortcut: Cmd/Ctrl+K to focus query
 document.addEventListener('keydown', e => {
