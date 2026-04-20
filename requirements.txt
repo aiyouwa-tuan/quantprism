@@ -10,6 +10,7 @@ pyyaml
 httpx
 aiofiles
 apscheduler
+markdown>=3.5             # AI 分析结果 Markdown → HTML 渲染
 starlette<1.0
 
 # === AI 数据层 (OpenBB-equivalent) ===
