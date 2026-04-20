@@ -121,6 +121,11 @@
     background: transparent; border: 0; outline: 0; color: var(--t-ink);
     font-family: var(--mono); font-size: 22px; font-weight: 600;
     width: 100%; padding: 0; letter-spacing: 0.02em; text-transform: uppercase;
+    cursor: pointer; appearance: none; -webkit-appearance: none;
+  }
+  .jige-ticker-input option {
+    background: var(--t-panel); color: var(--t-ink);
+    font-family: var(--mono); font-size: 14px; font-weight: 500;
   }
   .jige-composer-query {
     padding: 12px 14px; display: flex; flex-direction: column; gap: 4px;
@@ -424,10 +429,39 @@
       <div class="jige-composer">
         <div class="jige-composer-ticker">
           <label>TICKER</label>
-          <input id="jige-ticker" class="jige-ticker-input"
-                 type="text" name="ticker" value="NVDA"
-                 placeholder="NVDA" maxlength="8"
-                 oninput="this.value=this.value.toUpperCase()">
+          <select id="jige-ticker" name="ticker" class="jige-ticker-input"
+                  onchange="onTickerChange(this.value)">
+            <optgroup label="── Magnificent 7 ──">
+              <option value="NVDA" selected>NVDA</option>
+              <option value="AAPL">AAPL</option>
+              <option value="MSFT">MSFT</option>
+              <option value="GOOGL">GOOGL</option>
+              <option value="AMZN">AMZN</option>
+              <option value="META">META</option>
+              <option value="TSLA">TSLA</option>
+            </optgroup>
+            <optgroup label="── 半导体 ──">
+              <option value="TSM">TSM</option>
+              <option value="AVGO">AVGO</option>
+              <option value="AMD">AMD</option>
+              <option value="INTC">INTC</option>
+              <option value="QCOM">QCOM</option>
+              <option value="ARM">ARM</option>
+            </optgroup>
+            <optgroup label="── ETF ──">
+              <option value="QQQ">QQQ</option>
+              <option value="SPY">SPY</option>
+              <option value="SCHD">SCHD</option>
+              <option value="XLP">XLP</option>
+            </optgroup>
+            <optgroup label="── 防守型 ──">
+              <option value="BRK.B">BRK.B</option>
+              <option value="KO">KO</option>
+              <option value="JNJ">JNJ</option>
+              <option value="PG">PG</option>
+              <option value="MO">MO</option>
+            </optgroup>
+          </select>
         </div>
         <div class="jige-composer-query">
           <label>QUERY · 问鸡哥</label>
@@ -524,8 +558,19 @@ function setQuery(q) {
 }
 
 function setTicker(t) {
-  document.getElementById('jige-ticker').value = t;
-  // update watchlist active state
+  const sel = document.getElementById('jige-ticker');
+  // 如果下拉里有这个 ticker 就选中，没有就动态添加一个临时选项
+  let opt = Array.from(sel.options).find(o => o.value === t);
+  if (!opt) {
+    opt = new Option(t, t);
+    sel.insertBefore(opt, sel.options[0]);
+  }
+  sel.value = t;
+  onTickerChange(t);
+}
+
+function onTickerChange(t) {
+  // 同步 watchlist 高亮
   document.querySelectorAll('.jige-wl-chip').forEach(c => {
     c.classList.toggle('active', c.textContent.trim().startsWith(t));
   });
