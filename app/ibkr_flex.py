@@ -411,6 +411,21 @@ def parse_positions(xml_text: str) -> list[dict]:
     return holdings
 
 
+def get_account_id(xml_text: str) -> Optional[str]:
+    """Extract the account ID from any Flex XML element (first occurrence)."""
+    if not xml_text:
+        return None
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        return None
+    for elem in root.iter():
+        acct = elem.get("accountId")
+        if acct:
+            return acct
+    return None
+
+
 def get_cashflow_summary() -> dict:
     """
     Convenience wrapper: reads env vars, fetches report, returns summary.

@@ -115,7 +115,7 @@
             <div id="vix-indicator" style="font-size:12px; color:#8a8f98; font-feature-settings:'cv01','ss03';">
                 VIX: <span style="font-family:'Berkeley Mono',ui-monospace,monospace; font-feature-settings:normal;" class="font-mono">--</span>
             </div>
-            <span style="padding:2px 8px; border-radius:4px; font-size:11px; font-weight:510; background:rgba(94,106,210,0.15); color:#7170ff; border:1px solid rgba(113,112,255,0.25); letter-spacing:0.05em;">PAPER</span>
+            <span id="account-type-badge" style="padding:2px 8px; border-radius:4px; font-size:11px; font-weight:510; background:rgba(94,106,210,0.15); color:#7170ff; border:1px solid rgba(113,112,255,0.25); letter-spacing:0.05em; display:none;"></span>
         </div>
 
         <div class="flex-1 p-6">
@@ -142,6 +142,25 @@
         }
         refreshVix();
         setInterval(refreshVix, 60000);
+
+        fetch('/api/account-type').then(function(r){return r.json();}).then(function(d){
+            var badge = document.getElementById('account-type-badge');
+            if (!badge) return;
+            if (d.type === 'paper') {
+                badge.textContent = 'PAPER';
+                badge.style.background = 'rgba(94,106,210,0.15)';
+                badge.style.color = '#7170ff';
+                badge.style.border = '1px solid rgba(113,112,255,0.25)';
+                badge.style.display = '';
+            } else if (d.type === 'live') {
+                badge.textContent = 'LIVE';
+                badge.style.background = 'rgba(16,185,129,0.15)';
+                badge.style.color = '#34d399';
+                badge.style.border = '1px solid rgba(16,185,129,0.25)';
+                badge.style.display = '';
+            }
+            // unknown: badge stays hidden
+        }).catch(function(){});
     })();
     </script>
 </body>

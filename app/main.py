@@ -583,6 +583,22 @@ def get_vix():
     return fetch_vix()
 
 
+@app.get("/api/account-type")
+def get_account_type():
+    """Return account type: 'live' or 'paper', derived from account ID prefix (U=live, DU=paper)."""
+    from ibkr_flex import _read_cache, _read_cache_stale, get_account_id
+    query_id = os.getenv("IBKR_FLEX_QUERY_CASH", "").strip()
+    if not query_id:
+        return {"type": "unknown", "account_id": None}
+    xml = _read_cache(query_id) or _read_cache_stale(query_id)
+    acct_id = get_account_id(xml) if xml else None
+    if acct_id:
+        acct_type = "paper" if acct_id.upper().startswith("DU") else "live"
+    else:
+        acct_type = "unknown"
+    return {"type": acct_type, "account_id": acct_id}
+
+
 @app.get("/api/regime")
 def get_regime():
     return detect_market_regime()
