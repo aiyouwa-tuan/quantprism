@@ -41,7 +41,7 @@ from strategy_hunter import compute_match_score, compute_factor_bonus, search_gi
 from ai_analysis import get_active_provider
 from scanner import scan_index, INDEX_MAP
 
-app = FastAPI(title="Goal-Driven Trading OS", version="3.2.1")
+app = FastAPI(title="Goal-Driven Trading OS", version="3.2.2")
 
 # yfinance 行情内存缓存：5分钟 TTL，避免每次页面加载都重新拉取（是加载慢的主因）
 import time as _time_mod
