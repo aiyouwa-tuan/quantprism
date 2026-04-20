@@ -9,7 +9,7 @@
 <div class="jige-title">
   <div class="jige-ticker-word">
     {{ symbol }}
-    <span class="sub">{{ sector | upper if sector else symbol }} · NASDAQ · USD</span>
+    <span class="sub">{{ sector | upper if sector else symbol }} · 纳斯达克 · 美元</span>
   </div>
   <div class="jige-bigprice">
     {% if price %}
@@ -25,22 +25,22 @@
     </div>
   </div>
   <div class="jige-ses">
-    ANALYSIS TIME &nbsp; <b>{{ timestamp }}</b><br>
-    {% if earnings_date %}NEXT EARN &nbsp; <b>{{ earnings_date }}</b><br>{% endif %}
-    {% if analyst_target %}ANALYST PT &nbsp; <b>${{ "%.0f"|format(analyst_target) }}</b>{% endif %}
+    分析时间 &nbsp; <b>{{ timestamp }}</b><br>
+    {% if earnings_date %}下次财报 &nbsp; <b>{{ earnings_date }}</b><br>{% endif %}
+    {% if analyst_target %}分析师目标价 &nbsp; <b>${{ "%.0f"|format(analyst_target) }}</b>{% endif %}
   </div>
 </div>
 
 {# ── KPI strip ── #}
 <div class="jige-kpis">
-  <div class="jige-kpi"><span class="k">MKT CAP</span><span class="v">{{ mkt_cap }}</span></div>
-  <div class="jige-kpi"><span class="k">P/E (TTM)</span><span class="v {% if pe and pe > 40 %}hot{% endif %}">{{ "%.1f"|format(pe) if pe else "—" }}</span></div>
-  <div class="jige-kpi"><span class="k">ROE</span><span class="v pos">{{ "%.1f%%"|format(roe*100) if roe else "—" }}</span></div>
-  <div class="jige-kpi"><span class="k">NET MGN</span><span class="v pos">{{ "%.1f%%"|format(margins*100) if margins else "—" }}</span></div>
-  <div class="jige-kpi"><span class="k">BETA 5Y</span><span class="v {% if beta and beta > 1.5 %}hot{% endif %}">{{ "%.2f"|format(beta) if beta else "—" }}</span></div>
+  <div class="jige-kpi"><span class="k">市值</span><span class="v">{{ mkt_cap }}</span></div>
+  <div class="jige-kpi"><span class="k">市盈率</span><span class="v {% if pe and pe > 40 %}hot{% endif %}">{{ "%.1f"|format(pe) if pe else "—" }}</span></div>
+  <div class="jige-kpi"><span class="k">净资产收益率</span><span class="v pos">{{ "%.1f%%"|format(roe*100) if roe else "—" }}</span></div>
+  <div class="jige-kpi"><span class="k">净利润率</span><span class="v pos">{{ "%.1f%%"|format(margins*100) if margins else "—" }}</span></div>
+  <div class="jige-kpi"><span class="k">贝塔系数</span><span class="v {% if beta and beta > 1.5 %}hot{% endif %}">{{ "%.2f"|format(beta) if beta else "—" }}</span></div>
   <div class="jige-kpi"><span class="k">RSI 14</span><span class="v {% if rsi and rsi > 65 %}hot{% elif rsi and rsi < 35 %}pos{% endif %}">{{ "%.0f"|format(rsi) if rsi else "—" }}</span></div>
-  <div class="jige-kpi"><span class="k">TREND</span><span class="v {% if trend == 'bullish' %}pos{% elif trend == 'bearish' %}neg{% else %}hot{% endif %}">{{ trend | upper if trend else "—" }}</span></div>
-  <div class="jige-kpi"><span class="k">ANALYST</span><span class="v">{{ analyst_rating | upper if analyst_rating else "—" }}</span></div>
+  <div class="jige-kpi"><span class="k">趋势</span><span class="v {% if trend == 'bullish' %}pos{% elif trend == 'bearish' %}neg{% else %}hot{% endif %}">{% if trend == 'bullish' %}看涨{% elif trend == 'bearish' %}看跌{% elif trend == 'neutral' %}中性{% else %}{{ trend | upper if trend else "—" }}{% endif %}</span></div>
+  <div class="jige-kpi"><span class="k">分析师评级</span><span class="v">{% if analyst_rating %}{% set r = analyst_rating | lower %}{% if r == 'strong buy' %}强烈买入{% elif r == 'buy' %}买入{% elif r == 'hold' %}持有{% elif r == 'sell' %}卖出{% elif r == 'strong sell' %}强烈卖出{% else %}{{ analyst_rating | upper }}{% endif %}{% else %}—{% endif %}</span></div>
 </div>
 
 {# ── AI Analysis (rendered from markdown-like text) ── #}
@@ -63,8 +63,8 @@
 
 {# ── Footer of result ── #}
 <div class="jige-foot">
-  <span>JIGE ANALYSIS COMPLETE · {{ timestamp }}</span>
-  <span>DATA 15MIN DELAY · NOT INVESTMENT ADVICE</span>
+  <span>鸡哥分析完成 · {{ timestamp }}</span>
+  <span>数据延迟15分钟 · 非投资建议</span>
   <span>MODEL jg-lm-0420 · 金渐成投资体系</span>
 </div>
 
