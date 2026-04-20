@@ -103,42 +103,39 @@ def select_model(complexity: str) -> tuple[str, str]:
 
 def call_ai(prompt: str, complexity: str = "standard", system: str = None, max_tokens: int = 800) -> str:
     """
-    Unified AI call with model routing.
-
-    Args:
-        prompt: User prompt text
-        complexity: "cheap" | "standard" | "strong"
-        system: Optional system prompt
-        max_tokens: Maximum response tokens
-
-    Returns:
-        Response text string
-
-    Raises:
-        RuntimeError: If no API key is available or API call fails
+    Unified AI call with model routing and automatic provider fallback.
     """
-    provider, model = select_model(complexity)
-    config = AI_PROVIDERS[provider]
-    api_key = os.getenv(config["env_key"])
+    order = list(_ROUTING.get(complexity, _ROUTING["standard"]))
+    preferred = os.getenv("AI_PROVIDER", "").strip()
+    if preferred and preferred in AI_PROVIDERS:
+        order = [preferred] + [p for p in order if p != preferred]
 
-    messages = []
-    if system and provider != "gemini":
-        messages.append({"role": "system", "content": system})
-    messages.append({"role": "user", "content": prompt})
+    last_error = None
+    for provider in order:
+        config = AI_PROVIDERS.get(provider, {})
+        api_key = os.getenv(config.get("env_key", ""))
+        if not api_key:
+            continue
+        model = config["model"]
+        try:
+            if provider in ("deepseek", "openai"):
+                result = _call_openai_compatible(config["base_url"], api_key, model, prompt, provider,
+                                                 system=system, max_tokens=max_tokens)
+            elif provider == "claude":
+                result = _call_claude(api_key, model, prompt, system=system, max_tokens=max_tokens)
+            elif provider == "gemini":
+                result = _call_gemini(api_key, model, prompt, max_tokens=max_tokens)
+            else:
+                continue
+            if result.get("analysis"):
+                return result["analysis"]
+            last_error = result.get("error", "empty response")
+        except Exception as e:
+            last_error = str(e)
+            logger.warning(f"call_ai: {provider} failed ({e}), trying next provider")
+            continue
 
-    if provider in ("deepseek", "openai"):
-        result = _call_openai_compatible(config["base_url"], api_key, model, prompt, provider,
-                                         system=system, max_tokens=max_tokens)
-    elif provider == "claude":
-        result = _call_claude(api_key, model, prompt, system=system, max_tokens=max_tokens)
-    elif provider == "gemini":
-        result = _call_gemini(api_key, model, prompt, max_tokens=max_tokens)
-    else:
-        raise RuntimeError(f"Unknown provider: {provider}")
-
-    if result.get("error"):
-        raise RuntimeError(result["error"])
-    return result.get("analysis", "")
+    raise RuntimeError(last_error or "所有 AI provider 均不可用")
 
 
 def analyze_stock(symbol: str, diagnosis: dict, context: str = "") -> dict:
