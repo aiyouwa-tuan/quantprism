@@ -178,6 +178,11 @@ RSI: {diagnosis.get('rsi', 0):.0f}
         return {"analysis": None, "error": str(e), "provider": provider}
 
 
+def _ai_timeout(max_tokens: int) -> int:
+    """根据 max_tokens 动态计算超时（秒）：基础 20s + 每 100 token 约 4s，最少 30s"""
+    return max(30, 20 + (max_tokens // 100) * 4)
+
+
 def _call_openai_compatible(base_url: str, api_key: str, model: str, prompt: str, provider: str,
                             system: str = None, max_tokens: int = 500) -> dict:
     """调用 OpenAI 兼容 API (DeepSeek, ChatGPT)"""
@@ -190,7 +195,7 @@ def _call_openai_compatible(base_url: str, api_key: str, model: str, prompt: str
         f"{base_url}/chat/completions",
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
         json={"model": model, "messages": messages, "max_tokens": max_tokens, "temperature": 0.3},
-        timeout=30,
+        timeout=_ai_timeout(max_tokens),
     )
     data = resp.json()
     if "choices" in data:
@@ -208,7 +213,7 @@ def _call_claude(api_key: str, model: str, prompt: str, system: str = None, max_
         "https://api.anthropic.com/v1/messages",
         headers={"x-api-key": api_key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"},
         json=payload,
-        timeout=30,
+        timeout=_ai_timeout(max_tokens),
     )
     data = resp.json()
     if "content" in data:
@@ -225,7 +230,7 @@ def _call_gemini(api_key: str, model: str, prompt: str, max_tokens: int = 500) -
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"maxOutputTokens": max_tokens},
         },
-        timeout=30,
+        timeout=_ai_timeout(max_tokens),
     )
     data = resp.json()
     if "candidates" in data:

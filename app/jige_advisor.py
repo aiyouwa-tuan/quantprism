@@ -253,7 +253,7 @@ def run_jige_analysis(symbol: str, user_question: str = "") -> dict:
             prompt=user_msg,
             complexity="strong",
             system=_JIGE_SYSTEM_PROMPT,
-            max_tokens=1800,
+            max_tokens=1200,  # 1800→1200：分析够用，响应更快（约 68s 超时）
         )
     except Exception as e:
         logger.error(f"jige AI call failed: {e}")
