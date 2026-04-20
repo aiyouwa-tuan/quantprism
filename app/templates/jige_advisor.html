@@ -589,7 +589,10 @@ function saveToHistory(ticker, question, resultHtml) {
 function renderHistory() {
   const bar   = document.getElementById('jige-history-bar');
   const empty = document.getElementById('jige-history-empty');
-  const list  = loadHistory();
+  // 过滤掉含错误的历史条目，并持久化清理
+  const all  = loadHistory();
+  const list = all.filter(h => !h.result_html || !h.result_html.includes('[ ERROR ]'));
+  if (list.length !== all.length) saveHistory(list);
 
   // 移除旧的历史条目（保留 label + empty span）
   bar.querySelectorAll('.jige-hist-item').forEach(n => n.remove());
