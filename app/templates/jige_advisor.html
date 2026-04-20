@@ -482,14 +482,16 @@
 
       <span class="jige-quick-lbl">WATCHLIST</span>
       <div class="jige-chips" id="jige-watchlist">
-        <span class="jige-wl-chip active" onclick="setTicker('NVDA')">NVDA <span class="pos">+2.34%</span></span>
-        <span class="jige-wl-chip" onclick="setTicker('MSFT')">MSFT <span class="pos">+0.72%</span></span>
-        <span class="jige-wl-chip" onclick="setTicker('GOOGL')">GOOGL <span class="pos">+1.02%</span></span>
-        <span class="jige-wl-chip" onclick="setTicker('AMZN')">AMZN <span class="pos">+0.45%</span></span>
-        <span class="jige-wl-chip" onclick="setTicker('AAPL')">AAPL <span class="neg">-0.18%</span></span>
-        <span class="jige-wl-chip" onclick="setTicker('TSM')">TSM <span class="pos">+2.10%</span></span>
-        <span class="jige-wl-chip" onclick="setTicker('AVGO')">AVGO <span class="pos">+1.82%</span></span>
-        <span class="jige-wl-chip" onclick="setTicker('AMD')">AMD <span class="neg">-0.44%</span></span>
+        <span class="jige-wl-chip active" data-wl="NVDA" onclick="setTicker('NVDA')">NVDA <span class="wl-chg">--</span></span>
+        <span class="jige-wl-chip" data-wl="AAPL" onclick="setTicker('AAPL')">AAPL <span class="wl-chg">--</span></span>
+        <span class="jige-wl-chip" data-wl="MSFT" onclick="setTicker('MSFT')">MSFT <span class="wl-chg">--</span></span>
+        <span class="jige-wl-chip" data-wl="GOOGL" onclick="setTicker('GOOGL')">GOOGL <span class="wl-chg">--</span></span>
+        <span class="jige-wl-chip" data-wl="AMZN" onclick="setTicker('AMZN')">AMZN <span class="wl-chg">--</span></span>
+        <span class="jige-wl-chip" data-wl="META" onclick="setTicker('META')">META <span class="wl-chg">--</span></span>
+        <span class="jige-wl-chip" data-wl="TSLA" onclick="setTicker('TSLA')">TSLA <span class="wl-chg">--</span></span>
+        <span class="jige-wl-chip" data-wl="TSM" onclick="setTicker('TSM')">TSM <span class="wl-chg">--</span></span>
+        <span class="jige-wl-chip" data-wl="QQQ" onclick="setTicker('QQQ')">QQQ <span class="wl-chg">--</span></span>
+        <span class="jige-wl-chip" data-wl="SPY" onclick="setTicker('SPY')">SPY <span class="wl-chg">--</span></span>
       </div>
     </div>
 
@@ -773,6 +775,25 @@ function setTickerQuery(t, q) {
   setQuery(q);
 }
 
+// ─── Watchlist 实时涨跌 ──────────────────────────────────────
+function loadWatchlistData() {
+  fetch('/api/watchlist')
+    .then(r => r.json())
+    .then(data => {
+      data.forEach(d => {
+        const chip = document.querySelector(`.jige-wl-chip[data-wl="${d.symbol}"]`);
+        if (!chip) return;
+        const span = chip.querySelector('.wl-chg');
+        if (!span) return;
+        const pct = (d.change_pct * 100).toFixed(2);
+        const sign = d.change_pct >= 0 ? '+' : '';
+        span.textContent = sign + pct + '%';
+        span.className = 'wl-chg ' + (d.change_pct >= 0 ? 'pos' : 'neg');
+      });
+    })
+    .catch(() => {});
+}
+
 // ─── 跑马灯行情数据 ──────────────────────────────────────────
 function loadCrawlData() {
   fetch('/api/crawl')
@@ -800,7 +821,9 @@ function loadCrawlData() {
 document.addEventListener('DOMContentLoaded', function() {
   renderHistory();
   loadCrawlData();
+  loadWatchlistData();
   setInterval(loadCrawlData, 60000);
+  setInterval(loadWatchlistData, 60000);
 
   // 恢复上次查看的结果（最新一条，仅当天有效）
   const list = loadHistory();

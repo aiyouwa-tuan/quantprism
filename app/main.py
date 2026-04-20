@@ -603,6 +603,20 @@ def get_crawl_data():
     return results
 
 
+@app.get("/api/watchlist")
+def get_watchlist_data():
+    """Watchlist 实时涨跌：M7 + TSM + QQQ + SPY"""
+    symbols = ["NVDA", "AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "TSM", "QQQ", "SPY"]
+    results = []
+    for sym in symbols:
+        d = fetch_current_price(sym)
+        results.append({
+            "symbol": sym,
+            "change_pct": d.get("change_pct", 0),
+        })
+    return results
+
+
 @app.get("/api/account-type")
 def get_account_type():
     """Return account type: 'live' or 'paper', derived from account ID prefix (U=live, DU=paper)."""
