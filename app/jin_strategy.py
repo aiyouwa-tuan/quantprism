@@ -181,12 +181,26 @@ def generate_signal(data: dict) -> dict:
     # 情景一：高位减T仓
     if p52 > 90 and p200 > 8:
         scenario = "情景一：52周高位(>90%) 且 MA200溢价高(>8%) → 减T仓"
+        sell_target = round(close * 1.02, 2)
+        rebuy_target = round(ma200 * 1.02, 2)
+        expected_gain = round((sell_target - rebuy_target) / rebuy_target * 100, 1)
         return {
             "action": "减T仓",
             "level": "yellow",
             "emoji": "🟡",
             "reason": f"52周高位{p52:.0f}%，MA200溢价{p200:.0f}%，分批减仓控制安全边际",
-            "zones": {"sell": round(close * 1.02, 2), "rebuy": round(ma200 * 1.02, 2)},
+            "zones": {"sell": sell_target, "rebuy": rebuy_target},
+            "operation": {
+                "what":   "卖出 T仓部分（约总仓位的 30-40%），保留底仓不动",
+                "when":   "当前价格附近或反弹时分批卖出，不要追跌卖",
+                "sell_at": sell_target,
+                "sell_note": f"目标卖出价（当前 ${close} × 1.02），有强势反弹时挂单",
+                "rebuy_at": rebuy_target,
+                "rebuy_note": f"回购价（MA200 × 1.02 = ${rebuy_target}），等回调至此再建回 T仓",
+                "t_gain_pct": expected_gain,
+                "t_gain_note": f"T仓操作预期差价收益约 {expected_gain}%",
+                "keep": "底仓（约总仓位 50-60%）全程持有，不参与 T 操作",
+            },
             "moat": moat,
             "scenario": scenario,
             "trace": trace,

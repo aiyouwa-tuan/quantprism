@@ -1,7 +1,7 @@
 # Goal-Driven Trading OS — Software Design Document
 
-**Version:** 1.2.0
-**Date:** 2026-04-02
+**Version:** 1.3.0
+**Date:** 2026-04-21
 **Author:** AI-assisted (Claude)
 **Status:** Approved
 
@@ -170,6 +170,8 @@ graph TD
 | 绩效分析 | performance.py | PnL + 月度 + 按市场分解 | models |
 | 风险引擎 | risk_engine.py | 风险计算 + 环境检测 | market_data, models |
 | 告警系统 | alerts.py | 飞书 + SMS + 频率限制 | httpx, twilio |
+| **金渐成评分引擎** | **jin_strategy.py** | **道势法术四层评分 + 5种操作信号 + 分析链路** | **无** |
+| **金渐成数据层** | **jin_data.py** | **VPS PostgreSQL 为主 + yfinance 兜底，9标的指标计算** | **market_data, subprocess/SSH** |
 
 ---
 
@@ -274,6 +276,11 @@ sequenceDiagram
 | GET | `/risk` | - | Risk page HTML |
 | GET/POST | `/alerts/config` | feishu_webhook_url, sms_phone, thresholds | Config page/saved partial |
 | POST | `/alerts/test` | - | Test result HTML |
+| GET | `/jin-view` | - | 金渐成主页 HTML |
+| GET | `/jin-view/{symbol}` | - | 单标的详情页 HTML |
+| GET | `/api/jin-view/summary` | - | JSON 数组，9标的完整分析（含 signal + trace） |
+| POST | `/api/jin-view/refresh` | - | 清空缓存，强制下次重新拉取 |
+| GET | `/api/jin-view/{symbol}/candles` | - | JSON 数组，60根日K线（含 ma50/ma200） |
 
 ---
 
@@ -456,3 +463,4 @@ app/
 | 1.0.0 | 2026-03-31 | 初始版本，Phase 1-5 架构设计，CEO + Eng Review 通过 |
 | 1.1.0 | 2026-03-31 | 实现：策略发现库 + AI 研究管线 + Backtester v2（WF + 危机测试）+ IBKR 实时数据集成 |
 | 1.2.0 | 2026-04-02 | 规划：v1.0/v1.5/v2.0 版本路线图 + 三大新机制（dry_run + Optimizer + Regime Pipeline）+ v1.5 Regime Analyzer 写入 SDD + TODOS |
+| 1.3.0 | 2026-04-21 | 新增金渐成视角模块（/jin-view）：道势法术四层评分引擎、9标的操作建议卡片、K线图、分析决策链路可视化。数据层采用 VPS PostgreSQL 为主数据源（SSH tunnel），yfinance 兜底 |

@@ -28,13 +28,11 @@
     <div id="jin-vol-chart" style="height:80px; margin-top:4px;"></div>
 </div>
 
-<!-- 分析过程（决策链路） -->
-<div style="background:#111214; border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:16px; margin-bottom:20px;">
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
-        <div style="font-size:13px; font-weight:600; color:#8a8f98;">🔍 分析过程</div>
-        <div id="scenario-label" style="font-size:12px; color:#62666d; max-width:65%;text-align:right;"></div>
-    </div>
-    <div id="trace-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:10px;"></div>
+<!-- 分析过程 -->
+<div style="background:#111214; border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:18px; margin-bottom:20px;" id="analysis-block">
+    <div style="font-size:13px; font-weight:600; color:#8a8f98; margin-bottom:14px;">🔍 为什么这么建议？</div>
+    <div id="analysis-steps"></div>
+    <div id="operation-plan" style="margin-top:16px;"></div>
 </div>
 
 <!-- 道势法术评分卡 + 建仓计划 -->
@@ -200,23 +198,171 @@ function renderChart(candles, d) {
 
 function renderTrace(d) {
     const sig = d.signal;
-    if (!sig || !sig.trace) return;
+    if (!sig) return;
 
-    document.getElementById('scenario-label').textContent = sig.scenario || '';
+    // Step 1: 四个判断维度，用人话描述
+    const steps = [
+        {
+            q: '① 股价在 MA200 上方还是下方？',
+            answer: d.pct_vs_ma200 >= 0
+                ? `上方 ${d.pct_vs_ma200}%（股价 $${d.close} > MA200 $${d.ma200}）`
+                : `下方 ${Math.abs(d.pct_vs_ma200)}%（股价 $${d.close} < MA200 $${d.ma200}）`,
+            meaning: d.pct_vs_ma200 >= 0
+                ? '✅ 大趋势向上，市场处于多头状态'
+                : '❌ 大趋势向下，市场处于弱势状态',
+            pass: d.pct_vs_ma200 >= 0,
+        },
+        {
+            q: '② 现在在 52 周高低点区间的哪个位置？',
+            answer: `${d.pct_in_52w_range}% 的位置（52W低 $${d.low_52w} ～ 52W高 $${d.high_52w}）`,
+            meaning: d.pct_in_52w_range > 85
+                ? `🔴 处于 52 周高位区间，买入风险高，是减仓机会`
+                : d.pct_in_52w_range < 40
+                ? `🟢 处于 52 周低位区间，风险相对小，是建仓机会`
+                : `⚪ 处于中间区间，没有极端信号`,
+            pass: d.pct_in_52w_range < 85,
+        },
+        {
+            q: '③ 这家公司的护城河有多深？',
+            answer: `${sig.moat.stars} 星（${sig.moat.reason}）`,
+            meaning: sig.moat.stars >= 4
+                ? `✅ 护城河强，即使短期下跌也值得持有等待`
+                : `⚠️ 护城河较弱，趋势变坏时需要更果断减仓`,
+            pass: sig.moat.stars >= 4,
+        },
+    ];
 
-    const html = sig.trace.map(t => {
-        const borderClr = t.pass ? 'rgba(74,222,128,0.25)' : 'rgba(248,113,113,0.25)';
-        const bgClr     = t.pass ? 'rgba(34,197,94,0.05)'  : 'rgba(239,68,68,0.05)';
+    const stepsHtml = steps.map((s, i) => {
+        const borderClr = s.pass ? 'rgba(255,255,255,0.07)' : 'rgba(248,113,113,0.15)';
         return `
-        <div style="background:${bgClr}; border:1px solid ${borderClr}; border-radius:8px; padding:12px 14px;">
-            <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.1em; color:#62666d; margin-bottom:6px; font-weight:600;">${t.label}</div>
-            <div style="font-size:12px; color:#f7f8f8; font-weight:600; margin-bottom:4px;">${t.flag}</div>
-            <div style="font-size:11px; color:#8a8f98; margin-bottom:4px;">${t.value}</div>
-            <div style="font-size:11px; color:#3e3e44; font-family:monospace; line-height:1.5;">${t.calc}</div>
+        <div style="display:flex; gap:14px; padding:12px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+            <div style="width:3px; border-radius:99px; flex-shrink:0; background:${s.pass ? 'rgba(74,222,128,0.5)' : 'rgba(248,113,113,0.5)'};"></div>
+            <div style="flex:1;">
+                <div style="font-size:12px; color:#62666d; margin-bottom:4px;">${s.q}</div>
+                <div style="font-size:14px; font-weight:600; color:#f7f8f8; margin-bottom:3px;">${s.answer}</div>
+                <div style="font-size:12px; color:#8a8f98;">${s.meaning}</div>
+            </div>
         </div>`;
     }).join('');
 
-    document.getElementById('trace-grid').innerHTML = html;
+    // Step 2: 命中哪个情景
+    const conclusionHtml = `
+    <div style="margin-top:14px; padding:12px 14px; background:rgba(94,106,210,0.08); border:1px solid rgba(94,106,210,0.2); border-radius:8px;">
+        <div style="font-size:11px; color:#62666d; margin-bottom:4px;">综合以上判断，命中：</div>
+        <div style="font-size:13px; color:#a5b4fc; font-weight:600;">${sig.scenario || ''}</div>
+    </div>`;
+
+    document.getElementById('analysis-steps').innerHTML = stepsHtml + conclusionHtml;
+
+    // Step 3: 操作计划
+    renderOperationPlan(d, sig);
+}
+
+function renderOperationPlan(d, sig) {
+    const op = sig.operation;
+    let html = '';
+
+    if (sig.action === '减T仓' && op) {
+        html = `
+        <div style="border-top:1px solid rgba(255,255,255,0.07); padding-top:16px;">
+            <div style="font-size:13px; font-weight:600; color:#8a8f98; margin-bottom:12px;">📋 具体操作计划</div>
+
+            <div style="background:rgba(234,179,8,0.06); border:1px solid rgba(234,179,8,0.2); border-radius:10px; padding:14px 16px; margin-bottom:10px;">
+                <div style="font-size:12px; color:#f5c518; font-weight:700; margin-bottom:10px;">卖什么、卖多少</div>
+                <div style="font-size:13px; color:#f7f8f8; line-height:1.8;">${op.what}</div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                <div style="background:rgba(239,68,68,0.07); border:1px solid rgba(239,68,68,0.2); border-radius:10px; padding:14px;">
+                    <div style="font-size:11px; color:#f87171; font-weight:700; margin-bottom:6px;">卖出目标价</div>
+                    <div style="font-size:22px; font-weight:800; color:#f87171;">$${op.sell_at}</div>
+                    <div style="font-size:11px; color:#62666d; margin-top:4px; line-height:1.5;">${op.sell_note}</div>
+                </div>
+                <div style="background:rgba(34,197,94,0.07); border:1px solid rgba(34,197,94,0.2); border-radius:10px; padding:14px;">
+                    <div style="font-size:11px; color:#4ade80; font-weight:700; margin-bottom:6px;">回购目标价</div>
+                    <div style="font-size:22px; font-weight:800; color:#4ade80;">$${op.rebuy_at}</div>
+                    <div style="font-size:11px; color:#62666d; margin-top:4px; line-height:1.5;">${op.rebuy_note}</div>
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <div style="background:rgba(255,255,255,0.03); border-radius:8px; padding:12px;">
+                    <div style="font-size:11px; color:#62666d; margin-bottom:4px;">T仓操作预期收益</div>
+                    <div style="font-size:18px; font-weight:700; color:#f5c518;">+${op.t_gain_pct}%</div>
+                    <div style="font-size:11px; color:#3e3e44; margin-top:2px;">${op.t_gain_note}</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.03); border-radius:8px; padding:12px;">
+                    <div style="font-size:11px; color:#62666d; margin-bottom:4px;">底仓处理</div>
+                    <div style="font-size:13px; font-weight:600; color:#94a3b8; margin-top:4px;">不动</div>
+                    <div style="font-size:11px; color:#3e3e44; margin-top:2px;">${op.keep}</div>
+                </div>
+            </div>
+
+            <div style="margin-top:10px; padding:10px 12px; background:rgba(255,255,255,0.03); border-radius:8px; font-size:12px; color:#62666d; line-height:1.6;">
+                ⏰ 时机：${op.when}
+            </div>
+        </div>`;
+
+    } else if (sig.action === '观察') {
+        const z = sig.zones || {};
+        html = `
+        <div style="border-top:1px solid rgba(255,255,255,0.07); padding-top:16px;">
+            <div style="font-size:13px; font-weight:600; color:#8a8f98; margin-bottom:12px;">📋 现在该怎么做</div>
+            <div style="background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.2); border-radius:10px; padding:14px 16px;">
+                <div style="font-size:13px; color:#f7f8f8; line-height:1.8; margin-bottom:10px;">
+                    <b style="color:#f87171;">暂时不操作</b>，观望等待股价重新站上 MA200。
+                </div>
+                ${z.watch ? `<div style="font-size:12px; color:#62666d;">观察价位：当股价收盘站稳 <b style="color:#facc15;">$${z.watch}</b> 以上，再考虑买入或加仓</div>` : ''}
+                <div style="font-size:12px; color:#62666d; margin-top:6px;">如果已经持有：底仓继续持有，T仓可考虑减轻仓位等待确认</div>
+            </div>
+        </div>`;
+
+    } else if (sig.action === '分批建仓') {
+        const z = sig.zones || {};
+        html = `
+        <div style="border-top:1px solid rgba(255,255,255,0.07); padding-top:16px;">
+            <div style="font-size:13px; font-weight:600; color:#8a8f98; margin-bottom:12px;">📋 2-3-3-2 建仓计划</div>
+            <div style="font-size:12px; color:#62666d; margin-bottom:12px;">分 4 批买入，越跌越买，控制平均成本</div>
+            ${[
+                {n:1, pct:20, price:z.buy1||d.close,         label:'第一批：先买 20%，试探性入场'},
+                {n:2, pct:30, price:z.buy2||d.close*0.95,    label:'第二批：再跌 ~3% 买 30%'},
+                {n:3, pct:30, price:z.buy3||d.close*0.90,    label:'第三批：再跌 ~7% 买 30%'},
+                {n:4, pct:20, price:Math.round(d.close*0.85*100)/100, label:'第四批：最低价买最后 20%'},
+            ].map(b => `
+            <div style="display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.04);">
+                <div style="width:28px; height:28px; border-radius:50%; background:rgba(94,106,210,0.2); color:#a5b4fc; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0;">${b.n}</div>
+                <div style="flex:1; font-size:12px; color:#8a8f98;">${b.label}</div>
+                <div style="text-align:right;">
+                    <div style="font-size:15px; font-weight:700; color:#4ade80;">$${b.price}</div>
+                    <div style="font-size:11px; color:#62666d;">仓位 ${b.pct}%</div>
+                </div>
+            </div>`).join('')}
+        </div>`;
+
+    } else if (sig.action === '底仓持有') {
+        const z = sig.zones || {};
+        html = `
+        <div style="border-top:1px solid rgba(255,255,255,0.07); padding-top:16px;">
+            <div style="font-size:13px; font-weight:600; color:#8a8f98; margin-bottom:12px;">📋 持有策略</div>
+            <div style="background:rgba(255,255,255,0.03); border-radius:10px; padding:14px 16px; font-size:13px; color:#94a3b8; line-height:1.8;">
+                当前位置不高不低，不需要操作。<br>
+                持有底仓等待极端机会（高位减T仓 或 低位加仓）。<br>
+                ${z.add ? `如果回调到 <b style="color:#4ade80;">$${z.add}</b>（MA200附近），可考虑加仓。` : ''}
+            </div>
+        </div>`;
+
+    } else if (sig.action === '减仓') {
+        html = `
+        <div style="border-top:1px solid rgba(255,255,255,0.07); padding-top:16px;">
+            <div style="font-size:13px; font-weight:600; color:#8a8f98; margin-bottom:12px;">📋 减仓建议</div>
+            <div style="background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.2); border-radius:10px; padding:14px 16px; font-size:13px; color:#f7f8f8; line-height:1.8;">
+                护城河弱 + 跌破MA200，两个负面因素叠加。<br>
+                建议减少持仓至最低限度，等趋势明朗再考虑重建仓位。
+            </div>
+        </div>`;
+    }
+
+    document.getElementById('operation-plan').innerHTML = html;
 }
 
 function renderScoreCards(d, candles) {
