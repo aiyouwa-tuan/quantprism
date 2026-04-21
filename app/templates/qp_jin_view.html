@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+.jin-card { background:#111214; border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:16px; transition:border-color 0.2s, transform 0.15s; cursor:pointer; }
+.jin-card:hover { border-color:rgba(94,106,210,0.4); transform:translateY(-1px); }
+.jin-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; letter-spacing:0.03em; }
+.jin-badge-yellow { background:rgba(234,179,8,0.15); color:#facc15; border:1px solid rgba(234,179,8,0.3); }
+.jin-badge-red    { background:rgba(239,68,68,0.15);  color:#f87171; border:1px solid rgba(239,68,68,0.3); }
+.jin-badge-green  { background:rgba(34,197,94,0.15);  color:#4ade80; border:1px solid rgba(34,197,94,0.3); }
+.jin-badge-neutral{ background:rgba(148,163,184,0.1); color:#94a3b8; border:1px solid rgba(148,163,184,0.2); }
+.jin-progress-bg { background:rgba(255,255,255,0.07); border-radius:99px; height:5px; overflow:hidden; }
+.jin-progress-fill { height:100%; border-radius:99px; transition:width 0.4s ease; }
+.tier-card { background:#111214; border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:14px 16px; }
+</style>
+
+<!-- 页头 -->
+<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:24px;">
+    <div>
+        <h1 style="font-size:20px; font-weight:650; color:#f7f8f8; letter-spacing:-0.4px; display:flex; align-items:center; gap:8px;">
+            <span style="font-size:22px;">🏮</span> 金渐成视角
+        </h1>
+        <p style="font-size:13px; color:#62666d; margin-top:4px;">道→势→法→术，美股科技 9 标的结构化操作建议</p>
+    </div>
+    <div style="display:flex; align-items:center; gap:12px;">
+        <span style="font-size:12px; color:#62666d;">更新于 <span id="jin-update-time">--</span></span>
+        <button onclick="refreshJin()" id="jin-refresh-btn"
+            style="padding:7px 14px; background:rgba(94,106,210,0.15); border:1px solid rgba(94,106,210,0.3); border-radius:6px; color:#7170ff; font-size:12px; cursor:pointer; font-weight:600;">
+            ↻ 刷新
+        </button>
+    </div>
+</div>
+
+<!-- 道的判断 -->
+<div style="background:rgba(34,197,94,0.06); border:1px solid rgba(34,197,94,0.2); border-radius:10px; padding:12px 16px; margin-bottom:20px; display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+    <span style="font-size:13px; font-weight:600; color:#4ade80;">✅ 道：美股科技</span>
+    <span style="font-size:12px; color:#62666d;">规则透明，信息充分，AI 不可逆，长期确定性高</span>
+    <span style="margin-left:auto; font-size:12px; color:#3e3e44;">A股 ❌ &nbsp;|&nbsp; 中概股 ⚠️</span>
+</div>
+
+<!-- 加载状态 -->
+<div id="jin-loading" style="text-align:center; padding:60px 0; color:#62666d; display:none;">
+    <div style="font-size:24px; margin-bottom:12px;">⏳</div>
+    <div style="font-size:14px;">正在拉取实时数据…</div>
+</div>
+
+<!-- 标的卡片网格 -->
+<div id="jin-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:14px; margin-bottom:28px;">
+    <!-- 由 JS 填充 -->
+</div>
+
+<!-- 仓位结构建议 -->
+<div style="margin-top:8px;">
+    <h3 style="font-size:14px; font-weight:600; color:#8a8f98; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:12px;">杠铃仓位结构</h3>
+    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:10px;" id="tier-grid">
+        <!-- 由 JS 填充 -->
+    </div>
+</div>
+
+<script>
+const MOAT = {
+    NVDA:  { stars: 5, reason: 'AI训练芯片94%市占率' },
+    TSM:   { stars: 5, reason: '高端芯片代工70%市占率' },
+    GOOGL: { stars: 5, reason: '搜索92%市占率' },
+    META:  { stars: 4, reason: '社交+AI广告闭环' },
+    MSFT:  { stars: 4, reason: '企业软件+Azure' },
+    AMZN:  { stars: 4, reason: 'AWS第一+电商' },
+    AAPL:  { stars: 4, reason: '消费电子生态' },
+    TSLA:  { stars: 2, reason: '马斯克精力分散' },
+    QQQ:   { stars: 5, reason: '纳指100宽基首选' },
+};
+
+const TIERS = [
+    { label: '进取型', emoji: '🚀', symbols: ['NVDA','META','GOOGL','TSM'], desc: '科技成长，博超额收益' },
+    { label: '稳健型', emoji: '⚖️', symbols: ['QQQ','AMZN','AAPL'], desc: '宽基+消费，跟随市场Beta' },
+    { label: '防守型', emoji: '🛡️', symbols: ['MSFT'], desc: '安全垫，现金流资产' },
+];
+
+const BADGE_CLASSES = {
+    yellow:  'jin-badge-yellow',
+    red:     'jin-badge-red',
+    green:   'jin-badge-green',
+    neutral: 'jin-badge-neutral',
+};
+
+let _stockData = [];
+
+function stars(n) {
+    return '★'.repeat(n) + '☆'.repeat(5 - n);
+}
+
+function progressColor(pct) {
+    if (pct > 85) return '#f87171';
+    if (pct > 60) return '#facc15';
+    return '#4ade80';
+}
+
+function pctColor(v) {
+    return v > 0 ? '#4ade80' : v < 0 ? '#f87171' : '#94a3b8';
+}
+
+function renderCard(d) {
+    const sig = d.signal;
+    const badgeClass = BADGE_CLASSES[sig.level] || 'jin-badge-neutral';
+    const moat = MOAT[d.symbol] || { stars: 3 };
+    const pctColor52 = progressColor(d.pct_in_52w_range);
+
+    let zonesHtml = '';
+    const z = sig.zones || {};
+    if (z.sell)  zonesHtml += `<span style="font-size:11px; color:#94a3b8;">减仓目标 <b style="color:#f87171;">$${z.sell}</b></span>`;
+    if (z.rebuy) zonesHtml += `<span style="font-size:11px; color:#94a3b8; margin-left:10px;">回买参考 <b style="color:#4ade80;">$${z.rebuy}</b></span>`;
+    if (z.watch) zonesHtml += `<span style="font-size:11px; color:#94a3b8;">观察位 MA200 <b style="color:#facc15;">$${z.watch}</b></span>`;
+    if (z.buy1)  zonesHtml += `<span style="font-size:11px; color:#94a3b8;">建仓参考 <b style="color:#4ade80;">$${z.buy1}</b></span>`;
+    if (z.add)   zonesHtml += `<span style="font-size:11px; color:#94a3b8;">加仓参考 <b style="color:#4ade80;">$${z.add}</b></span>`;
+
+    const changeAmt  = d.close - d.open;
+    const changePct  = d.open > 0 ? ((changeAmt / d.open) * 100).toFixed(2) : '0.00';
+    const changeSign = changeAmt >= 0 ? '+' : '';
+    const changeClr  = changeAmt >= 0 ? '#4ade80' : '#f87171';
+
+    return `
+    <div class="jin-card" onclick="location.href='/jin-view/${d.symbol}'">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:10px;">
+            <div>
+                <div style="font-size:15px; font-weight:700; color:#f7f8f8; letter-spacing:-0.2px;">${d.symbol}</div>
+                <div style="font-size:20px; font-weight:700; color:#f7f8f8; margin-top:2px;">$${d.close.toLocaleString()}</div>
+                <div style="font-size:12px; color:${changeClr}; margin-top:1px;">${changeSign}${changePct}%</div>
+            </div>
+            <div style="text-align:right;">
+                <span class="jin-badge ${badgeClass}">${sig.emoji} ${sig.action}</span>
+                <div style="font-size:12px; color:#f5c518; margin-top:6px;" title="${moat.reason}">${stars(moat.stars)}</div>
+            </div>
+        </div>
+
+        <!-- MA 偏离 -->
+        <div style="display:flex; gap:10px; margin-bottom:10px;">
+            <div style="flex:1; background:rgba(255,255,255,0.04); border-radius:6px; padding:7px 10px;">
+                <div style="font-size:10px; color:#62666d; margin-bottom:2px;">vs MA50</div>
+                <div style="font-size:13px; font-weight:600; color:${pctColor(d.pct_vs_ma50)};">${d.pct_vs_ma50 > 0 ? '+' : ''}${d.pct_vs_ma50}%</div>
+                <div style="font-size:11px; color:#3e3e44;">$${d.ma50}</div>
+            </div>
+            <div style="flex:1; background:rgba(255,255,255,0.04); border-radius:6px; padding:7px 10px;">
+                <div style="font-size:10px; color:#62666d; margin-bottom:2px;">vs MA200</div>
+                <div style="font-size:13px; font-weight:600; color:${pctColor(d.pct_vs_ma200)};">${d.pct_vs_ma200 > 0 ? '+' : ''}${d.pct_vs_ma200}%</div>
+                <div style="font-size:11px; color:#3e3e44;">$${d.ma200}</div>
+            </div>
+        </div>
+
+        <!-- 52周位置 -->
+        <div style="margin-bottom:10px;">
+            <div style="display:flex; justify-content:space-between; font-size:11px; color:#62666d; margin-bottom:4px;">
+                <span>52周位置</span>
+                <span style="color:${pctColor52}; font-weight:600;">${d.pct_in_52w_range}%</span>
+            </div>
+            <div class="jin-progress-bg">
+                <div class="jin-progress-fill" style="width:${d.pct_in_52w_range}%; background:${pctColor52};"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:10px; color:#3e3e44; margin-top:3px;">
+                <span>$${d.low_52w}</span>
+                <span>$${d.high_52w}</span>
+            </div>
+        </div>
+
+        <!-- 操作建议理由 -->
+        <div style="font-size:11px; color:#62666d; line-height:1.5; border-top:1px solid rgba(255,255,255,0.05); padding-top:9px; margin-top:2px;">
+            ${sig.reason}
+        </div>
+
+        <!-- 价格区间 -->
+        ${zonesHtml ? `<div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px;">${zonesHtml}</div>` : ''}
+    </div>`;
+}
+
+function renderTiers(stockData) {
+    const actionMap = {};
+    stockData.forEach(d => { actionMap[d.symbol] = d.signal ? d.signal.action : '—'; });
+
+    const grid = document.getElementById('tier-grid');
+    grid.innerHTML = TIERS.map(t => {
+        const tags = t.symbols.map(s => {
+            const act = actionMap[s] || '—';
+            return `<span style="font-size:12px; color:#94a3b8; background:rgba(255,255,255,0.05); padding:2px 8px; border-radius:4px;">${s} · ${act}</span>`;
+        }).join('');
+        return `
+        <div class="tier-card">
+            <div style="font-size:13px; font-weight:600; color:#f7f8f8; margin-bottom:4px;">${t.emoji} ${t.label}</div>
+            <div style="font-size:11px; color:#62666d; margin-bottom:10px;">${t.desc}</div>
+            <div style="display:flex; flex-wrap:wrap; gap:5px;">${tags}</div>
+        </div>`;
+    }).join('');
+}
+
+async function loadJin(showLoading) {
+    if (showLoading) {
+        document.getElementById('jin-loading').style.display = 'block';
+        document.getElementById('jin-grid').style.opacity = '0.3';
+    }
+    try {
+        const r = await fetch('/api/jin-view/summary');
+        const data = await r.json();
+        _stockData = data;
+
+        document.getElementById('jin-grid').innerHTML = data.map(renderCard).join('');
+        document.getElementById('jin-grid').style.opacity = '1';
+        renderTiers(data);
+        document.getElementById('jin-update-time').textContent = new Date().toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit' });
+    } catch(e) {
+        document.getElementById('jin-grid').innerHTML = '<div style="color:#f87171; padding:20px;">加载失败: ' + e.message + '</div>';
+    } finally {
+        document.getElementById('jin-loading').style.display = 'none';
+        document.getElementById('jin-grid').style.opacity = '1';
+    }
+}
+
+function refreshJin() {
+    const btn = document.getElementById('jin-refresh-btn');
+    btn.textContent = '↻ 刷新中…';
+    btn.disabled = true;
+    fetch('/api/jin-view/refresh', { method: 'POST' })
+        .finally(() => loadJin(false).finally(() => {
+            btn.textContent = '↻ 刷新';
+            btn.disabled = false;
+        }));
+}
+
+loadJin(true);
+</script>
+{% endblock %}

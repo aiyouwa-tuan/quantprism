@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+.score-card { background:#111214; border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:14px 16px; }
+.dim-label { font-size:10px; text-transform:uppercase; letter-spacing:0.1em; color:#62666d; margin-bottom:4px; font-weight:600; }
+.plan-row { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
+.plan-row:last-child { border-bottom:none; }
+</style>
+
+<!-- 返回 + 标题 -->
+<div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+    <a href="/jin-view" style="color:#62666d; font-size:13px; text-decoration:none; padding:6px 10px; background:rgba(255,255,255,0.04); border-radius:6px;">← 返回</a>
+    <div>
+        <h1 style="font-size:20px; font-weight:700; color:#f7f8f8;" id="detail-title">{{ symbol }}</h1>
+        <p style="font-size:12px; color:#62666d; margin-top:2px;" id="detail-subtitle">正在加载…</p>
+    </div>
+    <div style="margin-left:auto;" id="detail-badge"></div>
+</div>
+
+<!-- 核心指标行 -->
+<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:10px; margin-bottom:20px;" id="metrics-row"></div>
+
+<!-- K线图 -->
+<div style="background:#111214; border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:16px; margin-bottom:20px;">
+    <div style="font-size:13px; font-weight:600; color:#8a8f98; margin-bottom:12px;">近 60 日 K 线图 &nbsp;<span style="font-size:11px; color:#3e3e44;">· MA50 = 橙色 · MA200 = 蓝色</span></div>
+    <div id="jin-chart" style="height:320px;"></div>
+    <!-- 成交量图 -->
+    <div id="jin-vol-chart" style="height:80px; margin-top:4px;"></div>
+</div>
+
+<!-- 分析过程（决策链路） -->
+<div style="background:#111214; border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:16px; margin-bottom:20px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+        <div style="font-size:13px; font-weight:600; color:#8a8f98;">🔍 分析过程</div>
+        <div id="scenario-label" style="font-size:12px; color:#62666d; max-width:65%;text-align:right;"></div>
+    </div>
+    <div id="trace-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:10px;"></div>
+</div>
+
+<!-- 道势法术评分卡 + 建仓计划 -->
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:20px;" id="score-grid">
+    <!-- 由 JS 填充 -->
+</div>
+
+<script>
+const symbol = "{{ symbol }}";
+
+const MOAT = {
+    NVDA:  { stars: 5, reason: 'AI训练芯片94%市占率，CUDA生态不可替代' },
+    TSM:   { stars: 5, reason: '高端芯片代工70%市占率，台积电工艺领先' },
+    GOOGL: { stars: 5, reason: '搜索92%市占率，YouTube+云三位一体' },
+    META:  { stars: 4, reason: '社交+AI广告闭环，Zuckerberg执行力强' },
+    MSFT:  { stars: 4, reason: '企业软件+Azure，纳德拉管理层优秀' },
+    AMZN:  { stars: 4, reason: 'AWS第一+电商护城河' },
+    AAPL:  { stars: 4, reason: '消费电子生态，品牌溢价' },
+    TSLA:  { stars: 2, reason: '马斯克精力分散，竞争格局恶化，不好把握' },
+    QQQ:   { stars: 5, reason: '纳指100一篮子第一，宽基首选' },
+};
+
+function stars(n) { return '★'.repeat(n) + '☆'.repeat(5-n); }
+function pctColor(v) { return v > 0 ? '#4ade80' : v < 0 ? '#f87171' : '#94a3b8'; }
+function progressColor(pct) {
+    if (pct > 85) return '#f87171';
+    if (pct > 60) return '#facc15';
+    return '#4ade80';
+}
+
+const BADGE = { yellow:'rgba(234,179,8,0.15)', red:'rgba(239,68,68,0.15)', green:'rgba(34,197,94,0.15)', neutral:'rgba(148,163,184,0.1)' };
+const BADGE_TXT = { yellow:'#facc15', red:'#f87171', green:'#4ade80', neutral:'#94a3b8' };
+const BADGE_BORDER = { yellow:'rgba(234,179,8,0.3)', red:'rgba(239,68,68,0.3)', green:'rgba(34,197,94,0.3)', neutral:'rgba(148,163,184,0.2)' };
+
+async function loadDetail() {
+    // Load summary data for this symbol
+    const [sumRes, candleRes] = await Promise.all([
+        fetch('/api/jin-view/summary'),
+        fetch('/api/jin-view/' + symbol + '/candles')
+    ]);
+    const summaryAll = await sumRes.json();
+    const candles = await candleRes.json();
+    const d = summaryAll.find(x => x.symbol === symbol);
+    if (!d) { document.getElementById('detail-subtitle').textContent = '数据不可用'; return; }
+
+    // Title
+    const changeAmt = d.close - d.open;
+    const changePct = d.open > 0 ? ((changeAmt / d.open) * 100).toFixed(2) : '0.00';
+    const changeClr = changeAmt >= 0 ? '#4ade80' : '#f87171';
+    document.getElementById('detail-subtitle').innerHTML =
+        `<span style="font-size:18px; font-weight:700; color:#f7f8f8;">$${d.close.toLocaleString()}</span>` +
+        `<span style="margin-left:8px; color:${changeClr};">${changeAmt >= 0 ? '+' : ''}${changePct}%</span>`;
+
+    // Badge
+    const sig = d.signal;
+    document.getElementById('detail-badge').innerHTML = `
+        <span style="padding:6px 14px; border-radius:20px; font-size:13px; font-weight:700;
+            background:${BADGE[sig.level]}; color:${BADGE_TXT[sig.level]}; border:1px solid ${BADGE_BORDER[sig.level]};">
+            ${sig.emoji} ${sig.action}
+        </span>`;
+
+    // Metrics row
+    const metrics = [
+        { label: 'MA50', val: `$${d.ma50}`, sub: `${d.pct_vs_ma50 > 0 ? '+' : ''}${d.pct_vs_ma50}%`, subClr: pctColor(d.pct_vs_ma50) },
+        { label: 'MA200', val: `$${d.ma200}`, sub: `${d.pct_vs_ma200 > 0 ? '+' : ''}${d.pct_vs_ma200}%`, subClr: pctColor(d.pct_vs_ma200) },
+        { label: '52W 高', val: `$${d.high_52w}`, sub: '', subClr: '' },
+        { label: '52W 低', val: `$${d.low_52w}`, sub: '', subClr: '' },
+        { label: '52W 位置', val: `${d.pct_in_52w_range}%`, sub: '', subClr: progressColor(d.pct_in_52w_range) },
+    ];
+    document.getElementById('metrics-row').innerHTML = metrics.map(m => `
+        <div style="background:#111214; border:1px solid rgba(255,255,255,0.07); border-radius:8px; padding:12px 14px;">
+            <div class="dim-label">${m.label}</div>
+            <div style="font-size:16px; font-weight:700; color:#f7f8f8;">${m.val}</div>
+            ${m.sub ? `<div style="font-size:12px; color:${m.subClr}; margin-top:2px;">${m.sub}</div>` : ''}
+        </div>`).join('');
+
+    // K-line chart
+    renderChart(candles, d);
+
+    // Analysis trace
+    renderTrace(d);
+
+    // Score cards
+    renderScoreCards(d, candles);
+}
+
+function renderChart(candles, d) {
+    if (!candles.length || typeof LightweightCharts === 'undefined') return;
+
+    const container = document.getElementById('jin-chart');
+    const volContainer = document.getElementById('jin-vol-chart');
+
+    const chart = LightweightCharts.createChart(container, {
+        width: container.clientWidth,
+        height: 320,
+        layout: { background: { color: '#111214' }, textColor: '#8a8f98' },
+        grid: { vertLines: { color: 'rgba(255,255,255,0.04)' }, horzLines: { color: 'rgba(255,255,255,0.04)' } },
+        crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+        rightPriceScale: { borderColor: 'rgba(255,255,255,0.08)' },
+        timeScale: { borderColor: 'rgba(255,255,255,0.08)', timeVisible: true },
+    });
+
+    // Candlestick series
+    const candleSeries = chart.addCandlestickSeries({
+        upColor: '#4ade80', downColor: '#f87171',
+        borderUpColor: '#4ade80', borderDownColor: '#f87171',
+        wickUpColor: '#4ade80', wickDownColor: '#f87171',
+    });
+
+    const cData = candles.map(c => ({ time: c.date, open: c.open, high: c.high, low: c.low, close: c.close }));
+    candleSeries.setData(cData);
+
+    // MA50 line
+    const ma50Data = candles.filter(c => c.ma50).map(c => ({ time: c.date, value: c.ma50 }));
+    if (ma50Data.length) {
+        const ma50Series = chart.addLineSeries({ color: '#f97316', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
+        ma50Series.setData(ma50Data);
+    }
+
+    // MA200 line
+    const ma200Data = candles.filter(c => c.ma200).map(c => ({ time: c.date, value: c.ma200 }));
+    if (ma200Data.length) {
+        const ma200Series = chart.addLineSeries({ color: '#3b82f6', lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false });
+        ma200Series.setData(ma200Data);
+    }
+
+    // 52W high/low lines
+    candleSeries.createPriceLine({ price: d.high_52w, color: 'rgba(250,204,21,0.4)', lineWidth: 1, lineStyle: 2, title: '52W高' });
+    candleSeries.createPriceLine({ price: d.low_52w,  color: 'rgba(148,163,184,0.3)', lineWidth: 1, lineStyle: 2, title: '52W低' });
+
+    chart.timeScale().fitContent();
+
+    // Volume chart
+    const volChart = LightweightCharts.createChart(volContainer, {
+        width: volContainer.clientWidth,
+        height: 80,
+        layout: { background: { color: '#111214' }, textColor: '#8a8f98' },
+        grid: { vertLines: { color: 'transparent' }, horzLines: { color: 'rgba(255,255,255,0.03)' } },
+        rightPriceScale: { visible: false },
+        timeScale: { visible: false },
+    });
+    const volSeries = volChart.addHistogramSeries({
+        color: 'rgba(94,106,210,0.5)',
+        priceFormat: { type: 'volume' },
+    });
+    volSeries.setData(candles.map(c => ({
+        time: c.date,
+        value: c.volume,
+        color: c.close >= c.open ? 'rgba(74,222,128,0.4)' : 'rgba(248,113,113,0.4)'
+    })));
+    volChart.timeScale().fitContent();
+
+    // Sync scroll
+    chart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+        if (range) volChart.timeScale().setVisibleLogicalRange(range);
+    });
+
+    window.addEventListener('resize', () => {
+        chart.applyOptions({ width: container.clientWidth });
+        volChart.applyOptions({ width: volContainer.clientWidth });
+    });
+}
+
+function renderTrace(d) {
+    const sig = d.signal;
+    if (!sig || !sig.trace) return;
+
+    document.getElementById('scenario-label').textContent = sig.scenario || '';
+
+    const html = sig.trace.map(t => {
+        const borderClr = t.pass ? 'rgba(74,222,128,0.25)' : 'rgba(248,113,113,0.25)';
+        const bgClr     = t.pass ? 'rgba(34,197,94,0.05)'  : 'rgba(239,68,68,0.05)';
+        return `
+        <div style="background:${bgClr}; border:1px solid ${borderClr}; border-radius:8px; padding:12px 14px;">
+            <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.1em; color:#62666d; margin-bottom:6px; font-weight:600;">${t.label}</div>
+            <div style="font-size:12px; color:#f7f8f8; font-weight:600; margin-bottom:4px;">${t.flag}</div>
+            <div style="font-size:11px; color:#8a8f98; margin-bottom:4px;">${t.value}</div>
+            <div style="font-size:11px; color:#3e3e44; font-family:monospace; line-height:1.5;">${t.calc}</div>
+        </div>`;
+    }).join('');
+
+    document.getElementById('trace-grid').innerHTML = html;
+}
+
+function renderScoreCards(d, candles) {
+    const sig = d.signal;
+    const moat = MOAT[d.symbol] || { stars: 3, reason: '未评级' };
+
+    // 势的标签
+    const势Tags = d.势_tags || [];
+    const streakText = d.streak_days > 0
+        ? `${d.streak_dir === 'up' ? '连涨' : '连跌'} ${d.streak_days} 天`
+        : '—';
+
+    // K线形态
+    const patterns = d.candle_patterns || [];
+
+    // 建仓计划
+    let planHtml = '';
+    if (d.signal.action === '分批建仓' && d.position_plan) {
+        planHtml = `
+        <div class="score-card" style="grid-column:1/-1;">
+            <div class="dim-label" style="margin-bottom:12px;">2-3-3-2 建仓计划</div>
+            ${d.position_plan.map(p => `
+            <div class="plan-row">
+                <div style="width:28px; height:28px; border-radius:50%; background:rgba(94,106,210,0.2); color:#7170ff; font-size:12px; font-weight:700; display:flex;align-items:center;justify-content:center; flex-shrink:0;">${p.batch}</div>
+                <div style="flex:1;">
+                    <div style="font-size:13px; color:#f7f8f8; font-weight:600;">第 ${p.batch} 批 · ${p.pct}%仓位</div>
+                    <div style="font-size:11px; color:#62666d;">${p.label}</div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:14px; font-weight:700; color:#4ade80;">$${p.price}</div>
+                </div>
+            </div>`).join('')}
+        </div>`;
+    }
+
+    // 操作区间
+    const z = sig.zones || {};
+    let zoneItems = [];
+    if (z.sell)  zoneItems.push(`<div class="plan-row"><span style="color:#62666d; font-size:13px; flex:1;">减仓目标价</span><b style="color:#f87171;">$${z.sell}</b></div>`);
+    if (z.rebuy) zoneItems.push(`<div class="plan-row"><span style="color:#62666d; font-size:13px; flex:1;">回买参考价</span><b style="color:#4ade80;">$${z.rebuy}</b></div>`);
+    if (z.watch) zoneItems.push(`<div class="plan-row"><span style="color:#62666d; font-size:13px; flex:1;">MA200 观察位</span><b style="color:#facc15;">$${z.watch}</b></div>`);
+    if (z.add)   zoneItems.push(`<div class="plan-row"><span style="color:#62666d; font-size:13px; flex:1;">加仓参考位</span><b style="color:#4ade80;">$${z.add}</b></div>`);
+
+    document.getElementById('score-grid').innerHTML = `
+    <!-- 道 -->
+    <div class="score-card">
+        <div class="dim-label">道 · 底层逻辑</div>
+        <div style="font-size:22px; margin-bottom:6px;">✅</div>
+        <div style="font-size:14px; font-weight:600; color:#4ade80;">美股科技</div>
+        <div style="font-size:12px; color:#62666d; margin-top:4px;">规则透明，信息充分，AI 不可逆</div>
+    </div>
+
+    <!-- 势 -->
+    <div class="score-card">
+        <div class="dim-label">势 · 市场趋势</div>
+        ${势Tags.map(t => `<div style="font-size:12px; color:#94a3b8; margin-bottom:4px;">· ${t}</div>`).join('')}
+        ${势Tags.length === 0 ? '<div style="font-size:12px; color:#62666d;">无特殊信号</div>' : ''}
+        <div style="margin-top:8px; font-size:12px; color:#62666d;">连涨/跌：${streakText}</div>
+        ${d.vol_signal ? '<div style="font-size:12px; color:#f97316; margin-top:4px;">⚡ 今日放量</div>' : ''}
+    </div>
+
+    <!-- 法 -->
+    <div class="score-card">
+        <div class="dim-label">法 · 护城河评级</div>
+        <div style="font-size:20px; color:#f5c518; letter-spacing:2px; margin-bottom:6px;">${stars(moat.stars)}</div>
+        <div style="font-size:13px; font-weight:600; color:#f7f8f8;">${moat.stars} / 5 星</div>
+        <div style="font-size:12px; color:#62666d; margin-top:6px; line-height:1.5;">${moat.reason}</div>
+    </div>
+
+    <!-- 术 -->
+    <div class="score-card">
+        <div class="dim-label">术 · K线形态</div>
+        ${patterns.length ? patterns.map(p => {
+            const isBull = p.includes('阳') || p.includes('锤');
+            const clr = isBull ? '#4ade80' : '#f87171';
+            const bg  = isBull ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)';
+            return `<span style="display:inline-block; margin:3px 3px 0 0; padding:4px 10px; background:${bg}; color:${clr}; border-radius:6px; font-size:12px; font-weight:600;">${p}</span>`;
+        }).join('') : '<div style="font-size:12px; color:#62666d;">最近无典型形态</div>'}
+        <div style="margin-top:12px;">
+            <div class="dim-label">操作建议</div>
+            <div style="font-size:12px; color:#94a3b8; line-height:1.6; margin-top:4px;">${sig.reason}</div>
+        </div>
+    </div>
+
+    <!-- 操作区间 -->
+    ${zoneItems.length ? `
+    <div class="score-card">
+        <div class="dim-label">操作价格区间</div>
+        ${zoneItems.join('')}
+    </div>` : ''}
+
+    ${planHtml}
+    `;
+}
+
+loadDetail();
+</script>
+{% endblock %}

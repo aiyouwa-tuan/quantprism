@@ -3995,3 +3995,46 @@ async def api_jige_analyze(request: Request, symbol: str):
         "week_52_low":    fund.get("week_52_low"),
         "earnings_date":  fund.get("earnings_date"),
     })
+
+
+# ---------------------------------------------------------------------------
+# 金渐成视角 — Jin View
+# ---------------------------------------------------------------------------
+
+@app.get("/jin-view", response_class=HTMLResponse)
+async def jin_view_page(request: Request):
+    return templates.TemplateResponse("qp_jin_view.html", {"request": request})
+
+
+@app.get("/jin-view/{symbol}", response_class=HTMLResponse)
+async def jin_view_detail(request: Request, symbol: str):
+    return templates.TemplateResponse("qp_jin_detail.html", {"request": request, "symbol": symbol.upper()})
+
+
+@app.get("/api/jin-view/summary")
+async def api_jin_summary():
+    import asyncio
+    from jin_data import fetch_summary
+    from jin_strategy import analyze_stock
+    raw = await asyncio.to_thread(fetch_summary)
+    results = []
+    for d in raw:
+        analyzed = analyze_stock(d)
+        results.append(analyzed)
+    return JSONResponse(results)
+
+
+@app.post("/api/jin-view/refresh")
+async def api_jin_refresh():
+    from jin_data import _summary_cache
+    _summary_cache.clear()
+    return JSONResponse({"status": "ok"})
+
+
+@app.get("/api/jin-view/{symbol}/candles")
+async def api_jin_candles(symbol: str):
+    import asyncio
+    from jin_data import fetch_candles
+    sym = symbol.replace(".US", "").upper()
+    candles = await asyncio.to_thread(fetch_candles, sym)
+    return JSONResponse(candles)
