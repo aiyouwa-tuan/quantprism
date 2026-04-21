@@ -4038,3 +4038,51 @@ async def api_jin_candles(symbol: str):
     sym = symbol.replace(".US", "").upper()
     candles = await asyncio.to_thread(fetch_candles, sym)
     return JSONResponse(candles)
+
+
+# ---------------------------------------------------------------------------
+# 技术分析 — Technical Analysis
+# ---------------------------------------------------------------------------
+
+@app.get("/technical", response_class=HTMLResponse)
+async def technical_page(request: Request):
+    return templates.TemplateResponse("qp_technical.html", {"request": request})
+
+
+@app.get("/api/ta/summary")
+async def api_ta_summary():
+    import asyncio
+    from ta_engine import calc_ta_summary
+    data = await asyncio.to_thread(calc_ta_summary)
+    return JSONResponse(data)
+
+
+@app.post("/api/ta/refresh")
+async def api_ta_refresh():
+    from ta_engine import _ta_cache
+    _ta_cache.clear()
+    return JSONResponse({"status": "ok"})
+
+
+@app.get("/api/ta/{symbol}/support-resistance")
+async def api_ta_sr(symbol: str):
+    import asyncio
+    from ta_engine import calc_support_resistance
+    data = await asyncio.to_thread(calc_support_resistance, symbol.upper())
+    return JSONResponse(data)
+
+
+@app.get("/api/ta/{symbol}/turtle")
+async def api_ta_turtle(symbol: str):
+    import asyncio
+    from ta_engine import calc_turtle
+    data = await asyncio.to_thread(calc_turtle, symbol.upper())
+    return JSONResponse(data)
+
+
+@app.get("/api/ta/{symbol}/divergence")
+async def api_ta_divergence(symbol: str):
+    import asyncio
+    from ta_engine import calc_divergence
+    data = await asyncio.to_thread(calc_divergence, symbol.upper())
+    return JSONResponse(data)

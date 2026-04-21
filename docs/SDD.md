@@ -1,6 +1,6 @@
 # Goal-Driven Trading OS — Software Design Document
 
-**Version:** 1.3.0
+**Version:** 1.4.0
 **Date:** 2026-04-21
 **Author:** AI-assisted (Claude)
 **Status:** Approved
@@ -172,6 +172,7 @@ graph TD
 | 告警系统 | alerts.py | 飞书 + SMS + 频率限制 | httpx, twilio |
 | **金渐成评分引擎** | **jin_strategy.py** | **道势法术四层评分 + 5种操作信号 + 分析链路** | **无** |
 | **金渐成数据层** | **jin_data.py** | **VPS PostgreSQL 为主 + yfinance 兜底，9标的指标计算** | **market_data, subprocess/SSH** |
+| **技术分析引擎** | **ta_engine.py** | **支撑阻力识别 + 海龟系统 + 量价背离，10标的全覆盖** | **jin_data._ssh_query** |
 
 ---
 
@@ -281,6 +282,10 @@ sequenceDiagram
 | GET | `/api/jin-view/summary` | - | JSON 数组，9标的完整分析（含 signal + trace） |
 | POST | `/api/jin-view/refresh` | - | 清空缓存，强制下次重新拉取 |
 | GET | `/api/jin-view/{symbol}/candles` | - | JSON 数组，60根日K线（含 ma50/ma200） |
+| GET | `/api/ta/summary` | - | 10标的全量技术信号 JSON |
+| GET | `/api/ta/{symbol}/support-resistance` | - | 支撑阻力位列表（含评分、成交量确认） |
+| GET | `/api/ta/{symbol}/turtle` | - | 海龟系统状态（System1/System2 + ATR止损 + 仓位建议） |
+| GET | `/api/ta/{symbol}/divergence` | - | 量价背离信号（顶部警告/底部参考/无信号） |
 
 ---
 
@@ -464,3 +469,4 @@ app/
 | 1.1.0 | 2026-03-31 | 实现：策略发现库 + AI 研究管线 + Backtester v2（WF + 危机测试）+ IBKR 实时数据集成 |
 | 1.2.0 | 2026-04-02 | 规划：v1.0/v1.5/v2.0 版本路线图 + 三大新机制（dry_run + Optimizer + Regime Pipeline）+ v1.5 Regime Analyzer 写入 SDD + TODOS |
 | 1.3.0 | 2026-04-21 | 新增金渐成视角模块（/jin-view）：道势法术四层评分引擎、9标的操作建议卡片、K线图、分析决策链路可视化。数据层采用 VPS PostgreSQL 为主数据源（SSH tunnel），yfinance 兜底 |
+| 1.4.0 | 2026-04-21 | 新增技术分析模块（/technical）：支撑阻力自动识别（摆动点聚类+成交量评分）、海龟交易系统 System1/System2、量价背离检测，10标的全覆盖，VPS PostgreSQL 数据源 |
