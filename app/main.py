@@ -4086,3 +4086,67 @@ async def api_ta_divergence(symbol: str):
     from ta_engine import calc_divergence
     data = await asyncio.to_thread(calc_divergence, symbol.upper())
     return JSONResponse(data)
+
+
+# ===========================================================================
+# 技术指标扩展路由（墨菲体系 — ta_indicators.py）
+# ===========================================================================
+
+@app.get("/indicators", response_class=HTMLResponse)
+async def indicators_page(request: Request):
+    return templates.TemplateResponse("qp_indicators.html", {"request": request})
+
+
+@app.get("/api/indicators/{symbol}/oscillators")
+async def api_indicators_oscillators(symbol: str):
+    import asyncio
+    from ta_indicators import calc_oscillators
+    data = await asyncio.to_thread(calc_oscillators, symbol.upper())
+    return JSONResponse(data)
+
+
+@app.get("/api/indicators/{symbol}/trend")
+async def api_indicators_trend(symbol: str):
+    import asyncio
+    from ta_indicators import calc_trend_indicators
+    data = await asyncio.to_thread(calc_trend_indicators, symbol.upper())
+    return JSONResponse(data)
+
+
+@app.get("/api/indicators/{symbol}/patterns")
+async def api_indicators_patterns(symbol: str):
+    import asyncio
+    from ta_indicators import calc_patterns
+    data = await asyncio.to_thread(calc_patterns, symbol.upper())
+    return JSONResponse(data)
+
+
+@app.get("/api/indicators/{symbol}/volume")
+async def api_indicators_volume(symbol: str):
+    import asyncio
+    from ta_indicators import calc_volume_signals
+    data = await asyncio.to_thread(calc_volume_signals, symbol.upper())
+    return JSONResponse(data)
+
+
+@app.get("/api/indicators/{symbol}/combined")
+async def api_indicators_combined(symbol: str):
+    import asyncio
+    from ta_indicators import combined_signal
+    data = await asyncio.to_thread(combined_signal, symbol.upper())
+    return JSONResponse(data)
+
+
+@app.get("/api/indicators/summary")
+async def api_indicators_summary():
+    import asyncio
+    from ta_indicators import calc_indicators_summary
+    data = await asyncio.to_thread(calc_indicators_summary)
+    return JSONResponse(data)
+
+
+@app.post("/api/indicators/refresh")
+async def api_indicators_refresh():
+    from ta_indicators import clear_cache
+    clear_cache()
+    return JSONResponse({"status": "ok"})

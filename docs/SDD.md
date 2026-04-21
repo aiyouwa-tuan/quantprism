@@ -1,6 +1,6 @@
 # Goal-Driven Trading OS — Software Design Document
 
-**Version:** 1.4.0
+**Version:** 1.5.0
 **Date:** 2026-04-21
 **Author:** AI-assisted (Claude)
 **Status:** Approved
@@ -173,6 +173,7 @@ graph TD
 | **金渐成评分引擎** | **jin_strategy.py** | **道势法术四层评分 + 5种操作信号 + 分析链路** | **无** |
 | **金渐成数据层** | **jin_data.py** | **VPS PostgreSQL 为主 + yfinance 兜底，9标的指标计算** | **market_data, subprocess/SSH** |
 | **技术分析引擎** | **ta_engine.py** | **支撑阻力识别 + 海龟系统 + 量价背离，10标的全覆盖** | **jin_data._ssh_query** |
+| **墨菲指标库** | **ta_indicators.py** | **20个指标：RSI/MACD/ADX/Fibonacci/道氏趋势/布林带/SAR/趋势线/量价四象限/形态识别（P0-P3）+ combined_signal()加权综合** | **jin_data._ssh_query, ta_engine** |
 
 ---
 
@@ -286,6 +287,14 @@ sequenceDiagram
 | GET | `/api/ta/{symbol}/support-resistance` | - | 支撑阻力位列表（含评分、成交量确认） |
 | GET | `/api/ta/{symbol}/turtle` | - | 海龟系统状态（System1/System2 + ATR止损 + 仓位建议） |
 | GET | `/api/ta/{symbol}/divergence` | - | 量价背离信号（顶部警告/底部参考/无信号） |
+| GET | `/indicators` | - | 指标全览页 HTML（墨菲体系 20 指标） |
+| GET | `/api/indicators/{symbol}/oscillators` | - | RSI / MACD / Stochastic / Momentum / CCI |
+| GET | `/api/indicators/{symbol}/trend` | - | ADX / 布林带 / SAR / 趋势线 / Fibonacci / 道氏理论 |
+| GET | `/api/indicators/{symbol}/patterns` | - | 所有形态识别结果（头肩/双顶底/三角/旗形/三重/箱体） |
+| GET | `/api/indicators/{symbol}/volume` | - | 量价四象限 / 缺口识别 / 吹顶卖出高潮 |
+| GET | `/api/indicators/{symbol}/combined` | - | 加权综合信号（net_score + component_signals） |
+| GET | `/api/indicators/summary` | - | 10标的全量信号摘要 |
+| POST | `/api/indicators/refresh` | - | 清空指标缓存 |
 
 ---
 
@@ -470,3 +479,4 @@ app/
 | 1.2.0 | 2026-04-02 | 规划：v1.0/v1.5/v2.0 版本路线图 + 三大新机制（dry_run + Optimizer + Regime Pipeline）+ v1.5 Regime Analyzer 写入 SDD + TODOS |
 | 1.3.0 | 2026-04-21 | 新增金渐成视角模块（/jin-view）：道势法术四层评分引擎、9标的操作建议卡片、K线图、分析决策链路可视化。数据层采用 VPS PostgreSQL 为主数据源（SSH tunnel），yfinance 兜底 |
 | 1.4.0 | 2026-04-21 | 新增技术分析模块（/technical）：支撑阻力自动识别（摆动点聚类+成交量评分）、海龟交易系统 System1/System2、量价背离检测，10标的全覆盖，VPS PostgreSQL 数据源 |
+| 1.5.0 | 2026-04-21 | 新增墨菲指标全览模块（/indicators）：ta_indicators.py 实现 20 个指标（P0: RSI/MACD/ADX/Fibonacci/道氏三级趋势；P1: 布林带/缺口/趋势线/量价四象限/极端情绪；P2: 头肩顶底/双顶底/三角形/旗形楔形/Stochastic/Momentum-ROC；P3: 三重顶底圆弧底/CCI/Parabolic SAR/矩形箱体）+ combined_signal()加权综合信号，纯Python实现，8个API端点 |

@@ -1,0 +1,544 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+/* ---- indicator card system ---- */
+.ind-card   { background:#111214; border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:14px 16px; }
+.ind-badge  { display:inline-flex; align-items:center; padding:2px 9px; border-radius:20px; font-size:11px; font-weight:700; letter-spacing:.3px; }
+.sig-buy    { background:rgba(34,197,94,0.13);  color:#4ade80; border:1px solid rgba(34,197,94,0.25); }
+.sig-sell   { background:rgba(239,68,68,0.13);  color:#f87171; border:1px solid rgba(239,68,68,0.25); }
+.sig-neutral{ background:rgba(148,163,184,0.09);color:#94a3b8; border:1px solid rgba(148,163,184,0.18); }
+.sig-watch  { background:rgba(234,179,8,0.12);  color:#facc15; border:1px solid rgba(234,179,8,0.25); }
+.conf-high  { color:#4ade80; }
+.conf-medium{ color:#facc15; }
+.conf-low   { color:#62666d;  }
+.ind-label  { font-size:11px; color:#62666d; text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
+.ind-val    { font-size:18px; font-weight:700; color:#f7f8f8; letter-spacing:-.4px; }
+.ind-desc   { font-size:12px; color:#94a3b8; margin-top:4px; line-height:1.4; }
+.sec-title  { font-size:13px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.8px; margin:20px 0 10px; }
+.ind-grid   { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:10px; }
+.ind-grid-2 { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:10px; }
+.combined-card { background:linear-gradient(135deg,rgba(94,106,210,0.15),rgba(16,16,22,0.8)); border:1px solid rgba(94,106,210,0.25); border-radius:12px; padding:20px; }
+.score-bar-bg   { background:rgba(255,255,255,0.06); height:6px; border-radius:99px; overflow:hidden; margin:8px 0; }
+.score-bar-fill { height:100%; border-radius:99px; transition:width .4s; }
+.sym-tab  { padding:6px 14px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; border:1px solid rgba(255,255,255,0.07); color:#94a3b8; background:rgba(255,255,255,0.03); transition:all .15s; }
+.sym-tab:hover  { color:#f7f8f8; background:rgba(255,255,255,0.06); }
+.sym-tab.active { color:#f7f8f8; background:rgba(94,106,210,0.2); border-color:rgba(94,106,210,0.4); }
+.divider { border-top:1px solid rgba(255,255,255,0.05); margin:18px 0; }
+.mini-row { display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.04); font-size:12px; }
+.mini-row:last-child { border-bottom:none; }
+</style>
+
+<!-- ===== 页头 ===== -->
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+    <div>
+        <h1 style="font-size:20px;font-weight:650;color:#f7f8f8;letter-spacing:-.4px;">📊 技术指标全览</h1>
+        <p style="font-size:13px;color:#62666d;margin-top:4px;">墨菲《期货技术分析》体系 · 20 个指标 · P0~P3 全覆盖</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:12px;color:#62666d;">更新：<span id="ind-update-time">--</span></span>
+        <button onclick="refreshIndicators()" id="ind-refresh-btn"
+            style="padding:7px 14px;background:rgba(94,106,210,0.15);border:1px solid rgba(94,106,210,0.3);border-radius:6px;color:#7170ff;font-size:12px;cursor:pointer;font-weight:600;">
+            ↻ 刷新
+        </button>
+    </div>
+</div>
+
+<!-- ===== 标的选择 ===== -->
+<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px;" id="sym-tabs">
+    {% for s in ['AAPL','MSFT','GOOGL','AMZN','NVDA','META','TSLA','TSM','QQQ','SPY'] %}
+    <button class="sym-tab {% if loop.first %}active{% endif %}" onclick="selectSymbol('{{s}}')">{{s}}</button>
+    {% endfor %}
+</div>
+
+<!-- ===== 加载态 ===== -->
+<div id="ind-loading" style="text-align:center;padding:60px 0;color:#62666d;display:none;">
+    <div style="font-size:22px;margin-bottom:8px;">⏳</div>
+    <div>正在计算指标数据…</div>
+</div>
+
+<!-- ===== 主内容 ===== -->
+<div id="ind-content" style="display:none;">
+
+    <!-- 综合信号 -->
+    <div class="combined-card" id="combined-section">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+            <div>
+                <div class="ind-label">综合信号</div>
+                <div style="display:flex;align-items:center;gap:10px;margin-top:4px;">
+                    <span id="comb-sig-badge" class="ind-badge sig-neutral">中性</span>
+                    <span id="comb-conf" class="conf-medium" style="font-size:11px;font-weight:600;"></span>
+                </div>
+                <div id="comb-desc" class="ind-desc" style="margin-top:8px;max-width:420px;"></div>
+            </div>
+            <div style="min-width:160px;">
+                <div style="font-size:11px;color:#62666d;margin-bottom:4px;">得分 <span id="comb-score" style="color:#f7f8f8;font-weight:700;"></span></div>
+                <div class="score-bar-bg">
+                    <div id="comb-bar" class="score-bar-fill" style="background:#5e6ad2;width:50%;"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:10px;color:#44474d;margin-top:2px;">
+                    <span>看跌</span><span>中性</span><span>看涨</span>
+                </div>
+            </div>
+        </div>
+        <!-- 分项信号 mini 展示 -->
+        <div id="comb-components" style="margin-top:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px;"></div>
+        <div style="margin-top:10px;display:flex;gap:8px;font-size:11px;color:#62666d;" id="comb-flags"></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- P0: 振荡器 -->
+    <div class="sec-title">P0 · 振荡器</div>
+    <div class="ind-grid" id="oscillator-grid"></div>
+
+    <!-- P0: 趋势 -->
+    <div class="sec-title" style="margin-top:20px;">P0 · 趋势判断</div>
+    <div class="ind-grid" id="trend-grid"></div>
+
+    <!-- P1: 量价 / 布林 -->
+    <div class="sec-title" style="margin-top:20px;">P1 · 量价 & 波动</div>
+    <div class="ind-grid-2" id="volume-grid"></div>
+
+    <!-- P2: 形态识别 -->
+    <div class="sec-title" style="margin-top:20px;">P2 · 形态识别</div>
+    <div class="ind-grid-2" id="pattern-grid"></div>
+
+</div>
+
+<!-- ===== 全量摘要表（顶部快速浏览） ===== -->
+<div style="margin-top:28px;">
+    <div style="font-size:13px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">
+        全量摘要（10 标的）
+    </div>
+    <div id="summary-loading" style="text-align:center;padding:30px 0;color:#62666d;display:none;">
+        <div>正在扫描全部标的…</div>
+    </div>
+    <div id="summary-table" style="background:#111214;border:1px solid rgba(255,255,255,0.07);border-radius:10px;overflow:hidden;"></div>
+</div>
+
+<script>
+let currentSymbol = 'AAPL';
+
+const SIG_LABEL = {
+    buy: ['▲ 看涨', 'sig-buy'],
+    sell: ['▼ 看跌', 'sig-sell'],
+    neutral: ['— 中性', 'sig-neutral'],
+    watch: ['◉ 观察', 'sig-watch'],
+    bullish_strong: ['▲▲ 强多', 'sig-buy'],
+    bullish_weak:   ['▲ 弱多', 'sig-neutral'],
+    bearish_strong: ['▼▼ 强空', 'sig-sell'],
+    bearish_weak:   ['▼ 弱空', 'sig-neutral'],
+};
+
+const CONF_CLASS = { high:'conf-high', medium:'conf-medium', low:'conf-low' };
+
+function sigBadge(sig) {
+    const [label, cls] = SIG_LABEL[sig] || ['—', 'sig-neutral'];
+    return `<span class="ind-badge ${cls}">${label}</span>`;
+}
+
+function confBadge(conf) {
+    const cls = CONF_CLASS[conf] || 'conf-low';
+    const label = { high:'高置信', medium:'中置信', low:'低置信' }[conf] || '';
+    return `<span class="${cls}" style="font-size:11px;font-weight:600;">${label}</span>`;
+}
+
+function indCard(title, value, sig, desc, conf, extra) {
+    return `
+    <div class="ind-card">
+        <div class="ind-label">${title}</div>
+        <div style="display:flex;align-items:center;gap:8px;margin:4px 0;">
+            ${value !== null && value !== undefined ? `<span class="ind-val">${value}</span>` : ''}
+            ${sigBadge(sig)}
+            ${confBadge(conf)}
+        </div>
+        <div class="ind-desc">${desc || '—'}</div>
+        ${extra ? `<div style="margin-top:8px;">${extra}</div>` : ''}
+    </div>`;
+}
+
+function selectSymbol(sym) {
+    currentSymbol = sym;
+    document.querySelectorAll('.sym-tab').forEach(t => {
+        t.classList.toggle('active', t.textContent.trim() === sym);
+    });
+    loadIndicators(sym);
+}
+
+async function loadIndicators(sym) {
+    document.getElementById('ind-loading').style.display = 'block';
+    document.getElementById('ind-content').style.display = 'none';
+
+    try {
+        const [oscRes, trendRes, volRes, patRes, combRes] = await Promise.all([
+            fetch(`/api/indicators/${sym}/oscillators`).then(r => r.json()),
+            fetch(`/api/indicators/${sym}/trend`).then(r => r.json()),
+            fetch(`/api/indicators/${sym}/volume`).then(r => r.json()),
+            fetch(`/api/indicators/${sym}/patterns`).then(r => r.json()),
+            fetch(`/api/indicators/${sym}/combined`).then(r => r.json()),
+        ]);
+
+        renderCombined(combRes);
+        renderOscillators(oscRes);
+        renderTrend(trendRes);
+        renderVolume(volRes);
+        renderPatterns(patRes);
+
+        document.getElementById('ind-update-time').textContent = new Date().toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'});
+    } catch(e) {
+        console.error(e);
+    }
+
+    document.getElementById('ind-loading').style.display = 'none';
+    document.getElementById('ind-content').style.display = 'block';
+}
+
+function renderCombined(d) {
+    const score = d.net_score || 0;
+    const [label, cls] = SIG_LABEL[d.signal] || ['—', 'sig-neutral'];
+    document.getElementById('comb-sig-badge').className = `ind-badge ${cls}`;
+    document.getElementById('comb-sig-badge').textContent = label;
+    document.getElementById('comb-desc').textContent = d.description || '';
+    document.getElementById('comb-score').textContent = (score >= 0 ? '+' : '') + score.toFixed(3);
+    document.getElementById('comb-conf').className = CONF_CLASS[d.confidence] || 'conf-low';
+    document.getElementById('comb-conf').textContent = { high:'高置信', medium:'中置信', low:'低置信' }[d.confidence] || '';
+    // 得分条（-1 ~ +1 → 0 ~ 100%）
+    const barPct = Math.round((score + 1) / 2 * 100);
+    const barColor = score > 0.3 ? '#4ade80' : (score < -0.3 ? '#f87171' : '#5e6ad2');
+    document.getElementById('comb-bar').style.width = barPct + '%';
+    document.getElementById('comb-bar').style.background = barColor;
+
+    // 分项信号
+    const comps = d.component_signals || {};
+    const compNames = {
+        dow_theory:'道氏', adx:'ADX', rsi:'RSI', macd:'MACD',
+        bollinger:'布林带', parabolic_sar:'SAR', momentum:'动量',
+        cci:'CCI', volume_price:'量价', head_shoulders:'头肩', double_patterns:'双顶底',
+        triangle:'三角形', extreme:'极端情绪'
+    };
+    const compHtml = Object.entries(comps).map(([k, v]) => {
+        const [lab, cls] = SIG_LABEL[v] || ['—', 'sig-neutral'];
+        return `<div style="text-align:center;">
+            <div style="font-size:10px;color:#62666d;margin-bottom:2px;">${compNames[k]||k}</div>
+            <span class="ind-badge ${cls}" style="font-size:10px;">${lab}</span>
+        </div>`;
+    }).join('');
+    document.getElementById('comb-components').innerHTML = compHtml;
+
+    // 特殊旗标
+    let flags = [];
+    if (d.high_confidence_buy)    flags.push('🟢 高置信买入（道氏+ADX+MACD金叉）');
+    if (d.turtle_valid_breakout)  flags.push('🐢 海龟有效突破');
+    if (d.divergence_detected)    flags.push('⚠️ 背离已检测');
+    document.getElementById('comb-flags').innerHTML = flags.join(' &nbsp;·&nbsp; ');
+}
+
+function renderOscillators(d) {
+    const rsi  = d.rsi  || {};
+    const macd = d.macd || {};
+    const sto  = d.stochastic || {};
+    const mom  = d.momentum || {};
+    const cci  = d.cci || {};
+
+    let html = '';
+
+    // RSI
+    html += indCard('RSI (14)',
+        rsi.value,
+        rsi.signal, rsi.description, rsi.confidence,
+        rsi.divergence ? `<div style="font-size:11px;color:#facc15;">⚡ ${rsi.divergence}</div>` : ''
+    );
+
+    // MACD
+    const crossLabel = { golden_cross:'🟢 金叉', death_cross:'🔴 死叉', neutral:'' };
+    html += indCard('MACD (12,26,9)',
+        macd.value !== undefined ? (macd.value >= 0 ? '+' : '') + macd.value : null,
+        macd.signal, macd.description, macd.confidence,
+        `<div class="mini-row"><span>MACD</span><span style="color:#f7f8f8;">${macd.macd ?? '--'}</span></div>
+         <div class="mini-row"><span>信号线</span><span style="color:#f7f8f8;">${macd.signal_line ?? '--'}</span></div>
+         ${crossLabel[macd.cross] ? `<div style="font-size:11px;color:#facc15;margin-top:4px;">${crossLabel[macd.cross]}</div>` : ''}
+         ${macd.divergence ? `<div style="font-size:11px;color:#facc15;margin-top:2px;">⚡ ${macd.divergence}</div>` : ''}`
+    );
+
+    // Stochastic
+    html += indCard('随机指标 (5,3,3)',
+        sto.k !== undefined ? `%K ${sto.k}` : null,
+        sto.signal, sto.description, sto.confidence,
+        `<div class="mini-row"><span>%D</span><span style="color:#f7f8f8;">${sto.d ?? '--'}</span></div>`
+    );
+
+    // Momentum
+    html += indCard('动量 / ROC (14)',
+        mom.roc !== undefined ? mom.roc + '%' : null,
+        mom.signal, mom.description, mom.confidence,
+        `<div class="mini-row"><span>Momentum</span><span style="color:#f7f8f8;">${mom.momentum ?? '--'}</span></div>`
+    );
+
+    // CCI
+    html += indCard('CCI (20)',
+        cci.value,
+        cci.signal, cci.description, cci.confidence,
+        ''
+    );
+
+    document.getElementById('oscillator-grid').innerHTML = html;
+}
+
+function renderTrend(d) {
+    const adx  = d.adx  || {};
+    const boll = d.bollinger || {};
+    const sar  = d.parabolic_sar || {};
+    const tl   = d.trendline || {};
+    const fib  = d.fibonacci || {};
+    const dow  = d.dow_theory || {};
+
+    let html = '';
+
+    // ADX
+    const diCross = {bullish_cross:'🟢 +DI上穿',bearish_cross:'🔴 -DI上穿',neutral:''}[adx.di_cross] || '';
+    html += indCard('ADX + DMI',
+        adx.value,
+        adx.signal, adx.description, adx.confidence,
+        `<div class="mini-row"><span>+DI</span><span style="color:#4ade80;">${adx.plus_di ?? '--'}</span></div>
+         <div class="mini-row"><span>-DI</span><span style="color:#f87171;">${adx.minus_di ?? '--'}</span></div>
+         <div class="mini-row"><span>趋势强度</span><span style="color:#f7f8f8;">${adx.trending ? '趋势市' : '震荡市'}</span></div>
+         ${diCross ? `<div style="font-size:11px;color:#facc15;margin-top:4px;">${diCross}</div>` : ''}`
+    );
+
+    // 道氏理论
+    const trendIcon = t => t === 'Up' ? '↑' : (t === 'Down' ? '↓' : '→');
+    html += indCard('道氏三级趋势',
+        dow.score !== undefined ? (dow.score >= 0 ? '+' : '') + dow.score : null,
+        dow.signal, dow.description, dow.confidence,
+        `<div class="mini-row"><span>主趋势</span><span style="color:#f7f8f8;">${trendIcon(dow.primary_trend)} ${dow.primary_trend || '--'}</span></div>
+         <div class="mini-row"><span>次趋势</span><span style="color:#f7f8f8;">${trendIcon(dow.secondary_trend)} ${dow.secondary_trend || '--'}</span></div>
+         <div class="mini-row"><span>小趋势</span><span style="color:#f7f8f8;">${trendIcon(dow.minor_trend)} ${dow.minor_trend || '--'}</span></div>
+         <div class="mini-row"><span>量能确认</span><span>${dow.volume_confirms ? '✓ 是' : '✗ 否'}</span></div>`
+    );
+
+    // 布林带
+    html += indCard('布林带 (20±2σ)',
+        boll.bandwidth_pct !== undefined ? `带宽 ${boll.bandwidth_pct}%` : null,
+        boll.signal, boll.description, boll.confidence,
+        `<div class="mini-row"><span>上轨</span><span style="color:#f87171;">\$${boll.upper ?? '--'}</span></div>
+         <div class="mini-row"><span>中轨</span><span style="color:#f7f8f8;">\$${boll.middle ?? '--'}</span></div>
+         <div class="mini-row"><span>下轨</span><span style="color:#4ade80;">\$${boll.lower ?? '--'}</span></div>
+         ${boll.squeeze ? '<div style="font-size:11px;color:#facc15;margin-top:4px;">⚡ 带宽收窄，即将爆发</div>' : ''}`
+    );
+
+    // Parabolic SAR
+    html += indCard('Parabolic SAR',
+        sar.sar,
+        sar.signal, sar.description, sar.confidence,
+        `<div class="mini-row"><span>趋势</span><span style="color:#f7f8f8;">${sar.trend === 'bullish' ? '🟢 多头' : '🔴 空头'}</span></div>
+         <div class="mini-row"><span>距SAR</span><span style="color:#f7f8f8;">${sar.distance_pct ?? '--'}%</span></div>
+         ${sar.last_flip_date ? `<div class="mini-row"><span>上次翻转</span><span style="color:#94a3b8;">${sar.last_flip_date}</span></div>` : ''}`
+    );
+
+    // Fibonacci
+    const fibLevels = fib.levels || {};
+    const keyFibs = ['0.236','0.382','0.5','0.618','0.786'];
+    html += indCard('Fibonacci 回撤',
+        fib.current_price ? `\$${fib.current_price}` : null,
+        fib.signal, fib.description, fib.confidence,
+        `${keyFibs.map(r => {
+            const v = fibLevels[r];
+            return v ? `<div class="mini-row"><span>${(parseFloat(r)*100).toFixed(1)}%</span><span style="color:#94a3b8;">\$${v}</span></div>` : '';
+        }).join('')}
+        <div class="mini-row"><span>高点</span><span style="color:#f87171;">\$${fib.swing_high ?? '--'}</span></div>
+        <div class="mini-row"><span>低点</span><span style="color:#4ade80;">\$${fib.swing_low ?? '--'}</span></div>`
+    );
+
+    // 趋势线
+    const upL  = tl.uptrend_line || {};
+    const dwL  = tl.downtrend_line || {};
+    html += indCard('自动趋势线',
+        null,
+        tl.signal, tl.description, tl.confidence,
+        `${upL.current_value ? `<div class="mini-row"><span>上升趋势线</span><span style="color:#4ade80;">\$${upL.current_value}</span></div>
+         <div class="mini-row"><span>距离</span><span>${upL.distance_pct ?? '--'}%</span></div>
+         ${upL.broken ? '<div style="font-size:11px;color:#f87171;">⚠️ 已跌破</div>' : ''}` : '<div style="font-size:11px;color:#62666d;">无上升趋势线</div>'}
+         ${dwL.current_value ? `<div class="mini-row" style="margin-top:6px;"><span>下降趋势线</span><span style="color:#f87171;">\$${dwL.current_value}</span></div>
+         ${dwL.broken ? '<div style="font-size:11px;color:#4ade80;">✓ 向上突破</div>' : ''}` : ''}`
+    );
+
+    document.getElementById('trend-grid').innerHTML = html;
+}
+
+function renderVolume(d) {
+    const vp  = d.volume_price || {};
+    const gps = d.gaps || {};
+    const ext = d.extreme_emotion || {};
+
+    let html = '';
+
+    // 量价四象限
+    const dayLabels = (vp.daily_labels || []).map(l => {
+        const sigMap = { bullish_strong:'▲▲', bullish_weak:'▲', bearish_strong:'▼▼', bearish_weak:'▼' };
+        const colMap = { bullish_strong:'#4ade80', bullish_weak:'#86efac', bearish_strong:'#f87171', bearish_weak:'#fca5a5' };
+        return `<div class="mini-row">
+            <span style="color:#62666d;">${l.date?.slice(5)}</span>
+            <span style="color:${colMap[l.signal]||'#94a3b8'};">${l.label}</span>
+            <span style="color:#62666d;">${l.vol_ratio}x</span>
+        </div>`;
+    }).join('');
+    html += indCard('量价四象限（近7日）',
+        null,
+        vp.signal, vp.description, vp.confidence,
+        dayLabels
+    );
+
+    // 缺口识别
+    const gapList = (gps.gaps || []).slice(-3).map(g => {
+        const typeLabel = { breakaway:'突破', runaway:'持续', exhaustion:'衰竭', common:'普通' }[g.type] || g.type;
+        const dirColor  = g.direction === 'up' ? '#4ade80' : '#f87171';
+        return `<div class="mini-row">
+            <span style="color:#62666d;">${g.date?.slice(5)}</span>
+            <span style="color:${dirColor};">${g.direction === 'up' ? '↑' : '↓'} ${typeLabel}</span>
+            <span style="color:#94a3b8;">${g.gap_pct}%${g.filled ? ' 已填' : ' 未填'}</span>
+        </div>`;
+    }).join('');
+    html += indCard('缺口识别',
+        null,
+        gps.signal, gps.description, gps.confidence,
+        `<div class="mini-row"><span>总缺口</span><span>${gps.total_count}</span></div>
+         <div class="mini-row"><span>未填补</span><span style="color:#facc15;">${gps.unfilled_count}</span></div>
+         ${gapList}`
+    );
+
+    // 极端情绪
+    html += indCard('吹顶 / 卖出高潮',
+        null,
+        ext.signal, ext.description, ext.confidence,
+        `${ext.blowoff_top ? `<div style="font-size:11px;color:#f87171;margin-top:4px;">🔴 吹顶：${ext.blowoff_top}</div>` : ''}
+         ${ext.selling_climax ? `<div style="font-size:11px;color:#4ade80;margin-top:4px;">🟢 卖出高潮：${ext.selling_climax}</div>` : ''}
+         ${!ext.blowoff_top && !ext.selling_climax ? '<div style="font-size:11px;color:#62666d;margin-top:4px;">近期无极端情绪</div>' : ''}`
+    );
+
+    document.getElementById('volume-grid').innerHTML = html;
+}
+
+function renderPatterns(d) {
+    const hs  = d.head_shoulders || {};
+    const dtb = d.double_top_bottom || {};
+    const tri = d.triangle || {};
+    const flg = d.flag_wedge || {};
+    const trp = d.triple_patterns || {};
+    const rec = d.rectangle || {};
+
+    let html = '';
+
+    // 头肩顶底
+    const hst = hs.head_shoulders_top;
+    const hsb = hs.head_shoulders_bottom;
+    html += indCard('头肩顶 / 头肩底',
+        null,
+        hs.signal, hs.description, hs.confidence,
+        `${hst ? `<div class="mini-row"><span>头肩顶</span><span style="color:#f87171;">头 $${hst.head} | 颈线 $${hst.neckline}</span></div>
+            ${hst.confirmed ? '<div style="font-size:11px;color:#f87171;">✓ 颈线已跌破</div>' : '<div style="font-size:11px;color:#62666d;">颈线未破</div>'}` : ''}
+         ${hsb ? `<div class="mini-row"><span>头肩底</span><span style="color:#4ade80;">头 $${hsb.head} | 颈线 $${hsb.neckline}</span></div>
+            ${hsb.confirmed ? '<div style="font-size:11px;color:#4ade80;">✓ 颈线已突破</div>' : '<div style="font-size:11px;color:#62666d;">颈线未破</div>'}` : ''}
+         ${!hst && !hsb ? '<div style="font-size:11px;color:#62666d;">未检测到形态</div>' : ''}`
+    );
+
+    // 双顶/双底
+    const dt = dtb.double_top;
+    const db = dtb.double_bottom;
+    html += indCard('双顶(M顶) / 双底(W底)',
+        null,
+        dtb.signal, dtb.description, dtb.confidence,
+        `${dt ? `<div class="mini-row"><span>M顶</span><span style="color:#f87171;">$${dt.top1} / $${dt.top2}</span></div>
+            <div class="mini-row"><span>颈线/目标</span><span style="color:#94a3b8;">$${dt.neckline} → $${dt.target}</span></div>` : ''}
+         ${db ? `<div class="mini-row"><span>W底</span><span style="color:#4ade80;">$${db.bottom1} / $${db.bottom2}</span></div>
+            <div class="mini-row"><span>颈线/目标</span><span style="color:#94a3b8;">$${db.neckline} → $${db.target}</span></div>` : ''}
+         ${!dt && !db ? '<div style="font-size:11px;color:#62666d;">未检测到双顶/双底</div>' : ''}`
+    );
+
+    // 三角形
+    const triTypeLabel = { symmetric:'对称三角', ascending:'上升三角', descending:'下降三角' };
+    html += indCard('三角形形态',
+        tri.triangle_type ? triTypeLabel[tri.triangle_type] : null,
+        tri.signal, tri.description, tri.confidence,
+        ''
+    );
+
+    // 旗形/楔形
+    const patLabel = { bull_flag:'牛市旗形', bear_flag:'熊市旗形', rising_wedge:'上升楔形', falling_wedge:'下降楔形' };
+    html += indCard('旗形 / 楔形',
+        flg.pattern ? patLabel[flg.pattern] : null,
+        flg.signal, flg.description, flg.confidence,
+        ''
+    );
+
+    // 三重顶底/圆弧底
+    html += indCard('三重顶底 / 圆弧底',
+        null,
+        trp.signal, trp.description, trp.confidence,
+        `${trp.triple_top ? `<div class="mini-row"><span>三重顶</span><span style="color:#f87171;">均价 $${trp.triple_top.avg}</span></div>` : ''}
+         ${trp.triple_bottom ? `<div class="mini-row"><span>三重底</span><span style="color:#4ade80;">均价 $${trp.triple_bottom.avg}</span></div>` : ''}
+         ${trp.rounding_bottom ? `<div class="mini-row"><span>圆弧底</span><span style="color:#4ade80;">低点 $${trp.rounding_bottom.low_point}</span></div>` : ''}`
+    );
+
+    // 矩形箱体
+    html += indCard('矩形整理（箱体）',
+        rec.box_high ? `$${rec.box_low} ~ $${rec.box_high}` : null,
+        rec.signal, rec.description, rec.confidence,
+        `<div class="mini-row"><span>高度</span><span style="color:#f7f8f8;">${rec.box_height_pct}%</span></div>
+         <div class="mini-row"><span>折返次数</span><span style="color:#f7f8f8;">${rec.oscillation_count}</span></div>
+         <div class="mini-row"><span>当前位置</span><span>${rec.in_box ? '箱体内' : '已突破'}</span></div>`
+    );
+
+    document.getElementById('pattern-grid').innerHTML = html;
+}
+
+/* ===== 全量摘要表 ===== */
+async function loadSummary() {
+    document.getElementById('summary-loading').style.display = 'block';
+    document.getElementById('summary-table').innerHTML = '';
+    try {
+        const data = await fetch('/api/indicators/summary').then(r => r.json());
+        renderSummary(data);
+    } catch(e) { console.error(e); }
+    document.getElementById('summary-loading').style.display = 'none';
+}
+
+function renderSummary(data) {
+    if (!Array.isArray(data) || !data.length) return;
+    let html = `<table style="width:100%;border-collapse:collapse;">
+        <thead><tr style="background:rgba(255,255,255,0.03);">
+            <th style="padding:10px 14px;text-align:left;font-size:11px;color:#62666d;font-weight:600;">标的</th>
+            <th style="padding:10px 14px;text-align:right;font-size:11px;color:#62666d;font-weight:600;">价格</th>
+            <th style="padding:10px 14px;text-align:center;font-size:11px;color:#62666d;font-weight:600;">综合信号</th>
+            <th style="padding:10px 14px;text-align:center;font-size:11px;color:#62666d;font-weight:600;">得分</th>
+            <th style="padding:10px 14px;text-align:center;font-size:11px;color:#62666d;font-weight:600;">置信度</th>
+            <th style="padding:10px 14px;text-align:left;font-size:11px;color:#62666d;font-weight:600;">说明</th>
+        </tr></thead><tbody>`;
+    data.forEach((row, i) => {
+        const comb = row.combined || {};
+        const [label, cls] = SIG_LABEL[comb.signal] || ['—', 'sig-neutral'];
+        const scoreColor = (comb.net_score || 0) > 0.3 ? '#4ade80' : ((comb.net_score || 0) < -0.3 ? '#f87171' : '#94a3b8');
+        const bg = i % 2 === 0 ? '' : 'background:rgba(255,255,255,0.015);';
+        html += `<tr style="${bg}cursor:pointer;" onclick="selectSymbol('${row.symbol}')">
+            <td style="padding:10px 14px;font-size:13px;font-weight:700;color:#f7f8f8;">${row.symbol}</td>
+            <td style="padding:10px 14px;text-align:right;font-size:13px;color:#f7f8f8;">$${row.price ?? '--'}</td>
+            <td style="padding:10px 14px;text-align:center;"><span class="ind-badge ${cls}" style="font-size:11px;">${label}</span></td>
+            <td style="padding:10px 14px;text-align:center;font-size:13px;font-weight:700;color:${scoreColor};">${comb.net_score !== undefined ? (comb.net_score >= 0 ? '+' : '') + comb.net_score.toFixed(3) : '--'}</td>
+            <td style="padding:10px 14px;text-align:center;"><span class="${CONF_CLASS[comb.confidence]||'conf-low'}" style="font-size:11px;font-weight:600;">${{high:'高',medium:'中',low:'低'}[comb.confidence]||'--'}</span></td>
+            <td style="padding:10px 14px;font-size:11px;color:#94a3b8;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${comb.description || '--'}</td>
+        </tr>`;
+    });
+    html += '</tbody></table>';
+    document.getElementById('summary-table').innerHTML = html;
+}
+
+async function refreshIndicators() {
+    await fetch('/api/indicators/refresh', { method: 'POST' });
+    await loadIndicators(currentSymbol);
+    await loadSummary();
+}
+
+// 初始加载
+loadIndicators(currentSymbol);
+loadSummary();
+</script>
+{% endblock %}
