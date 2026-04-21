@@ -198,63 +198,80 @@ function renderChart(candles, d) {
 
 function renderTrace(d) {
     const sig = d.signal;
-    if (!sig) return;
+    if (!sig || !sig.trace) return;
+    const tr = sig.trace;
 
-    // Step 1: 四个判断维度，用人话描述
-    const steps = [
-        {
-            q: '① 股价在 MA200 上方还是下方？',
-            answer: d.pct_vs_ma200 >= 0
-                ? `上方 ${d.pct_vs_ma200}%（股价 $${d.close} > MA200 $${d.ma200}）`
-                : `下方 ${Math.abs(d.pct_vs_ma200)}%（股价 $${d.close} < MA200 $${d.ma200}）`,
-            meaning: d.pct_vs_ma200 >= 0
-                ? '✅ 大趋势向上，市场处于多头状态'
-                : '❌ 大趋势向下，市场处于弱势状态',
-            pass: d.pct_vs_ma200 >= 0,
-        },
-        {
-            q: '② 现在在 52 周高低点区间的哪个位置？',
-            answer: `${d.pct_in_52w_range}% 的位置（52W低 $${d.low_52w} ～ 52W高 $${d.high_52w}）`,
-            meaning: d.pct_in_52w_range > 85
-                ? `🔴 处于 52 周高位区间，买入风险高，是减仓机会`
-                : d.pct_in_52w_range < 40
-                ? `🟢 处于 52 周低位区间，风险相对小，是建仓机会`
-                : `⚪ 处于中间区间，没有极端信号`,
-            pass: d.pct_in_52w_range < 85,
-        },
-        {
-            q: '③ 这家公司的护城河有多深？',
-            answer: `${sig.moat.stars} 星（${sig.moat.reason}）`,
-            meaning: sig.moat.stars >= 4
-                ? `✅ 护城河强，即使短期下跌也值得持有等待`
-                : `⚠️ 护城河较弱，趋势变坏时需要更果断减仓`,
-            pass: sig.moat.stars >= 4,
-        },
-    ];
-
-    const stepsHtml = steps.map((s, i) => {
-        const borderClr = s.pass ? 'rgba(255,255,255,0.07)' : 'rgba(248,113,113,0.15)';
-        return `
-        <div style="display:flex; gap:14px; padding:12px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
-            <div style="width:3px; border-radius:99px; flex-shrink:0; background:${s.pass ? 'rgba(74,222,128,0.5)' : 'rgba(248,113,113,0.5)'};"></div>
-            <div style="flex:1;">
-                <div style="font-size:12px; color:#62666d; margin-bottom:4px;">${s.q}</div>
-                <div style="font-size:14px; font-weight:600; color:#f7f8f8; margin-bottom:3px;">${s.answer}</div>
-                <div style="font-size:12px; color:#8a8f98;">${s.meaning}</div>
-            </div>
-        </div>`;
-    }).join('');
-
-    // Step 2: 命中哪个情景
-    const conclusionHtml = `
-    <div style="margin-top:14px; padding:12px 14px; background:rgba(94,106,210,0.08); border:1px solid rgba(94,106,210,0.2); border-radius:8px;">
-        <div style="font-size:11px; color:#62666d; margin-bottom:4px;">综合以上判断，命中：</div>
-        <div style="font-size:13px; color:#a5b4fc; font-weight:600;">${sig.scenario || ''}</div>
+    // ---- 道 ----
+    const daoHtml = `
+    <div style="display:flex; gap:12px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+        <div style="width:3px; background:rgba(74,222,128,0.6); border-radius:99px; flex-shrink:0;"></div>
+        <div>
+            <div style="font-size:11px; color:#62666d; margin-bottom:2px; font-weight:600; text-transform:uppercase; letter-spacing:0.08em;">道 · 底层逻辑</div>
+            <div style="font-size:14px; font-weight:700; color:#4ade80;">${tr.dao.text}</div>
+            <div style="font-size:12px; color:#8a8f98; margin-top:2px;">${tr.dao.note}</div>
+        </div>
     </div>`;
 
-    document.getElementById('analysis-steps').innerHTML = stepsHtml + conclusionHtml;
+    // ---- 势 ----
+    const shiRows = (tr.shi || []).map(s => {
+        const clr = s.bullish === true ? '#4ade80' : s.bullish === false ? '#f87171' : '#facc15';
+        const dot = s.bullish === true ? '▲' : s.bullish === false ? '▼' : '◆';
+        const wBadge = s.weight === '高'
+            ? `<span style="font-size:10px; background:rgba(248,113,113,0.15); color:#f87171; border-radius:3px; padding:1px 5px; margin-left:6px;">高权重</span>`
+            : `<span style="font-size:10px; background:rgba(148,163,184,0.1); color:#94a3b8; border-radius:3px; padding:1px 5px; margin-left:6px;">中权重</span>`;
+        return `<div style="display:flex; align-items:flex-start; gap:8px; padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.03);">
+            <span style="color:${clr}; font-size:12px; margin-top:1px; flex-shrink:0;">${dot}</span>
+            <span style="font-size:12px; color:#d0d6e0; flex:1;">${s.text}${wBadge}</span>
+        </div>`;
+    }).join('');
+    const shiHtml = `
+    <div style="display:flex; gap:12px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+        <div style="width:3px; background:rgba(94,106,210,0.6); border-radius:99px; flex-shrink:0;"></div>
+        <div style="flex:1;">
+            <div style="font-size:11px; color:#62666d; margin-bottom:6px; font-weight:600; text-transform:uppercase; letter-spacing:0.08em;">势 · 市场趋势信号</div>
+            ${shiRows || '<div style="font-size:12px; color:#3e3e44;">无数据</div>'}
+        </div>
+    </div>`;
 
-    // Step 3: 操作计划
+    // ---- 法 ----
+    const faStars = '★'.repeat(tr.fa.stars) + '☆'.repeat(5 - tr.fa.stars);
+    const faHtml = `
+    <div style="display:flex; gap:12px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+        <div style="width:3px; background:rgba(245,197,24,0.6); border-radius:99px; flex-shrink:0;"></div>
+        <div>
+            <div style="font-size:11px; color:#62666d; margin-bottom:2px; font-weight:600; text-transform:uppercase; letter-spacing:0.08em;">法 · 护城河评级</div>
+            <div style="font-size:16px; color:#f5c518; letter-spacing:2px;">${faStars} <span style="font-size:12px; color:#8a8f98; letter-spacing:0;">${tr.fa.stars}/5 星</span></div>
+            <div style="font-size:12px; color:#8a8f98; margin-top:2px;">${tr.fa.reason}</div>
+        </div>
+    </div>`;
+
+    // ---- 术 ----
+    const shuRows = (tr.shu || []).map(s => {
+        if (s.valid === null) return `<div style="font-size:12px; color:#3e3e44; padding:4px 0;">${s.note}</div>`;
+        const clr = s.valid ? '#4ade80' : '#62666d';
+        const icon = s.valid ? '✅' : '⚪';
+        return `<div style="padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.03);">
+            <span style="font-size:12px; color:${clr}; font-weight:600;">${icon} ${s.pattern}</span>
+            <div style="font-size:11px; color:#8a8f98; margin-top:2px;">${s.note}</div>
+        </div>`;
+    }).join('');
+    const shuHtml = `
+    <div style="display:flex; gap:12px; padding:10px 0;">
+        <div style="width:3px; background:rgba(249,115,22,0.6); border-radius:99px; flex-shrink:0;"></div>
+        <div style="flex:1;">
+            <div style="font-size:11px; color:#62666d; margin-bottom:6px; font-weight:600; text-transform:uppercase; letter-spacing:0.08em;">术 · K线形态（有效才参与决策）</div>
+            ${shuRows}
+        </div>
+    </div>`;
+
+    // ---- 结论 ----
+    const conclusionHtml = `
+    <div style="margin-top:4px; padding:12px 14px; background:rgba(94,106,210,0.08); border:1px solid rgba(94,106,210,0.2); border-radius:8px;">
+        <div style="font-size:11px; color:#62666d; margin-bottom:4px;">四层综合，命中情景：</div>
+        <div style="font-size:13px; color:#a5b4fc; font-weight:600; line-height:1.6;">${sig.scenario || ''}</div>
+    </div>`;
+
+    document.getElementById('analysis-steps').innerHTML = daoHtml + shiHtml + faHtml + shuHtml + conclusionHtml;
     renderOperationPlan(d, sig);
 }
 

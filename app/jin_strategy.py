@@ -133,11 +133,20 @@ def calc_volume_signal(candles: list[dict]) -> bool:
 # 主评分函数
 # ---------------------------------------------------------------------------
 
-def generate_signal(data: dict) -> dict:
+def generate_signal(
+    data: dict,
+    streak_dir: str = "up",
+    streak_days: int = 0,
+    vol_signal: bool = False,
+    candle_patterns: list | None = None,
+) -> dict:
     """
-    五种操作场景判断，返回 {action, level, reason, zones, moat, trace}
-    trace 是每一步判断过程，用于前端展示「分析过程」
+    道势法术四层判断，返回操作信号 + 完整分析链路。
+
+    势的高权重信号（连涨≥8天、连跌≥5天、放量）直接参与决策，
+    术的K线形态在对应位置有效时强化信号。
     """
+    candle_patterns = candle_patterns or []
     sym = data["symbol"].replace(".US", "")
     moat = MOAT_RATINGS.get(sym, {"stars": 3, "reason": "未评级"})
     p200 = data["pct_vs_ma200"]
@@ -146,49 +155,95 @@ def generate_signal(data: dict) -> dict:
     ma200 = data["ma200"]
     ma50  = data["ma50"]
 
-    # 分析链路：记录每个条件的判断结果
-    trace = [
-        {
-            "label": "MA200 位置",
-            "value": f"收盘 ${close} vs MA200 ${ma200}",
-            "calc":  f"偏离 = ({close} - {ma200}) / {ma200} × 100 = {p200:+.1f}%",
-            "pass":  p200 > 0,
-            "flag":  "✅ 在 MA200 上方" if p200 > 0 else "❌ 在 MA200 下方",
-        },
-        {
-            "label": "MA50 位置",
-            "value": f"收盘 ${close} vs MA50 ${ma50}",
-            "calc":  f"偏离 = {data['pct_vs_ma50']:+.1f}%",
-            "pass":  data["pct_vs_ma50"] > 0,
-            "flag":  "✅ 在 MA50 上方" if data["pct_vs_ma50"] > 0 else "❌ 在 MA50 下方",
-        },
-        {
-            "label": "52周区间位置",
-            "value": f"低位 ${data['low_52w']} ～ 高位 ${data['high_52w']}",
-            "calc":  f"位置 = ({close} - {data['low_52w']}) / ({data['high_52w']} - {data['low_52w']}) × 100 = {p52:.1f}%",
-            "pass":  20 <= p52 <= 80,
-            "flag":  "🔴 高位区间 (>85%)" if p52 > 85 else ("🟢 低位区间 (<40%)" if p52 < 40 else "⚪ 中位区间"),
-        },
-        {
-            "label": "护城河评级",
-            "value": f"{moat['stars']} 星 / 5 星",
-            "calc":  moat["reason"],
-            "pass":  moat["stars"] >= 4,
-            "flag":  "✅ 强护城河 (≥4星)" if moat["stars"] >= 4 else "⚠️ 护城河较弱 (<4星)",
-        },
-    ]
+    # ------------------------------------------------------------------
+    # 势：所有信号，含权重和说明
+    # ------------------------------------------------------------------
+    streak_overheated = streak_dir == "up"  and streak_days >= 8
+    streak_oversold   = streak_dir == "down" and streak_days >= 5
+    bearish_pattern   = any(p in candle_patterns for p in ["射击之星", "吞没阴线"])
+    bullish_pattern   = any(p in candle_patterns for p in ["锤子线", "吞没阳线"])
+
+    shi_signals = []
+    if p200 > 0:
+        shi_signals.append({"text": f"MA200 上方 +{p200:.1f}%，大趋势向上", "weight": "高", "bullish": True})
+    else:
+        shi_signals.append({"text": f"MA200 下方 {p200:.1f}%，大趋势向下", "weight": "高", "bullish": False})
+    if p52 > 90:
+        shi_signals.append({"text": f"52周位置 {p52:.0f}%，接近历史高位，上涨空间有限", "weight": "中", "bullish": False})
+    elif p52 < 20:
+        shi_signals.append({"text": f"52周位置 {p52:.0f}%，处于历史低位，下跌空间有限", "weight": "中", "bullish": True})
+    if streak_overheated:
+        shi_signals.append({"text": f"连涨 {streak_days} 天，均值回归压力极大，短期高风险", "weight": "高", "bullish": False})
+    if streak_oversold:
+        shi_signals.append({"text": f"连跌 {streak_days} 天，短期超卖，注意企稳信号", "weight": "中", "bullish": True})
+    if vol_signal:
+        shi_signals.append({"text": "今日放量（>20日均量×1.5），主力资金活跃", "weight": "中", "bullish": None})
+
+    # ------------------------------------------------------------------
+    # 术：K线形态说明（加入上下文）
+    # ------------------------------------------------------------------
+    shu_signals = []
+    for p in candle_patterns:
+        if p == "锤子线":
+            if p200 < 5:  # 在支撑位附近有效
+                shu_signals.append({"pattern": p, "valid": True, "note": "在MA200支撑位出现锤子线，止跌信号有效，强化建仓信号"})
+            else:
+                shu_signals.append({"pattern": p, "valid": False, "note": "锤子线出现在高位，止跌意义弱"})
+        elif p == "吞没阳线":
+            if p52 < 50:  # 在低位出现有效
+                shu_signals.append({"pattern": p, "valid": True, "note": "低位区间出现吞没阳线，反转信号有效"})
+            else:
+                shu_signals.append({"pattern": p, "valid": False, "note": "高位吞没阳线，可靠性较低"})
+        elif p == "射击之星":
+            if p52 > 70:  # 在高位出现有效
+                shu_signals.append({"pattern": p, "valid": True, "note": "高位出现射击之星，见顶信号有效，强化减仓信号"})
+            else:
+                shu_signals.append({"pattern": p, "valid": False, "note": "射击之星出现在低位，见顶意义弱"})
+        elif p == "吞没阴线":
+            if p52 > 70:
+                shu_signals.append({"pattern": p, "valid": True, "note": "高位出现吞没阴线，强烈反转信号，加速减仓"})
+            else:
+                shu_signals.append({"pattern": p, "valid": False, "note": "低位吞没阴线，可靠性较低"})
+
+    # 有效的看涨/看跌K线形态
+    valid_bearish_shu = any(s["valid"] for s in shu_signals if s["pattern"] in ["射击之星", "吞没阴线"])
+    valid_bullish_shu = any(s["valid"] for s in shu_signals if s["pattern"] in ["锤子线", "吞没阳线"])
+
+    # ------------------------------------------------------------------
+    # 道势法术 trace（展示用）
+    # ------------------------------------------------------------------
+    trace = {
+        "dao": {"text": "美股科技 ✅", "note": "规则透明，信息充分，AI不可逆，长期确定性高"},
+        "shi": shi_signals,
+        "fa":  {"stars": moat["stars"], "reason": moat["reason"]},
+        "shu": shu_signals if shu_signals else [{"pattern": "无典型形态", "valid": None, "note": "最近2根K线无锤子线/吞没/射击之星形态"}],
+    }
+
+    # ------------------------------------------------------------------
+    # 五种操作场景（势+术联合判断）
+    # ------------------------------------------------------------------
 
     # 情景一：高位减T仓
+    # 触发条件：52W高位>90% 且 MA200溢价>8%
+    # 加强条件：连涨≥8天（极度过热）或 有效空头K线形态
     if p52 > 90 and p200 > 8:
-        scenario = "情景一：52周高位(>90%) 且 MA200溢价高(>8%) → 减T仓"
-        sell_target = round(close * 1.02, 2)
+        urgency = "高" if (streak_overheated or valid_bearish_shu) else "中"
+        extra = []
+        if streak_overheated:
+            extra.append(f"叠加连涨{streak_days}天过热信号")
+        if valid_bearish_shu:
+            extra.append("叠加有效空头K线形态")
+        extra_str = "（" + "、".join(extra) + "，紧迫程度升高）" if extra else ""
+        scenario = f"势：52W高位{p52:.0f}% + MA200溢价{p200:.0f}%{extra_str} → 减T仓（紧迫度：{urgency}）"
+        sell_target  = round(close * 1.02, 2)
         rebuy_target = round(ma200 * 1.02, 2)
         expected_gain = round((sell_target - rebuy_target) / rebuy_target * 100, 1)
         return {
-            "action": "减T仓",
+            "action": "减T仓" if urgency == "中" else "立即减T仓",
             "level": "yellow",
             "emoji": "🟡",
-            "reason": f"52周高位{p52:.0f}%，MA200溢价{p200:.0f}%，分批减仓控制安全边际",
+            "urgency": urgency,
+            "reason": f"52周高位{p52:.0f}%，MA200溢价{p200:.0f}%{extra_str}",
             "zones": {"sell": sell_target, "rebuy": rebuy_target},
             "operation": {
                 "what":   "卖出 T仓部分（约总仓位的 30-40%），保留底仓不动",
@@ -206,14 +261,19 @@ def generate_signal(data: dict) -> dict:
             "trace": trace,
         }
 
-    # 情景二：跌破MA200，护城河强，等站稳
+    # 情景二：跌破MA200，护城河强
+    # 加强条件：连跌≥5天（超卖）→ 降低仓位要求，准备等待
     if p200 < -5 and moat["stars"] >= 4:
-        scenario = f"情景二：跌破MA200超过5%({p200:.1f}%) 且护城河强(≥4星) → 观察等待站稳"
+        oversold_note = f"连跌{streak_days}天已超卖，企稳信号可能临近，更接近买点" if streak_oversold else ""
+        scenario = f"势：跌破MA200 {abs(p200):.1f}% + 法：护城河强{moat['stars']}星 → 观察"
+        if streak_oversold:
+            scenario += f"（连跌{streak_days}天超卖，企稳后可考虑建仓）"
         return {
             "action": "观察",
             "level": "red",
             "emoji": "🔴",
-            "reason": f"跌破MA200 {abs(p200):.0f}%，等重新站稳再评估",
+            "urgency": "中",
+            "reason": f"跌破MA200 {abs(p200):.0f}%，等重新站稳再评估。{oversold_note}",
             "zones": {"watch": round(ma200, 2)},
             "moat": moat,
             "scenario": scenario,
@@ -221,27 +281,33 @@ def generate_signal(data: dict) -> dict:
         }
 
     # 情景三：跌破MA200，护城河弱
+    # 加强条件：有效空头K线形态 → 加速减仓
     if p200 < -3 and moat["stars"] < 3:
-        scenario = f"情景三：跌破MA200({p200:.1f}%) 且护城河弱(<3星) → 减仓"
+        accel = "，叠加有效空头形态，加速减仓" if valid_bearish_shu else ""
+        scenario = f"势：跌破MA200 {abs(p200):.1f}% + 法：护城河弱{moat['stars']}星{accel} → 减仓"
         return {
             "action": "减仓",
             "level": "red",
             "emoji": "🔴",
-            "reason": "弱势标的跌破MA200，护城河不足，优先减仓",
+            "urgency": "高" if valid_bearish_shu else "中",
+            "reason": f"弱势标的跌破MA200，护城河不足{accel}，优先减仓",
             "zones": {},
             "moat": moat,
             "scenario": scenario,
             "trace": trace,
         }
 
-    # 情景四：低位恢复，性价比好
+    # 情景四：低位恢复，分批建仓
+    # 强化条件：有效多头K线形态 → 增加信心，可提高第一批仓位
     if p52 < 40 and -5 <= p200 <= 5:
-        scenario = f"情景四：52周低位区间({p52:.0f}%) 且 MA200附近(偏离{p200:+.1f}%) → 分批建仓"
+        confirm = "，叠加有效多头K线形态，信号可靠性提高" if valid_bullish_shu else ""
+        scenario = f"势：52W低位{p52:.0f}% + MA200附近{p200:+.1f}%{confirm} → 分批建仓"
         return {
             "action": "分批建仓",
             "level": "green",
             "emoji": "🟢",
-            "reason": f"52周低位区间{p52:.0f}%，MA200附近，道没变，2-3-3-2分批建仓",
+            "urgency": "中",
+            "reason": f"52周低位区间{p52:.0f}%，MA200附近，道没变，2-3-3-2分批建仓{confirm}",
             "zones": {
                 "buy1": round(close * 0.97, 2),
                 "buy2": round(close * 0.93, 2),
@@ -253,12 +319,17 @@ def generate_signal(data: dict) -> dict:
         }
 
     # 情景五：合理区间，持有
-    scenario = f"情景五：不满足任何极端条件（52W位置{p52:.0f}%，MA200偏离{p200:+.1f}%）→ 底仓持有"
+    # 注意：如果连涨过热，提示减T仓警戒
+    note = ""
+    if streak_overheated:
+        note = f"⚠️ 虽未达高位极值，但已连涨{streak_days}天，注意均值回归风险"
+    scenario = f"势：52W位置{p52:.0f}%，MA200偏离{p200:+.1f}%，无极端信号 → 底仓持有"
     return {
         "action": "底仓持有",
         "level": "neutral",
         "emoji": "⚪",
-        "reason": "位置合理，底仓持有不动，等极端机会",
+        "urgency": "低",
+        "reason": f"位置合理，底仓持有不动，等极端机会。{note}",
         "zones": {"add": round(ma200 * 1.02, 2)},
         "moat": moat,
         "scenario": scenario,
@@ -276,28 +347,20 @@ def build_position_plan(base_price: float) -> list[dict]:
 
 
 def analyze_stock(data: dict, candles: list[dict] | None = None) -> dict:
-    """组合所有维度，返回完整分析结果"""
-    signal = generate_signal(data)
-    streak_dir, streak_days = calc_streak(candles or [])
-    vol_signal = calc_volume_signal(candles or [])
-    patterns = detect_candle_patterns(candles or [])
+    """道势法术四层联合分析，势/术信号真正参与决策"""
+    candles = candles or []
+    streak_dir, streak_days = calc_streak(candles)
+    vol_signal = calc_volume_signal(candles)
+    patterns = detect_candle_patterns(candles)
 
-    # 势的标签
-    势_tags = []
-    if data["pct_vs_ma200"] > 0:
-        势_tags.append("MA200上方 ✅")
-    else:
-        势_tags.append("MA200下方 ❌")
-    if data["pct_in_52w_range"] > 90:
-        势_tags.append("52W高位 ⚠️")
-    elif data["pct_in_52w_range"] < 20:
-        势_tags.append("52W低位 🟢")
-    if streak_dir == "up" and streak_days >= 8:
-        势_tags.append(f"连涨{streak_days}天 🔴极度过热")
-    elif streak_dir == "down" and streak_days >= 5:
-        势_tags.append(f"连跌{streak_days}天 🟢超卖")
-    if vol_signal:
-        势_tags.append("放量信号 ⚡")
+    # 势/术信号传入 generate_signal，真正影响结论
+    signal = generate_signal(
+        data,
+        streak_dir=streak_dir,
+        streak_days=streak_days,
+        vol_signal=vol_signal,
+        candle_patterns=patterns,
+    )
 
     result = {
         **data,
@@ -306,10 +369,9 @@ def analyze_stock(data: dict, candles: list[dict] | None = None) -> dict:
         "streak_days": streak_days,
         "vol_signal": vol_signal,
         "candle_patterns": patterns,
-        "势_tags": 势_tags,
     }
 
-    if signal["action"] == "分批建仓":
+    if signal["action"] in ("分批建仓",):
         result["position_plan"] = build_position_plan(data["close"])
 
     return result
