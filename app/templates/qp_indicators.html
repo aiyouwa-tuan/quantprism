@@ -117,6 +117,7 @@
 </div>
 
 <script>
+{% raw %}
 let currentSymbol = 'AAPL';
 
 const SIG_LABEL = {
@@ -540,5 +541,6 @@ async function refreshIndicators() {
 // 初始加载
 loadIndicators(currentSymbol);
 loadSummary();
+{% endraw %}
 </script>
 {% endblock %}
