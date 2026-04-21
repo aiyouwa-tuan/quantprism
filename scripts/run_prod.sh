@@ -7,7 +7,7 @@ HOST="${HOST:-127.0.0.1}"
 PORT="${PORT:-8000}"
 WORKERS="${WORKERS:-2}"
 
-cd "$ROOT_DIR"
+cd "$ROOT_DIR/app"
 exec "$VENV_DIR/bin/uvicorn" main:app \
   --host "$HOST" \
   --port "$PORT" \
