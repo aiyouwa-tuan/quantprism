@@ -4294,6 +4294,8 @@ async def api_positions_exit_status(db: Session = Depends(get_db)):
 async def api_exit_signals(symbols: str = ""):
     """TA-based exit signals for a comma-separated list of symbols (portfolio page)."""
     import asyncio as _asyncio
+    from ta_engine import calc_support_resistance
+    from ta_indicators import combined_signal
     syms = [s.strip().upper() for s in symbols.split(",") if s.strip()]
     if not syms:
         return JSONResponse({})
