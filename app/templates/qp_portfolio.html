@@ -403,35 +403,44 @@
             </div>
 
             <script>
-            (function loadExitSignals() {
-                const syms = Array.from(document.querySelectorAll('[id^="tp-"]'))
-                    .map(el => el.id.replace('tp-', ''))
-                    .filter(Boolean);
+            function loadExitSignals() {
+                const syms = [...new Set(
+                    Array.from(document.querySelectorAll('[id^="tp-"]'))
+                        .map(el => el.id.replace('tp-', ''))
+                        .filter(Boolean)
+                )];
                 if (!syms.length) return;
                 fetch('/api/exit-signals?symbols=' + syms.join(','))
                     .then(r => r.json())
                     .then(data => {
                         Object.entries(data).forEach(([sym, info]) => {
-                            const tpEl   = document.getElementById('tp-'   + sym);
-                            const exitEl = document.getElementById('exit-' + sym);
-                            if (tpEl && info.take_profit) {
-                                const dist = info.resistance_pct != null
-                                    ? ` <span style="font-size:9px;color:#62666d;">(+${info.resistance_pct}%)</span>` : '';
-                                tpEl.innerHTML = `<span style="color:#f87171;font-weight:600;">$${info.take_profit}</span>${dist}`;
-                            } else if (tpEl) {
-                                tpEl.innerHTML = '<span style="color:#3e3e44;">—</span>';
-                            }
-                            if (exitEl) {
+                            document.querySelectorAll('#tp-' + sym).forEach(tpEl => {
+                                if (info.take_profit) {
+                                    const dist = info.resistance_pct != null
+                                        ? ` <span style="font-size:9px;color:#62666d;">(+${info.resistance_pct}%)</span>` : '';
+                                    tpEl.innerHTML = `<span style="color:#f87171;font-weight:600;">$${info.take_profit}</span>${dist}`;
+                                } else {
+                                    tpEl.innerHTML = '<span style="color:#3e3e44;">—</span>';
+                                }
+                            });
+                            document.querySelectorAll('#exit-' + sym).forEach(exitEl => {
                                 const colors = { red:'#f87171', orange:'#fb923c', yellow:'#facc15', green:'#4ade80', gray:'#4b5563' };
                                 const c = colors[info.exit_color] || '#4b5563';
                                 exitEl.innerHTML = info.exit_signal
                                     ? `<span style="font-size:11px;color:${c};font-weight:600;">${info.exit_signal}</span>`
                                     : '<span style="color:#374151;font-size:11px;">—</span>';
-                            }
+                            });
                         });
                     })
                     .catch(() => {});
-            })();
+            }
+            loadExitSignals();
+            // 重新运行：HTMX swap tbody 后（切换全部/股票/期权 或 刷新按钮）
+            document.body.addEventListener('htmx:afterSwap', function(e) {
+                if (e.detail.target && e.detail.target.id === 'holdings-tbody') {
+                    loadExitSignals();
+                }
+            });
             </script>
 
             <!-- 成交记录面板 (默认隐藏) -->

@@ -117,9 +117,19 @@
         </span>
         {% else %}<span style="color:#3e3e44;">--</span>{% endif %}
     </td>
+
+    <!-- 止盈目标 -->
+    <td class="text-right px-3 py-3" id="tp-{{ sym }}" style="font-family:'Berkeley Mono',ui-monospace,monospace;">
+        <span style="color:#3e3e44;">…</span>
+    </td>
+
+    <!-- 出场信号 -->
+    <td class="text-center px-3 py-3" id="exit-{{ sym }}">
+        <span style="color:#3e3e44;font-size:11px;">…</span>
+    </td>
 </tr>
 <tr id="expand-{{ h.get('positionKey', sym)|replace(' ','_') }}" class="hidden" style="background:rgba(255,255,255,0.01);">
-    <td colspan="9" class="px-4 py-0">
+    <td colspan="11" class="px-4 py-0">
         <div hx-get="/api/portfolio/holding-trades/{{ sym }}"
              hx-trigger="revealed"
              hx-swap="outerHTML"
@@ -128,6 +138,6 @@
 </tr>
 {% else %}
 <tr>
-    <td colspan="9" class="text-center py-12 text-gray-500 text-xs">暂无持仓数据</td>
+    <td colspan="11" class="text-center py-12 text-gray-500 text-xs">暂无持仓数据</td>
 </tr>
 {% endfor %}
