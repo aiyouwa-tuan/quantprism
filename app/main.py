@@ -4303,7 +4303,7 @@ async def api_exit_signals(symbols: str = ""):
             sr = await _asyncio.to_thread(calc_support_resistance, sym)
             ta = await _asyncio.to_thread(combined_signal, sym)
             resistance = sr.get("nearest_resistance")
-            resistance_pct = sr.get("distance_pct")
+            resistance_pct = sr.get("resistance_distance_pct")
             ta_sig = ta.get("signal", "neutral")
 
             if ta_sig == "sell":

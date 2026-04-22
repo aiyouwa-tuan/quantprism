@@ -37,23 +37,46 @@ def _fetch_candles_raw(symbol: str, limit: int = 300) -> list[dict]:
     ORDER BY ts DESC LIMIT {limit};
     """
     rows = _ssh_query(sql)
-    if not rows:
-        return []
-    # reverse to chronological order
-    data = list(reversed(rows))
     candles = []
-    for r in data:
+    if rows:
+        data = list(reversed(rows))
+        for r in data:
+            try:
+                candles.append({
+                    "date":   r["date"],
+                    "open":   float(r["open"]),
+                    "high":   float(r["high"]),
+                    "low":    float(r["low"]),
+                    "close":  float(r["close"]),
+                    "volume": int(r["volume"]),
+                })
+            except (KeyError, ValueError):
+                continue
+
+    # 不在 stock_candles 里的标的，回退到 yfinance
+    if len(candles) < 30:
         try:
-            candles.append({
-                "date":   r["date"],
-                "open":   float(r["open"]),
-                "high":   float(r["high"]),
-                "low":    float(r["low"]),
-                "close":  float(r["close"]),
-                "volume": int(r["volume"]),
-            })
-        except (KeyError, ValueError):
-            continue
+            import yfinance as yf
+            period = "2y" if limit >= 200 else "1y"
+            df = yf.download(symbol, period=period, interval="1d",
+                             progress=False, auto_adjust=True, threads=False)
+            if not df.empty:
+                candles = []
+                for dt, row in df.iterrows():
+                    try:
+                        candles.append({
+                            "date":   str(dt.date()),
+                            "open":   float(row["Open"]),
+                            "high":   float(row["High"]),
+                            "low":    float(row["Low"]),
+                            "close":  float(row["Close"]),
+                            "volume": int(row["Volume"]),
+                        })
+                    except Exception:
+                        continue
+                candles = candles[-limit:]
+        except Exception:
+            pass
 
     _ta_cache[cache_key] = {"data": candles, "ts": now}
     return candles
