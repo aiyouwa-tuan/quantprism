@@ -237,6 +237,8 @@
                                 <th class="text-right px-3 py-2.5 font-medium" style="min-width:100px; color:#d97706;">持仓市值 ↓</th>
                                 <th class="text-right px-3 py-2.5 text-gray-500 font-medium" style="min-width:110px;">总盈亏</th>
                                 <th class="text-right px-3 py-2.5 text-gray-500 font-medium" style="min-width:60px;">YTD</th>
+                                <th class="text-right px-3 py-2.5 text-gray-500 font-medium" style="min-width:90px;">止盈目标</th>
+                                <th class="text-center px-3 py-2.5 text-gray-500 font-medium" style="min-width:80px;">出场信号</th>
                             </tr>
                         </thead>
                         <tbody id="holdings-tbody">
@@ -368,10 +370,20 @@
                                     </span>
                                     {% else %}<span style="color:#3e3e44;">--</span>{% endif %}
                                 </td>
+
+                                <!-- 止盈目标 -->
+                                <td class="text-right px-3 py-3" id="tp-{{ sym }}" style="font-family:'Berkeley Mono',ui-monospace,monospace;">
+                                    <span style="color:#3e3e44;">…</span>
+                                </td>
+
+                                <!-- 出场信号 -->
+                                <td class="text-center px-3 py-3" id="exit-{{ sym }}">
+                                    <span style="color:#3e3e44;font-size:11px;">…</span>
+                                </td>
                             </tr>
                             <!-- 展开行: 逐笔成交 -->
                             <tr id="expand-{{ h.get('positionKey', sym)|replace(' ','_') }}" class="hidden" style="background:rgba(255,255,255,0.01);">
-                                <td colspan="9" class="px-4 py-0">
+                                <td colspan="11" class="px-4 py-0">
                                     <div hx-get="/api/portfolio/holding-trades/{{ sym }}"
                                          hx-trigger="revealed"
                                          hx-swap="outerHTML"
@@ -380,7 +392,7 @@
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="9" class="text-center py-12 text-gray-500">
+                                <td colspan="11" class="text-center py-12 text-gray-500">
                                     {% if not holdings %}暂无持仓数据{% else %}无持仓{% endif %}
                                 </td>
                             </tr>
@@ -389,6 +401,38 @@
                     </table>
                 </div>
             </div>
+
+            <script>
+            (function loadExitSignals() {
+                const syms = Array.from(document.querySelectorAll('[id^="tp-"]'))
+                    .map(el => el.id.replace('tp-', ''))
+                    .filter(Boolean);
+                if (!syms.length) return;
+                fetch('/api/exit-signals?symbols=' + syms.join(','))
+                    .then(r => r.json())
+                    .then(data => {
+                        Object.entries(data).forEach(([sym, info]) => {
+                            const tpEl   = document.getElementById('tp-'   + sym);
+                            const exitEl = document.getElementById('exit-' + sym);
+                            if (tpEl && info.take_profit) {
+                                const dist = info.resistance_pct != null
+                                    ? ` <span style="font-size:9px;color:#62666d;">(+${info.resistance_pct}%)</span>` : '';
+                                tpEl.innerHTML = `<span style="color:#f87171;font-weight:600;">$${info.take_profit}</span>${dist}`;
+                            } else if (tpEl) {
+                                tpEl.innerHTML = '<span style="color:#3e3e44;">—</span>';
+                            }
+                            if (exitEl) {
+                                const colors = { red:'#f87171', orange:'#fb923c', yellow:'#facc15', green:'#4ade80', gray:'#4b5563' };
+                                const c = colors[info.exit_color] || '#4b5563';
+                                exitEl.innerHTML = info.exit_signal
+                                    ? `<span style="font-size:11px;color:${c};font-weight:600;">${info.exit_signal}</span>`
+                                    : '<span style="color:#374151;font-size:11px;">—</span>';
+                            }
+                        });
+                    })
+                    .catch(() => {});
+            })();
+            </script>
 
             <!-- 成交记录面板 (默认隐藏) -->
             <div id="panel-trades" class="hidden">

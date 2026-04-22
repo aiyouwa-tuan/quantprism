@@ -4288,3 +4288,41 @@ async def api_positions_exit_status(db: Session = Depends(get_db)):
     tasks = [_calc_one(p) for p in positions]
     pairs = await asyncio.gather(*tasks)
     return JSONResponse({str(pid): data for pid, data in pairs})
+
+
+@app.get("/api/exit-signals")
+async def api_exit_signals(symbols: str = ""):
+    """TA-based exit signals for a comma-separated list of symbols (portfolio page)."""
+    import asyncio as _asyncio
+    syms = [s.strip().upper() for s in symbols.split(",") if s.strip()]
+    if not syms:
+        return JSONResponse({})
+
+    async def _one(sym):
+        try:
+            sr = await _asyncio.to_thread(calc_support_resistance, sym)
+            ta = await _asyncio.to_thread(combined_signal, sym)
+            resistance = sr.get("nearest_resistance")
+            resistance_pct = sr.get("distance_pct")
+            ta_sig = ta.get("signal", "neutral")
+
+            if ta_sig == "sell":
+                signal, color = "🔴出场", "red"
+            elif resistance and resistance_pct is not None and resistance_pct < 3:
+                signal, color = "🎯近阻力", "yellow"
+            elif ta_sig == "buy":
+                signal, color = "✅持有", "green"
+            else:
+                signal, color = None, "gray"
+
+            return sym, {
+                "take_profit": resistance,
+                "resistance_pct": resistance_pct,
+                "exit_signal": signal,
+                "exit_color": color,
+            }
+        except Exception:
+            return sym, {"take_profit": None, "resistance_pct": None, "exit_signal": None, "exit_color": "gray"}
+
+    pairs = await _asyncio.gather(*[_one(s) for s in syms])
+    return JSONResponse(dict(pairs))
