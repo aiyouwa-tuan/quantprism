@@ -20,15 +20,46 @@ _ind_cache: dict = {}
 _IND_TTL = 300  # 5 min
 
 
+_VPS_PG_URL = "postgresql://alphalens_market:mkt_Al9xK2pQ7vNw3eR@127.0.0.1:5432/alphalens_market"
+
+
+def _direct_query(sql: str) -> list[dict] | None:
+    """直接连本机 psql（VPS 上运行时使用，无需 SSH）。"""
+    import subprocess, csv, io
+    try:
+        result = subprocess.run(
+            ["psql", _VPS_PG_URL, "--no-align", "--csv"],
+            input=sql,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        if result.returncode != 0 or not result.stdout.strip():
+            return None
+        reader = csv.DictReader(io.StringIO(result.stdout))
+        rows = [dict(r) for r in reader]
+        return rows if rows else None
+    except Exception:
+        return None
+
+
+def _query(sql: str) -> list[dict] | None:
+    """先试本机直连，失败则走 SSH（兼容 VPS 和本机开发）。"""
+    rows = _direct_query(sql)
+    if rows is not None:
+        return rows
+    from jin_data import _ssh_query
+    return _ssh_query(sql)
+
+
 def _get_candles(symbol: str, limit: int = 300) -> list[dict]:
-    """从 VPS 拉取日线数据（5 分钟缓存）"""
+    """从 PostgreSQL 拉取日线数据（5 分钟缓存）"""
     import time
     key = f"ind_{symbol}_{limit}"
     now = time.time()
     if key in _ind_cache and now - _ind_cache[key]["ts"] < _IND_TTL:
         return _ind_cache[key]["data"]
 
-    from jin_data import _ssh_query
     sql = f"""
     SELECT DATE(ts)::text AS date,
            open::float8, high::float8, low::float8,
@@ -37,7 +68,7 @@ def _get_candles(symbol: str, limit: int = 300) -> list[dict]:
     WHERE symbol = '{symbol}.US' AND period = 'day'
     ORDER BY ts DESC LIMIT {limit};
     """
-    rows = _ssh_query(sql)
+    rows = _query(sql)
     if not rows:
         return []
     data = []
@@ -1585,10 +1616,40 @@ def combined_signal(symbol: str) -> dict:
     if turtle_valid:
         desc += "（海龟突破+ADX有效）"
 
+    # 操作建议（中文行动语言）
+    if net_score >= 0.6:
+        action = "积极买入"
+        action_color = "green"
+    elif net_score >= 0.35:
+        action = "轻仓买入"
+        action_color = "green"
+    elif net_score >= 0.15:
+        action = "小幅试仓"
+        action_color = "teal"
+    elif net_score >= -0.15:
+        action = "观望"
+        action_color = "gray"
+    elif net_score >= -0.35:
+        action = "减仓观察"
+        action_color = "orange"
+    elif net_score >= -0.6:
+        action = "逐步减仓"
+        action_color = "red"
+    else:
+        action = "清仓离场"
+        action_color = "red"
+
+    # 高置信度买入直接升级操作建议
+    if high_confidence_buy and action in ("小幅试仓", "轻仓买入"):
+        action = "积极买入"
+        action_color = "green"
+
     return {
         "symbol": symbol,
         "net_score": round(net_score, 3),
         "signal": sig,
+        "action": action,
+        "action_color": action_color,
         "description": desc,
         "confidence": _conf(conf_val),
         "high_confidence_buy": high_confidence_buy,

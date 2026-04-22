@@ -26,6 +26,17 @@
 .divider { border-top:1px solid rgba(255,255,255,0.05); margin:18px 0; }
 .mini-row { display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.04); font-size:12px; }
 .mini-row:last-child { border-bottom:none; }
+/* ---- tooltip system ---- */
+.tip-wrap { position:relative; display:inline-block; }
+.tip-icon { width:13px; height:13px; border-radius:50%; background:rgba(148,163,184,0.08); color:#4a5060; font-size:9px; font-weight:800; display:inline-flex; align-items:center; justify-content:center; cursor:help; border:1px solid rgba(148,163,184,0.13); margin-left:5px; vertical-align:middle; transition:all .15s; font-style:normal; }
+.tip-wrap:hover .tip-icon { color:#94a3b8; background:rgba(148,163,184,0.18); border-color:rgba(148,163,184,0.3); }
+.tip-box { position:absolute; bottom:calc(100% + 8px); left:0; background:#1a1d24; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:11px 14px; font-size:11px; color:#cbd5e1; line-height:1.7; white-space:normal; min-width:240px; max-width:300px; z-index:300; display:none; pointer-events:none; box-shadow:0 10px 30px rgba(0,0,0,0.5); }
+.tip-box b { color:#f1f5f9; font-weight:700; }
+.tip-box code { background:rgba(255,255,255,0.07); border-radius:3px; padding:1px 5px; font-family:monospace; font-size:10px; color:#e2e8f0; }
+.tip-box .tip-tag { display:inline-block; background:rgba(94,106,210,0.18); color:#7c7fff; border-radius:4px; padding:0 5px; font-size:10px; font-weight:700; margin-left:3px; }
+.tip-wrap:hover .tip-box { display:block; }
+.tip-right .tip-box { left:auto; right:0; }
+.sec-desc { font-size:11px; color:#44474d; margin-top:2px; margin-bottom:10px; }
 </style>
 
 <!-- ===== 页头 ===== -->
@@ -62,45 +73,98 @@
     <!-- 综合信号 -->
     <div class="combined-card" id="combined-section">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-            <div>
+            <div style="flex:1;min-width:200px;">
                 <div class="ind-label">综合信号</div>
-                <div style="display:flex;align-items:center;gap:10px;margin-top:4px;">
+                <div style="display:flex;align-items:center;gap:10px;margin-top:4px;flex-wrap:wrap;">
                     <span id="comb-sig-badge" class="ind-badge sig-neutral">中性</span>
                     <span id="comb-conf" class="conf-medium" style="font-size:11px;font-weight:600;"></span>
                 </div>
                 <div id="comb-desc" class="ind-desc" style="margin-top:8px;max-width:420px;"></div>
             </div>
+            <!-- 操作建议（核心） -->
+            <div style="text-align:center;padding:12px 20px;background:rgba(0,0,0,0.3);border-radius:10px;min-width:130px;">
+                <div style="font-size:11px;color:#62666d;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">操作建议</div>
+                <div id="comb-action" style="font-size:22px;font-weight:800;letter-spacing:-.5px;">观望</div>
+            </div>
             <div style="min-width:160px;">
-                <div style="font-size:11px;color:#62666d;margin-bottom:4px;">得分 <span id="comb-score" style="color:#f7f8f8;font-weight:700;"></span></div>
+                <div style="font-size:11px;color:#62666d;margin-bottom:4px;">综合得分 <span id="comb-score" style="color:#f7f8f8;font-weight:700;"></span></div>
                 <div class="score-bar-bg">
                     <div id="comb-bar" class="score-bar-fill" style="background:#5e6ad2;width:50%;"></div>
                 </div>
                 <div style="display:flex;justify-content:space-between;font-size:10px;color:#44474d;margin-top:2px;">
-                    <span>看跌</span><span>中性</span><span>看涨</span>
+                    <span>清仓</span><span>观望</span><span>积极买</span>
                 </div>
             </div>
         </div>
         <!-- 分项信号 mini 展示 -->
         <div id="comb-components" style="margin-top:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px;"></div>
         <div style="margin-top:10px;display:flex;gap:8px;font-size:11px;color:#62666d;" id="comb-flags"></div>
+
+        <!-- 打分逻辑展开 -->
+        <div style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.05);padding-top:10px;">
+            <div onclick="var p=document.getElementById('weight-panel'),open=p.style.display!=='none';p.style.display=open?'none':'block';this.querySelector('.tw-chevron').textContent=open?'▶':'▼';"
+                style="cursor:pointer;font-size:11px;color:#62666d;display:flex;align-items:center;gap:6px;user-select:none;">
+                <span class="tw-chevron">▶</span> 查看完整打分权重 & 操作建议说明
+            </div>
+            <div id="weight-panel" style="display:none;margin-top:12px;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                    <!-- 权重表 -->
+                    <div>
+                        <div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">指标权重</div>
+                        <div style="font-size:11px;color:#62666d;margin-bottom:6px;">综合得分 = Σ(信号×权重) ÷ 总权重，范围 −1 ~ +1</div>
+                        <div style="font-size:11px;">
+                            <div style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.03);"><span style="min-width:28px;font-weight:700;color:#7c7fff;">3.0</span><span style="color:#cbd5e1;flex:1;">道氏三级趋势</span><span style="color:#44474d;font-size:10px;">最经典趋势判断</span></div>
+                            <div style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.03);"><span style="min-width:28px;font-weight:700;color:#7c7fff;">2.5</span><span style="color:#cbd5e1;flex:1;">ADX + DMI</span><span style="color:#44474d;font-size:10px;">趋势强弱过滤</span></div>
+                            <div style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.03);"><span style="min-width:28px;font-weight:700;color:#7c7fff;">1.5</span><span style="color:#cbd5e1;flex:1;">RSI</span><span style="color:#44474d;font-size:10px;">超买超卖状态</span></div>
+                            <div style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.03);"><span style="min-width:28px;font-weight:700;color:#7c7fff;">1.5</span><span style="color:#cbd5e1;flex:1;">MACD</span><span style="color:#44474d;font-size:10px;">动能与金死叉</span></div>
+                            <div style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.03);"><span style="min-width:28px;font-weight:700;color:#7c7fff;">1.5</span><span style="color:#cbd5e1;flex:1;">极端情绪</span><span style="color:#44474d;font-size:10px;">吹顶/卖出高潮</span></div>
+                            <div style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.03);"><span style="min-width:28px;font-weight:700;color:#7c7fff;">1.0</span><span style="color:#cbd5e1;flex:1;">布林带 / SAR / 头肩 / 双顶底</span><span style="color:#44474d;font-size:10px;">各 1.0</span></div>
+                            <div style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.03);"><span style="min-width:28px;font-weight:700;color:#7c7fff;">0.8</span><span style="color:#cbd5e1;flex:1;">动量/ROC / CCI</span><span style="color:#44474d;font-size:10px;">各 0.8</span></div>
+                            <div style="display:flex;gap:6px;padding:3px 0;"><span style="min-width:28px;font-weight:700;color:#7c7fff;">0.7</span><span style="color:#cbd5e1;flex:1;">量价四象限 / 三角形</span><span style="color:#44474d;font-size:10px;">各 0.7</span></div>
+                        </div>
+                    </div>
+                    <!-- 操作建议映射 -->
+                    <div>
+                        <div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">操作建议映射</div>
+                        <div style="font-size:11px;color:#62666d;margin-bottom:6px;">纯规则映射，无 AI 大模型参与</div>
+                        <div style="font-size:11px;">
+                            <div style="display:flex;align-items:baseline;gap:6px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.03);"><span style="min-width:58px;font-size:10px;color:#44474d;font-family:monospace;">≥ +0.60</span><span style="font-weight:800;color:#4ade80;min-width:68px;">积极买入</span><span style="color:#44474d;font-size:10px;">指标全面一致看涨</span></div>
+                            <div style="display:flex;align-items:baseline;gap:6px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.03);"><span style="min-width:58px;font-size:10px;color:#44474d;font-family:monospace;">≥ +0.35</span><span style="font-weight:800;color:#86efac;min-width:68px;">轻仓买入</span><span style="color:#44474d;font-size:10px;">多数指标偏多</span></div>
+                            <div style="display:flex;align-items:baseline;gap:6px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.03);"><span style="min-width:58px;font-size:10px;color:#44474d;font-family:monospace;">≥ +0.15</span><span style="font-weight:800;color:#5eead4;min-width:68px;">小幅试仓</span><span style="color:#44474d;font-size:10px;">偏多但信号不强</span></div>
+                            <div style="display:flex;align-items:baseline;gap:6px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.03);"><span style="min-width:58px;font-size:10px;color:#44474d;font-family:monospace;">&gt; −0.15</span><span style="font-weight:800;color:#94a3b8;min-width:68px;">观望</span><span style="color:#44474d;font-size:10px;">信号分歧，等待明朗</span></div>
+                            <div style="display:flex;align-items:baseline;gap:6px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.03);"><span style="min-width:58px;font-size:10px;color:#44474d;font-family:monospace;">&gt; −0.35</span><span style="font-weight:800;color:#fb923c;min-width:68px;">减仓观察</span><span style="color:#44474d;font-size:10px;">偏空迹象，控制仓位</span></div>
+                            <div style="display:flex;align-items:baseline;gap:6px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.03);"><span style="min-width:58px;font-size:10px;color:#44474d;font-family:monospace;">&gt; −0.60</span><span style="font-weight:800;color:#f87171;min-width:68px;">逐步减仓</span><span style="color:#44474d;font-size:10px;">多数指标看跌</span></div>
+                            <div style="display:flex;align-items:baseline;gap:6px;padding:4px 0;"><span style="min-width:58px;font-size:10px;color:#44474d;font-family:monospace;">&lt; −0.60</span><span style="font-weight:800;color:#ef4444;min-width:68px;">清仓离场</span><span style="color:#44474d;font-size:10px;">指标全面一致看跌</span></div>
+                        </div>
+                        <div style="margin-top:10px;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:6px;font-size:10.5px;color:#44474d;line-height:1.6;">
+                            ⚠️ 纯规则引擎，无 AI 大模型。所有计算基于数学公式，可完全回测验证。低置信度 = 指标信号分歧，不代表计算错误。
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="divider"></div>
 
     <!-- P0: 振荡器 -->
     <div class="sec-title">P0 · 振荡器</div>
+    <div class="sec-desc">衡量价格动能与超买超卖状态。基于数学公式计算，无需主观判断。RSI/MACD 参与综合打分，Stochastic 仅作辅助参考。</div>
     <div class="ind-grid" id="oscillator-grid"></div>
 
     <!-- P0: 趋势 -->
     <div class="sec-title" style="margin-top:20px;">P0 · 趋势判断</div>
+    <div class="sec-desc">判断价格主方向及趋势强度。道氏理论权重最高（3.0），是综合打分的核心锚点。ADX 负责趋势强弱过滤，布林带/SAR/Fibonacci 提供价格位置参考。</div>
     <div class="ind-grid" id="trend-grid"></div>
 
     <!-- P1: 量价 / 布林 -->
     <div class="sec-title" style="margin-top:20px;">P1 · 量价 & 波动</div>
+    <div class="sec-desc">成交量是价格走势的「验证票」。量价同向 = 信号可信；量价背离 = 信号存疑。缺口和极端情绪是少见但高价值的信号。</div>
     <div class="ind-grid-2" id="volume-grid"></div>
 
     <!-- P2: 形态识别 -->
     <div class="sec-title" style="margin-top:20px;">P2 · 形态识别</div>
+    <div class="sec-desc">识别 K 线群组成的经典图形结构。形态需要「确认」才计入强信号（颈线突破/跌破）。出现频率较低，但一旦确认可靠性高。</div>
     <div class="ind-grid-2" id="pattern-grid"></div>
 
 </div>
@@ -144,10 +208,15 @@ function confBadge(conf) {
     return `<span class="${cls}" style="font-size:11px;font-weight:600;">${label}</span>`;
 }
 
-function indCard(title, value, sig, desc, conf, extra) {
+function tip(html, right) {
+    return `<span class="tip-wrap${right?' tip-right':''}"><i class="tip-icon">i</i><div class="tip-box">${html}</div></span>`;
+}
+
+function indCard(title, value, sig, desc, conf, extra, tipHtml) {
+    const tipEl = tipHtml ? tip(tipHtml) : '';
     return `
     <div class="ind-card">
-        <div class="ind-label">${title}</div>
+        <div class="ind-label">${title}${tipEl}</div>
         <div style="display:flex;align-items:center;gap:8px;margin:4px 0;">
             ${value !== null && value !== undefined ? `<span class="ind-val">${value}</span>` : ''}
             ${sigBadge(sig)}
@@ -194,6 +263,16 @@ async function loadIndicators(sym) {
     document.getElementById('ind-content').style.display = 'block';
 }
 
+const ACTION_COLOR = {
+    '积极买入': '#4ade80',
+    '轻仓买入': '#86efac',
+    '小幅试仓': '#5eead4',
+    '观望':     '#94a3b8',
+    '减仓观察': '#fb923c',
+    '逐步减仓': '#f87171',
+    '清仓离场': '#ef4444',
+};
+
 function renderCombined(d) {
     const score = d.net_score || 0;
     const [label, cls] = SIG_LABEL[d.signal] || ['—', 'sig-neutral'];
@@ -203,6 +282,13 @@ function renderCombined(d) {
     document.getElementById('comb-score').textContent = (score >= 0 ? '+' : '') + score.toFixed(3);
     document.getElementById('comb-conf').className = CONF_CLASS[d.confidence] || 'conf-low';
     document.getElementById('comb-conf').textContent = { high:'高置信', medium:'中置信', low:'低置信' }[d.confidence] || '';
+
+    // 操作建议
+    const action = d.action || '观望';
+    const actionEl = document.getElementById('comb-action');
+    actionEl.textContent = action;
+    actionEl.style.color = ACTION_COLOR[action] || '#94a3b8';
+
     // 得分条（-1 ~ +1 → 0 ~ 100%）
     const barPct = Math.round((score + 1) / 2 * 100);
     const barColor = score > 0.3 ? '#4ade80' : (score < -0.3 ? '#f87171' : '#5e6ad2');
@@ -211,16 +297,27 @@ function renderCombined(d) {
 
     // 分项信号
     const comps = d.component_signals || {};
-    const compNames = {
-        dow_theory:'道氏', adx:'ADX', rsi:'RSI', macd:'MACD',
-        bollinger:'布林带', parabolic_sar:'SAR', momentum:'动量',
-        cci:'CCI', volume_price:'量价', head_shoulders:'头肩', double_patterns:'双顶底',
-        triangle:'三角形', extreme:'极端情绪'
+    const compMeta = {
+        dow_theory:   { name:'道氏', w:'3.0', tip:'三级趋势（主/次/小）全面向上=最强买入。权重最高，是综合打分的核心锚点。' },
+        adx:          { name:'ADX',  w:'2.5', tip:'ADX>25趋势有效，+DI>-DI为多头。低ADX时所有趋势信号可靠性下降。' },
+        rsi:          { name:'RSI',  w:'1.5', tip:'>70超买，<30超卖。RSI背离（价创新高而RSI不创）是顶部预警。' },
+        macd:         { name:'MACD', w:'1.5', tip:'金叉（MACD上穿信号线）=买入；死叉=卖出。柱状图收窄=动能减弱。' },
+        bollinger:    { name:'布林带',w:'1.0', tip:'触上轨=超买压力；触下轨=超卖支撑。带宽收窄意味着即将大幅突破。' },
+        parabolic_sar:{ name:'SAR',  w:'1.0', tip:'价格跌破SAR=空头翻转信号。SAR从下方追踪止损，趋势保护。' },
+        momentum:     { name:'动量', w:'0.8', tip:'ROC=(今收-N日前收)/N日前收×100%，测量价格变化速率。' },
+        cci:          { name:'CCI',  w:'0.8', tip:'>100超买；<-100超卖；从极端区返回零线=趋势转换信号。' },
+        volume_price: { name:'量价', w:'0.7', tip:'量价四象限：价涨量增最健康；价涨量缩虚涨；价跌量增恐慌底。' },
+        head_shoulders:{ name:'头肩',w:'1.0', tip:'3个高点中间最高，颈线跌破确认=看跌反转。颈线未破仅作参考。' },
+        double_patterns:{ name:'双顶底',w:'1.0',tip:'M顶（双顶）颈线跌破=看跌；W底（双底）颈线突破=看涨。最常见反转形态。' },
+        triangle:     { name:'三角形',w:'0.7',tip:'上升三角多头；下降三角空头；对称三角等待突破方向确认。' },
+        extreme:      { name:'极端情绪',w:'1.5',tip:'吹顶=连续大涨+放量，顶部风险；卖出高潮=连续大跌+量创新高，底部信号。' },
     };
     const compHtml = Object.entries(comps).map(([k, v]) => {
         const [lab, cls] = SIG_LABEL[v] || ['—', 'sig-neutral'];
+        const meta = compMeta[k] || { name: k, w: '', tip: '' };
+        const tipHtml = meta.tip ? `<span class="tip-wrap"><i class="tip-icon">i</i><div class="tip-box" style="min-width:200px;"><b>${meta.name}</b>　<span class="tip-tag">权重 ${meta.w}</span><br>${meta.tip}</div></span>` : '';
         return `<div style="text-align:center;">
-            <div style="font-size:10px;color:#62666d;margin-bottom:2px;">${compNames[k]||k}</div>
+            <div style="font-size:10px;color:#62666d;margin-bottom:2px;display:flex;align-items:center;justify-content:center;gap:2px;">${meta.name}${tipHtml}</div>
             <span class="ind-badge ${cls}" style="font-size:10px;">${lab}</span>
         </div>`;
     }).join('');
@@ -247,7 +344,12 @@ function renderOscillators(d) {
     html += indCard('RSI (14)',
         rsi.value,
         rsi.signal, rsi.description, rsi.confidence,
-        rsi.divergence ? `<div style="font-size:11px;color:#facc15;">⚡ ${rsi.divergence}</div>` : ''
+        rsi.divergence ? `<div style="font-size:11px;color:#facc15;">⚡ ${rsi.divergence}</div>` : '',
+        `<b>算法</b>：<code>RSI = 100 − 100÷(1 + 均涨/均跌)</code><br>
+         <b>周期</b>：14日收盘价涨跌幅<br>
+         <b>信号</b>：&gt;70 超买压力；&lt;30 超卖机会；50 为多空分界<br>
+         <b>背离</b>：价创新高而RSI不创新高 = 顶背离（警告）<br>
+         <span class="tip-tag">综合权重 1.5</span>`
     );
 
     // MACD
@@ -258,28 +360,48 @@ function renderOscillators(d) {
         `<div class="mini-row"><span>MACD</span><span style="color:#f7f8f8;">${macd.macd ?? '--'}</span></div>
          <div class="mini-row"><span>信号线</span><span style="color:#f7f8f8;">${macd.signal_line ?? '--'}</span></div>
          ${crossLabel[macd.cross] ? `<div style="font-size:11px;color:#facc15;margin-top:4px;">${crossLabel[macd.cross]}</div>` : ''}
-         ${macd.divergence ? `<div style="font-size:11px;color:#facc15;margin-top:2px;">⚡ ${macd.divergence}</div>` : ''}`
+         ${macd.divergence ? `<div style="font-size:11px;color:#facc15;margin-top:2px;">⚡ ${macd.divergence}</div>` : ''}`,
+        `<b>算法</b>：<code>MACD = EMA12 − EMA26</code>，信号线 = MACD 的 EMA9<br>
+         <b>金叉</b>：MACD 上穿信号线 → 买入；<b>死叉</b>：下穿 → 卖出<br>
+         <b>柱状图</b>：扩大=动能加速，收窄=动能减弱，零线为多空分界<br>
+         <b>背离</b>：价涨而MACD柱收缩 = 顶背离（高风险）<br>
+         <span class="tip-tag">综合权重 1.5</span>`
     );
 
     // Stochastic
     html += indCard('随机指标 (5,3,3)',
         sto.k !== undefined ? `%K ${sto.k}` : null,
         sto.signal, sto.description, sto.confidence,
-        `<div class="mini-row"><span>%D</span><span style="color:#f7f8f8;">${sto.d ?? '--'}</span></div>`
+        `<div class="mini-row"><span>%D</span><span style="color:#f7f8f8;">${sto.d ?? '--'}</span></div>`,
+        `<b>算法</b>：<code>%K = (收盘−最低)÷(最高−最低)×100</code><br>
+         参数 K=5日，D=3日平滑，Slow=3<br>
+         <b>信号</b>：%K &gt;80 超买；&lt;20 超卖<br>
+         需等待 %K 与 %D 交叉确认，避免假信号<br>
+         <span class="tip-tag">辅助参考，不计入综合权重</span>`
     );
 
     // Momentum
     html += indCard('动量 / ROC (14)',
         mom.roc !== undefined ? mom.roc + '%' : null,
         mom.signal, mom.description, mom.confidence,
-        `<div class="mini-row"><span>Momentum</span><span style="color:#f7f8f8;">${mom.momentum ?? '--'}</span></div>`
+        `<div class="mini-row"><span>Momentum</span><span style="color:#f7f8f8;">${mom.momentum ?? '--'}</span></div>`,
+        `<b>算法</b>：<code>ROC = (今收 − 14日前收) ÷ 14日前收 × 100%</code><br>
+         Momentum = 今收 − 14日前收（绝对值）<br>
+         <b>含义</b>：测量价格变化速率，正=加速上涨，负=加速下跌<br>
+         零线穿越 = 趋势转换早期信号<br>
+         <span class="tip-tag">综合权重 0.8</span>`
     );
 
     // CCI
     html += indCard('CCI (20)',
         cci.value,
         cci.signal, cci.description, cci.confidence,
-        ''
+        '',
+        `<b>算法</b>：<code>CCI = (典型价 − 均值) ÷ (0.015 × 平均绝对偏差)</code><br>
+         典型价 = (高+低+收) ÷ 3，周期 20 日<br>
+         <b>信号</b>：&gt;100 超买；&lt;−100 超卖；±200 极度偏离<br>
+         从超买/超卖区返回零线 = 趋势转换信号<br>
+         <span class="tip-tag">综合权重 0.8</span>`
     );
 
     document.getElementById('oscillator-grid').innerHTML = html;
@@ -303,7 +425,12 @@ function renderTrend(d) {
         `<div class="mini-row"><span>+DI</span><span style="color:#4ade80;">${adx.plus_di ?? '--'}</span></div>
          <div class="mini-row"><span>-DI</span><span style="color:#f87171;">${adx.minus_di ?? '--'}</span></div>
          <div class="mini-row"><span>趋势强度</span><span style="color:#f7f8f8;">${adx.trending ? '趋势市' : '震荡市'}</span></div>
-         ${diCross ? `<div style="font-size:11px;color:#facc15;margin-top:4px;">${diCross}</div>` : ''}`
+         ${diCross ? `<div style="font-size:11px;color:#facc15;margin-top:4px;">${diCross}</div>` : ''}`,
+        `<b>+DI</b>：上涨动向强度；<b>-DI</b>：下跌动向强度<br>
+         <b>ADX</b>：DI 差值的平滑均值，反映趋势强度（与方向无关）<br>
+         <b>判断</b>：ADX &gt;25 趋势有效；&lt;20 震荡市（信号可靠性下降）<br>
+         +DI 上穿 -DI = 多头信号；下穿 = 空头信号<br>
+         <span class="tip-tag">综合权重 2.5（第二重要）</span>`
     );
 
     // 道氏理论
@@ -314,7 +441,14 @@ function renderTrend(d) {
         `<div class="mini-row"><span>主趋势</span><span style="color:#f7f8f8;">${trendIcon(dow.primary_trend)} ${dow.primary_trend || '--'}</span></div>
          <div class="mini-row"><span>次趋势</span><span style="color:#f7f8f8;">${trendIcon(dow.secondary_trend)} ${dow.secondary_trend || '--'}</span></div>
          <div class="mini-row"><span>小趋势</span><span style="color:#f7f8f8;">${trendIcon(dow.minor_trend)} ${dow.minor_trend || '--'}</span></div>
-         <div class="mini-row"><span>量能确认</span><span>${dow.volume_confirms ? '✓ 是' : '✗ 否'}</span></div>`
+         <div class="mini-row"><span>量能确认</span><span>${dow.volume_confirms ? '✓ 是' : '✗ 否'}</span></div>`,
+        `<b>理论来源</b>：道琼斯 1890s 经典技术分析体系<br>
+         通过识别价格波峰波谷，划分三级趋势：<br>
+         · <b>主趋势</b>（月级）：持续数月的主方向<br>
+         · <b>次趋势</b>（周级）：主趋势中的回调/反弹<br>
+         · <b>小趋势</b>（日级）：短期波动<br>
+         三级全面向上 + 量能确认 = 最强买入信号<br>
+         <span class="tip-tag">综合权重 3.0（最高）</span>`
     );
 
     // 布林带
@@ -324,7 +458,13 @@ function renderTrend(d) {
         `<div class="mini-row"><span>上轨</span><span style="color:#f87171;">\$${boll.upper ?? '--'}</span></div>
          <div class="mini-row"><span>中轨</span><span style="color:#f7f8f8;">\$${boll.middle ?? '--'}</span></div>
          <div class="mini-row"><span>下轨</span><span style="color:#4ade80;">\$${boll.lower ?? '--'}</span></div>
-         ${boll.squeeze ? '<div style="font-size:11px;color:#facc15;margin-top:4px;">⚡ 带宽收窄，即将爆发</div>' : ''}`
+         ${boll.squeeze ? '<div style="font-size:11px;color:#facc15;margin-top:4px;">⚡ 带宽收窄，即将爆发</div>' : ''}`,
+        `<b>中轨</b>：20 日移动均线（趋势基准）<br>
+         <b>上下轨</b>：中轨 ± 2 倍标准差（覆盖 ~95% 价格）<br>
+         <b>信号</b>：触上轨=超买压力；触下轨=超卖支撑<br>
+         <b>带宽收窄（Squeeze）</b>：波动率压缩，即将大幅突破<br>
+         <b>带宽扩大</b>：趋势加速，顺势操作<br>
+         <span class="tip-tag">综合权重 1.0</span>`
     );
 
     // Parabolic SAR
@@ -333,7 +473,13 @@ function renderTrend(d) {
         sar.signal, sar.description, sar.confidence,
         `<div class="mini-row"><span>趋势</span><span style="color:#f7f8f8;">${sar.trend === 'bullish' ? '🟢 多头' : '🔴 空头'}</span></div>
          <div class="mini-row"><span>距SAR</span><span style="color:#f7f8f8;">${sar.distance_pct ?? '--'}%</span></div>
-         ${sar.last_flip_date ? `<div class="mini-row"><span>上次翻转</span><span style="color:#94a3b8;">${sar.last_flip_date}</span></div>` : ''}`
+         ${sar.last_flip_date ? `<div class="mini-row"><span>上次翻转</span><span style="color:#94a3b8;">${sar.last_flip_date}</span></div>` : ''}`,
+        `<b>算法</b>：<code>SAR = 前SAR + AF×(极值−前SAR)</code><br>
+         加速因子 AF 初始 0.02，每创新高 +0.02，上限 0.2<br>
+         <b>多头</b>：SAR 在价格下方跟踪，随趋势上移<br>
+         <b>空头</b>：SAR 在价格上方，价格反弹不过 SAR<br>
+         价格穿越 SAR → 翻转信号（止损+反手）<br>
+         <span class="tip-tag">综合权重 1.0</span>`
     );
 
     // Fibonacci
@@ -347,7 +493,14 @@ function renderTrend(d) {
             return v ? `<div class="mini-row"><span>${(parseFloat(r)*100).toFixed(1)}%</span><span style="color:#94a3b8;">\$${v}</span></div>` : '';
         }).join('')}
         <div class="mini-row"><span>高点</span><span style="color:#f87171;">\$${fib.swing_high ?? '--'}</span></div>
-        <div class="mini-row"><span>低点</span><span style="color:#4ade80;">\$${fib.swing_low ?? '--'}</span></div>`
+        <div class="mini-row"><span>低点</span><span style="color:#4ade80;">\$${fib.swing_low ?? '--'}</span></div>`,
+        `用近 300 根 K 线的最高点和最低点划定波段<br>
+         <b>回撤位</b>：23.6% / 38.2% / 50% / 61.8% / 78.6%<br>
+         <b>黄金分割 61.8%</b>：最关键支撑/阻力位<br>
+         38.2% 和 50% 是常见回调止跌区<br>
+         价格在支撑位附近 + 其他指标共振 = 高质量入场点<br>
+         <span class="tip-tag">综合权重 中性（仅提供价位参考）</span>`,
+        true
     );
 
     // 趋势线
@@ -360,7 +513,14 @@ function renderTrend(d) {
          <div class="mini-row"><span>距离</span><span>${upL.distance_pct ?? '--'}%</span></div>
          ${upL.broken ? '<div style="font-size:11px;color:#f87171;">⚠️ 已跌破</div>' : ''}` : '<div style="font-size:11px;color:#62666d;">无上升趋势线</div>'}
          ${dwL.current_value ? `<div class="mini-row" style="margin-top:6px;"><span>下降趋势线</span><span style="color:#f87171;">\$${dwL.current_value}</span></div>
-         ${dwL.broken ? '<div style="font-size:11px;color:#4ade80;">✓ 向上突破</div>' : ''}` : ''}`
+         ${dwL.broken ? '<div style="font-size:11px;color:#4ade80;">✓ 向上突破</div>' : ''}` : ''}`,
+        `<b>算法</b>：对近期波动高点做线性回归 = 压力趋势线<br>
+         对近期波动低点做线性回归 = 支撑趋势线<br>
+         <b>向上突破下降趋势线</b> = 潜在买入信号<br>
+         <b>跌破上升趋势线</b> = 止损信号<br>
+         趋势线斜率越陡，突破意义越大<br>
+         <span class="tip-tag">综合权重 0.5（辅助参考）</span>`,
+        true
     );
 
     document.getElementById('trend-grid').innerHTML = html;
@@ -386,7 +546,13 @@ function renderVolume(d) {
     html += indCard('量价四象限（近7日）',
         null,
         vp.signal, vp.description, vp.confidence,
-        dayLabels
+        dayLabels,
+        `每日的价格涨跌 × 成交量大小 = 4种组合：<br>
+         · <b style="color:#4ade80">价涨量增</b>：主力买入，最健康的上涨<br>
+         · <b style="color:#94a3b8">价涨量缩</b>：虚涨，动能衰减，警惕回调<br>
+         · <b style="color:#fb923c">价跌量增</b>：恐慌抛售，底部可能临近<br>
+         · <b style="color:#62666d">价跌量缩</b>：悄然筑底，等待反弹确认<br>
+         <span class="tip-tag">综合权重 0.7</span>`
     );
 
     // 缺口识别
@@ -404,7 +570,14 @@ function renderVolume(d) {
         gps.signal, gps.description, gps.confidence,
         `<div class="mini-row"><span>总缺口</span><span>${gps.total_count}</span></div>
          <div class="mini-row"><span>未填补</span><span style="color:#facc15;">${gps.unfilled_count}</span></div>
-         ${gapList}`
+         ${gapList}`,
+        `相邻两根 K 线之间的价格空白 = 缺口<br>
+         · <b>突破缺口</b>：伴随大量，强趋势信号<br>
+         · <b>持续缺口</b>：趋势中途，方向延续<br>
+         · <b>衰竭缺口</b>：趋势末期，反转预警<br>
+         <b>未填补缺口</b> = 重要支撑/阻力磁吸位<br>
+         大多数普通缺口最终会被回补<br>
+         <span class="tip-tag">有未填补缺口时计入参考</span>`
     );
 
     // 极端情绪
@@ -413,7 +586,13 @@ function renderVolume(d) {
         ext.signal, ext.description, ext.confidence,
         `${ext.blowoff_top ? `<div style="font-size:11px;color:#f87171;margin-top:4px;">🔴 吹顶：${ext.blowoff_top}</div>` : ''}
          ${ext.selling_climax ? `<div style="font-size:11px;color:#4ade80;margin-top:4px;">🟢 卖出高潮：${ext.selling_climax}</div>` : ''}
-         ${!ext.blowoff_top && !ext.selling_climax ? '<div style="font-size:11px;color:#62666d;margin-top:4px;">近期无极端情绪</div>' : ''}`
+         ${!ext.blowoff_top && !ext.selling_climax ? '<div style="font-size:11px;color:#62666d;margin-top:4px;">近期无极端情绪</div>' : ''}`,
+        `<b>吹顶（Blow-off Top）</b>：<br>
+         连续多日大幅上涨 + 成交量急剧放大 → 顶部风险，恐慌性追高<br><br>
+         <b>卖出高潮（Selling Climax）</b>：<br>
+         连续大跌 + 成交量放大创新高 → 恐慌底部，聪明钱开始接盘<br><br>
+         两者都是市场极端情绪的量化信号，反转概率较高<br>
+         <span class="tip-tag">综合权重 1.5</span>`
     );
 
     document.getElementById('volume-grid').innerHTML = html;
@@ -439,7 +618,13 @@ function renderPatterns(d) {
             ${hst.confirmed ? '<div style="font-size:11px;color:#f87171;">✓ 颈线已跌破</div>' : '<div style="font-size:11px;color:#62666d;">颈线未破</div>'}` : ''}
          ${hsb ? `<div class="mini-row"><span>头肩底</span><span style="color:#4ade80;">头 $${hsb.head} | 颈线 $${hsb.neckline}</span></div>
             ${hsb.confirmed ? '<div style="font-size:11px;color:#4ade80;">✓ 颈线已突破</div>' : '<div style="font-size:11px;color:#62666d;">颈线未破</div>'}` : ''}
-         ${!hst && !hsb ? '<div style="font-size:11px;color:#62666d;">未检测到形态</div>' : ''}`
+         ${!hst && !hsb ? '<div style="font-size:11px;color:#62666d;">未检测到形态</div>' : ''}`,
+        `3个连续高点，中间最高（头），两侧对称（肩）<br>
+         <b>颈线</b> = 两肩之间低点的连线<br>
+         <b>头肩顶</b>：颈线跌破确认，目标价 = 头顶到颈线的距离<br>
+         <b>头肩底</b>：颈线突破确认，反转看涨<br>
+         未确认（颈线未破）= 形态存在但信号未触发<br>
+         <span class="tip-tag">综合权重 1.0，确认后权重提升</span>`
     );
 
     // 双顶/双底
@@ -452,7 +637,13 @@ function renderPatterns(d) {
             <div class="mini-row"><span>颈线/目标</span><span style="color:#94a3b8;">$${dt.neckline} → $${dt.target}</span></div>` : ''}
          ${db ? `<div class="mini-row"><span>W底</span><span style="color:#4ade80;">$${db.bottom1} / $${db.bottom2}</span></div>
             <div class="mini-row"><span>颈线/目标</span><span style="color:#94a3b8;">$${db.neckline} → $${db.target}</span></div>` : ''}
-         ${!dt && !db ? '<div style="font-size:11px;color:#62666d;">未检测到双顶/双底</div>' : ''}`
+         ${!dt && !db ? '<div style="font-size:11px;color:#62666d;">未检测到双顶/双底</div>' : ''}`,
+        `<b>双顶（M顶）</b>：两个高度相近的高点（差 &lt;3%），中间回落 &gt;5%<br>
+         颈线跌破 = 确认反转，目标价 = 两顶高度<br><br>
+         <b>双底（W底）</b>：镜像形态，颈线突破 = 买入信号<br>
+         是最常见、最可靠的反转形态之一<br>
+         两顶高度差越小、中间回落越深，形态越标准<br>
+         <span class="tip-tag">综合权重 1.0</span>`
     );
 
     // 三角形
@@ -460,7 +651,13 @@ function renderPatterns(d) {
     html += indCard('三角形形态',
         tri.triangle_type ? triTypeLabel[tri.triangle_type] : null,
         tri.signal, tri.description, tri.confidence,
-        ''
+        '',
+        `价格高点和低点逐步收敛形成三角形整理区：<br>
+         · <b>上升三角</b>：上轨水平 + 下轨上升 → 多头蓄力，向上突破概率高<br>
+         · <b>下降三角</b>：上轨下降 + 下轨水平 → 空头压力，向下突破概率高<br>
+         · <b>对称三角</b>：双向收敛 → 等待突破方向确认<br>
+         越接近顶点位置突破，力度越大<br>
+         <span class="tip-tag">综合权重 0.7</span>`
     );
 
     // 旗形/楔形
@@ -468,7 +665,15 @@ function renderPatterns(d) {
     html += indCard('旗形 / 楔形',
         flg.pattern ? patLabel[flg.pattern] : null,
         flg.signal, flg.description, flg.confidence,
-        ''
+        '',
+        `强势行情之后的短暂整理结构：<br>
+         · <b>牛市旗形</b>：大涨后小幅平行回调，看涨延续<br>
+         · <b>熊市旗形</b>：大跌后小幅反弹整理，看跌延续<br>
+         · <b>上升楔形</b>：收敛上涨，通常向下突破（反转）<br>
+         · <b>下降楔形</b>：收敛下跌，通常向上突破（反转）<br>
+         旗形是中继形态，楔形兼有中继和反转特征<br>
+         <span class="tip-tag">形态出现时计入参考</span>`,
+        true
     );
 
     // 三重顶底/圆弧底
@@ -477,7 +682,13 @@ function renderPatterns(d) {
         trp.signal, trp.description, trp.confidence,
         `${trp.triple_top ? `<div class="mini-row"><span>三重顶</span><span style="color:#f87171;">均价 $${trp.triple_top.avg}</span></div>` : ''}
          ${trp.triple_bottom ? `<div class="mini-row"><span>三重底</span><span style="color:#4ade80;">均价 $${trp.triple_bottom.avg}</span></div>` : ''}
-         ${trp.rounding_bottom ? `<div class="mini-row"><span>圆弧底</span><span style="color:#4ade80;">低点 $${trp.rounding_bottom.low_point}</span></div>` : ''}`
+         ${trp.rounding_bottom ? `<div class="mini-row"><span>圆弧底</span><span style="color:#4ade80;">低点 $${trp.rounding_bottom.low_point}</span></div>` : ''}`,
+        `<b>三重顶</b>：三次冲击同一阻力位失败 → 强反转信号，目标跌幅 = 顶部高度<br>
+         <b>三重底</b>：三次测试同一支撑位不破 → 强支撑，看涨反转<br><br>
+         <b>圆弧底</b>：价格缓慢筑底呈弧形上扬，通常伴随成交量同步扩大<br>
+         是最看好的底部形态之一，反转动能最持久<br>
+         <span class="tip-tag">出现时高置信度信号</span>`,
+        true
     );
 
     // 矩形箱体
@@ -486,7 +697,14 @@ function renderPatterns(d) {
         rec.signal, rec.description, rec.confidence,
         `<div class="mini-row"><span>高度</span><span style="color:#f7f8f8;">${rec.box_height_pct}%</span></div>
          <div class="mini-row"><span>折返次数</span><span style="color:#f7f8f8;">${rec.oscillation_count}</span></div>
-         <div class="mini-row"><span>当前位置</span><span>${rec.in_box ? '箱体内' : '已突破'}</span></div>`
+         <div class="mini-row"><span>当前位置</span><span>${rec.in_box ? '箱体内' : '已突破'}</span></div>`,
+        `价格在水平支撑和压力之间反复震荡 = 箱体整理<br>
+         <b>箱体内</b>：等待突破方向，可做区间高抛低吸<br>
+         <b>向上突破</b>：放量突破上轨 = 看涨，目标 = 箱体高度<br>
+         <b>向下跌破</b>：放量跌破下轨 = 看跌，目标 = 箱体高度<br>
+         折返次数越多，突破后爆发力越强<br>
+         <span class="tip-tag">突破确认后计入信号</span>`,
+        true
     );
 
     document.getElementById('pattern-grid').innerHTML = html;
@@ -509,20 +727,21 @@ function renderSummary(data) {
         <thead><tr style="background:rgba(255,255,255,0.03);">
             <th style="padding:10px 14px;text-align:left;font-size:11px;color:#62666d;font-weight:600;">标的</th>
             <th style="padding:10px 14px;text-align:right;font-size:11px;color:#62666d;font-weight:600;">价格</th>
-            <th style="padding:10px 14px;text-align:center;font-size:11px;color:#62666d;font-weight:600;">综合信号</th>
-            <th style="padding:10px 14px;text-align:center;font-size:11px;color:#62666d;font-weight:600;">得分</th>
+            <th style="padding:10px 14px;text-align:center;font-size:11px;color:#62666d;font-weight:600;">操作建议</th>
+            <th style="padding:10px 14px;text-align:center;font-size:11px;color:#62666d;font-weight:600;">综合得分</th>
             <th style="padding:10px 14px;text-align:center;font-size:11px;color:#62666d;font-weight:600;">置信度</th>
-            <th style="padding:10px 14px;text-align:left;font-size:11px;color:#62666d;font-weight:600;">说明</th>
+            <th style="padding:10px 14px;text-align:left;font-size:11px;color:#62666d;font-weight:600;">指标说明</th>
         </tr></thead><tbody>`;
     data.forEach((row, i) => {
         const comb = row.combined || {};
-        const [label, cls] = SIG_LABEL[comb.signal] || ['—', 'sig-neutral'];
-        const scoreColor = (comb.net_score || 0) > 0.3 ? '#4ade80' : ((comb.net_score || 0) < -0.3 ? '#f87171' : '#94a3b8');
+        const action = comb.action || '观望';
+        const actionColor = ACTION_COLOR[action] || '#94a3b8';
+        const scoreColor = (comb.net_score || 0) > 0.15 ? '#4ade80' : ((comb.net_score || 0) < -0.15 ? '#f87171' : '#94a3b8');
         const bg = i % 2 === 0 ? '' : 'background:rgba(255,255,255,0.015);';
         html += `<tr style="${bg}cursor:pointer;" onclick="selectSymbol('${row.symbol}')">
             <td style="padding:10px 14px;font-size:13px;font-weight:700;color:#f7f8f8;">${row.symbol}</td>
             <td style="padding:10px 14px;text-align:right;font-size:13px;color:#f7f8f8;">$${row.price ?? '--'}</td>
-            <td style="padding:10px 14px;text-align:center;"><span class="ind-badge ${cls}" style="font-size:11px;">${label}</span></td>
+            <td style="padding:10px 14px;text-align:center;font-size:14px;font-weight:800;color:${actionColor};">${action}</td>
             <td style="padding:10px 14px;text-align:center;font-size:13px;font-weight:700;color:${scoreColor};">${comb.net_score !== undefined ? (comb.net_score >= 0 ? '+' : '') + comb.net_score.toFixed(3) : '--'}</td>
             <td style="padding:10px 14px;text-align:center;"><span class="${CONF_CLASS[comb.confidence]||'conf-low'}" style="font-size:11px;font-weight:600;">${{high:'高',medium:'中',low:'低'}[comb.confidence]||'--'}</span></td>
             <td style="padding:10px 14px;font-size:11px;color:#94a3b8;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${comb.description || '--'}</td>

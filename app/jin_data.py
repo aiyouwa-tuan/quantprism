@@ -26,8 +26,34 @@ _SUMMARY_TTL = 300
 # VPS 查询工具
 # ---------------------------------------------------------------------------
 
+def _direct_query(sql: str, timeout: int = 20) -> list[dict] | None:
+    """直接连本机 psql（VPS 上运行时使用，无需 SSH）。"""
+    import csv, io
+    try:
+        result = subprocess.run(
+            ["psql", VPS_PG_URL, "--no-align", "--csv"],
+            input=sql,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+        if result.returncode != 0 or not result.stdout.strip():
+            return None
+        reader = csv.DictReader(io.StringIO(result.stdout))
+        rows = [dict(r) for r in reader]
+        return rows if rows else None
+    except Exception:
+        return None
+
+
 def _ssh_query(sql: str, timeout: int = 20) -> list[dict] | None:
-    """通过 SSH stdin 在 VPS 上执行 SQL，返回 dict 列表，失败返回 None。"""
+    """先试直连 psql（VPS 环境），失败再走 SSH（本机开发环境）。"""
+    # 直连成功（在 VPS 上运行时），直接返回
+    rows = _direct_query(sql, timeout)
+    if rows is not None:
+        return rows
+
+    # 回退到 SSH（本机开发）
     ssh_cmd = [
         "ssh", "-i", VPS_KEY,
         "-o", "BatchMode=yes",

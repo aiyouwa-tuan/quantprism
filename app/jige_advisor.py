@@ -234,7 +234,7 @@ def _calc_volume_profile(df, bins: int = 30) -> dict:
         return {}
 
 
-def _calc_fibonacci(df, lookback: int = 120) -> dict:
+def _calc_fibonacci(df, lookback: int = 520) -> dict:
     """
     斐波那契回调/延伸位
     从过去lookback天的最高/最低点计算关键Fib位
@@ -334,19 +334,106 @@ def _calc_pivot_sr(df, n_pivots: int = 3) -> dict:
         return {}
 
 
-def _fetch_ohlcv(symbol: str, period: str = "1y") -> "pd.DataFrame | None":
-    """从 yfinance 拉取历史 OHLCV（与长桥数据等价，适用于美股/ETF）"""
+_PG_DSN = "postgresql://alphalens_market:mkt_Al9xK2pQ7vNw3eR@82.180.131.159:5432/alphalens_market"
+
+# PG 支持的 symbol 集合（stock_candles 表），查询时附加 .US 后缀
+_PG_SYMBOLS = {
+    "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META",
+    "TSLA", "TSM", "QQQ", "SPY",
+}
+
+
+def _fetch_ohlcv(symbol: str, period: str = "5y") -> "pd.DataFrame | None":
+    """
+    数据优先级：
+      1. AlphaLens PostgreSQL（M7 + TSM + QQQ + SPY，日线最长30年，周/月线10年）
+      2. IBKR 本地 CSV（2021-2026 日线，25个品种）
+      3. yfinance（任意品种，5y）
+    列归一化为 Open/High/Low/Close/Volume/Turnover（首字母大写）。
+    """
+    import os
+    import pandas as pd
+    from datetime import datetime, timedelta
+
+    sym = symbol.upper()
+
+    # ── 1. AlphaLens PostgreSQL ────────────────────────────────────────────
+    if sym in _PG_SYMBOLS:
+        try:
+            import psycopg2
+            # 根据 period 参数推算起始日期（最多拉 10 年）
+            _period_days = {
+                "1y": 365, "2y": 730, "3y": 1095, "5y": 1825,
+                "10y": 3650, "max": 36500,
+            }
+            _days = _period_days.get(period, 1825)
+            _since = (datetime.utcnow() - timedelta(days=_days)).strftime("%Y-%m-%d")
+
+            conn = psycopg2.connect(_PG_DSN, connect_timeout=5)
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT ts::date AS date, open, high, low, close, volume,
+                       COALESCE(turnover, 0) AS turnover
+                FROM stock_candles
+                WHERE symbol = %s AND period = 'day' AND ts >= %s
+                ORDER BY ts ASC
+                """,
+                (f"{sym}.US", _since),
+            )
+            rows = cur.fetchall()
+            conn.close()
+
+            if rows:
+                df = pd.DataFrame(rows, columns=["Date","Open","High","Low","Close","Volume","Turnover"])
+                df["Date"] = pd.to_datetime(df["Date"])
+                df = df.set_index("Date").sort_index()
+                df = df[["Open","High","Low","Close","Volume","Turnover"]].dropna(subset=["Open","Close"])
+                if not df.empty:
+                    logger.info(f"_fetch_ohlcv({sym}): PG → {len(df)} rows ({df.index[0].date()} ~ {df.index[-1].date()})")
+                    return df
+        except Exception as e:
+            logger.warning(f"_fetch_ohlcv({sym}) PG failed: {e}")
+
+    # ── 2. IBKR 本地 CSV（VPS + 本地两个路径） ───────────────────────────
+    _this_dir = os.path.dirname(os.path.abspath(__file__))
+    _csv_candidates = [
+        os.path.join(_this_dir, "..", "data", "ibkr", f"{sym.lower()}_price_history.csv"),
+        f"/opt/quant/Quant/data/ibkr/{sym.lower()}_price_history.csv",
+    ]
+    for _path in _csv_candidates:
+        if os.path.isfile(_path):
+            try:
+                _raw = pd.read_csv(_path, parse_dates=["date"])
+                _raw = _raw.rename(columns={
+                    "open": "Open", "high": "High", "low": "Low",
+                    "close": "Close", "volume": "Volume", "date": "Date",
+                })
+                _raw = _raw.set_index("Date").sort_index()
+                _raw["Turnover"] = _raw.get("average", 0) * _raw.get("Volume", 0)
+                _raw = _raw[["Open","High","Low","Close","Volume","Turnover"]].dropna(subset=["Open","Close"])
+                if len(_raw) >= 30:
+                    logger.info(f"_fetch_ohlcv({sym}): IBKR CSV → {len(_raw)} rows")
+                    return _raw
+            except Exception as e:
+                logger.warning(f"_fetch_ohlcv IBKR CSV error ({_path}): {e}")
+
+    # ── 3. yfinance 兜底 ───────────────────────────────────────────────────
     try:
         import yfinance as yf
-        ticker = yf.Ticker(symbol)
-        df = ticker.history(period=period)
-        if df is None or df.empty:
-            return None
-        df = df[["Open", "High", "Low", "Close", "Volume"]].dropna()
-        return df
+        ticker = yf.Ticker(sym)
+        yf_df = ticker.history(period=period)
+        if yf_df is not None and not yf_df.empty:
+            yf_df = yf_df[["Open","High","Low","Close","Volume"]].dropna()
+            if yf_df.index.tz is not None:
+                yf_df.index = yf_df.index.tz_localize(None)
+            yf_df["Turnover"] = 0.0
+            logger.info(f"_fetch_ohlcv({sym}): yfinance → {len(yf_df)} rows")
+            return yf_df
     except Exception as e:
-        logger.warning(f"_fetch_ohlcv({symbol}) failed: {e}")
-        return None
+        logger.warning(f"_fetch_ohlcv({sym}) yfinance failed: {e}")
+
+    return None
 
 
 def _fmt_large(v) -> str:
@@ -415,12 +502,12 @@ def gather_stock_context(symbol: str) -> dict:
         ctx["regime"] = {}
 
     # ── 基于真实 K 线的技术分析（Volume Profile / Fibonacci / Pivot S/R）──
-    # 数据源：yfinance 历史 OHLCV，与长桥/Bloomberg 等价，消除 AI 猜测
+    # 数据源优先级：AlphaLens PG（日线最长30年）> IBKR CSV > yfinance，消除 AI 猜测
     try:
-        df = _fetch_ohlcv(symbol, period="1y")
+        df = _fetch_ohlcv(symbol, period="5y")
         if df is not None and len(df) >= 30:
-            ctx["volume_profile"] = _calc_volume_profile(df, bins=30)
-            ctx["fibonacci"]      = _calc_fibonacci(df, lookback=120)
+            ctx["volume_profile"] = _calc_volume_profile(df, bins=40)
+            ctx["fibonacci"]      = _calc_fibonacci(df, lookback=520)
             ctx["pivot_sr"]       = _calc_pivot_sr(df, n_pivots=3)
             ctx["ohlcv_ok"]       = True
         else:
@@ -520,7 +607,7 @@ def build_user_message(symbol: str, ctx: dict, user_question: str = "") -> str:
     # ── 真实计算的技术层位（非 AI 推测）──────────────────────────────
     tech_block = ""
     if vp or fib or psr:
-        tech_block += "\n\n**【量价结构分析 — 基于1年历史OHLCV实时计算，非推测】**"
+        tech_block += "\n\n**【量价结构分析 — 基于 AlphaLens PG 真实历史K线（日线最长30年，周/月10年），非推测】**"
 
         if vp:
             tech_block += "\n\n*Volume Profile（成交量分布）:*"
@@ -534,7 +621,7 @@ def build_user_message(symbol: str, ctx: dict, user_question: str = "") -> str:
                 tech_block += f"\n- 低成交量真空带 LVN（价格易快速穿越）: {', '.join(f'${p}' for p in vp['lvn'])}"
 
         if fib:
-            tech_block += f"\n\n*Fibonacci（近120日，{fib.get('trend','')}{fib.get('swing_low')}~${fib.get('swing_high')}）:*"
+            tech_block += f"\n\n*Fibonacci（近520日，{fib.get('trend','')} ${fib.get('swing_low')}~${fib.get('swing_high')}）:*"
             for name, val in fib.get("levels", {}).items():
                 tech_block += f"\n- {name}: ${val}"
             for name, val in fib.get("extensions", {}).items():
