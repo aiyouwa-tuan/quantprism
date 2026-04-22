@@ -58,8 +58,7 @@ def _fetch_candles_raw(symbol: str, limit: int = 300) -> list[dict]:
         try:
             import yfinance as yf
             period = "2y" if limit >= 200 else "1y"
-            df = yf.download(symbol, period=period, interval="1d",
-                             progress=False, auto_adjust=True, threads=False)
+            df = yf.Ticker(symbol).history(period=period, interval="1d", auto_adjust=True)
             if not df.empty:
                 candles = []
                 for dt, row in df.iterrows():
@@ -70,7 +69,7 @@ def _fetch_candles_raw(symbol: str, limit: int = 300) -> list[dict]:
                             "high":   float(row["High"]),
                             "low":    float(row["Low"]),
                             "close":  float(row["Close"]),
-                            "volume": int(row["Volume"]),
+                            "volume": int(row.get("Volume", 0)),
                         })
                     except Exception:
                         continue
