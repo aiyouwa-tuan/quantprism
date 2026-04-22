@@ -11,6 +11,17 @@
 .jin-progress-bg { background:rgba(255,255,255,0.07); border-radius:99px; height:5px; overflow:hidden; }
 .jin-progress-fill { height:100%; border-radius:99px; transition:width 0.4s ease; }
 .tier-card { background:#111214; border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:14px 16px; }
+/* 卖点分析 */
+.sell-btn { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:5px; font-size:10px; font-weight:600; border:1px solid rgba(239,68,68,0.35); background:rgba(239,68,68,0.08); color:#f87171; cursor:pointer; transition:background 0.15s; }
+.sell-btn:hover { background:rgba(239,68,68,0.18); }
+.sell-panel { background:#0e1012; border:1px solid rgba(239,68,68,0.2); border-radius:8px; padding:12px 14px; margin-top:10px; font-size:11px; display:none; }
+.sell-panel.active { display:block; }
+.verdict-pill { display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; letter-spacing:0.04em; }
+.verdict-EXIT   { background:rgba(239,68,68,0.2);   color:#f87171; border:1px solid rgba(239,68,68,0.4); }
+.verdict-REDUCE { background:rgba(249,115,22,0.2);  color:#fb923c; border:1px solid rgba(249,115,22,0.4); }
+.verdict-WATCH  { background:rgba(234,179,8,0.15);  color:#facc15; border:1px solid rgba(234,179,8,0.3); }
+.verdict-HOLD   { background:rgba(34,197,94,0.12);  color:#4ade80; border:1px solid rgba(34,197,94,0.3); }
+.conflict-tag { background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.2); border-radius:4px; padding:2px 6px; color:#fca5a5; font-size:10px; }
 </style>
 
 <!-- 页头 -->
@@ -167,6 +178,15 @@ function renderCard(d) {
 
         <!-- 价格区间 -->
         ${zonesHtml ? `<div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px;">${zonesHtml}</div>` : ''}
+
+        <!-- 卖点分析按钮 -->
+        <div style="margin-top:10px; border-top:1px solid rgba(255,255,255,0.05); padding-top:8px; display:flex; justify-content:flex-end;">
+            <button class="sell-btn" onclick="event.stopPropagation(); runSellAnalysis('${d.symbol}', this)">
+                📊 卖点分析
+            </button>
+        </div>
+        <!-- 卖点分析结果面板 -->
+        <div class="sell-panel" id="sell-panel-${d.symbol}"></div>
     </div>`;
 }
 
@@ -223,5 +243,86 @@ function refreshJin() {
 }
 
 loadJin(true);
+
+// ── 卖点分析 ────────────────────────────────────────────────────────────────
+const VERDICT_LABELS = { EXIT:'清仓', REDUCE:'减仓', WATCH:'观察', HOLD:'持有' };
+
+function renderSellPanel(data) {
+    if (data.error) return `<div style="color:#f87171;">分析失败: ${data.error}</div>`;
+    const ts = data.technical_signal || {};
+    const ss = data.strategic_signal || {};
+    const sy = data.synthesis || {};
+    const m  = data.meta || {};
+
+    const verdictHtml = (v) => v ? `<span class="verdict-pill verdict-${v}">${VERDICT_LABELS[v]||v}</span>` : '';
+    const conflictHtml = sy.has_conflict
+        ? `<span class="conflict-tag">⚡ 分歧</span>` : '';
+
+    return `
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;">
+      <div style="background:rgba(255,255,255,0.03); border-radius:6px; padding:8px 10px;">
+        <div style="font-size:10px; color:#62666d; margin-bottom:4px;">📈 技术面</div>
+        <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">${verdictHtml(ts.verdict)}
+          <span style="font-size:10px; color:#62666d;">置信度 ${((ts.confidence||0)*100).toFixed(0)}%</span>
+        </div>
+        <div style="font-size:10px; color:#94a3b8;">${ts.summary||''}</div>
+        ${(ts.key_signals||[]).map(s=>`<div style="font-size:10px; color:#62666d; margin-top:2px;">· ${s}</div>`).join('')}
+      </div>
+      <div style="background:rgba(255,255,255,0.03); border-radius:6px; padding:8px 10px;">
+        <div style="font-size:10px; color:#62666d; margin-bottom:4px;">🏮 鸡哥战略</div>
+        <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">${verdictHtml(ss.verdict)}
+          <span style="font-size:10px; color:#62666d;">置信度 ${((ss.confidence||0)*100).toFixed(0)}%</span>
+        </div>
+        <div style="font-size:10px; color:#94a3b8;">${ss.summary||''}</div>
+        ${ss.key_reason ? `<div style="font-size:10px; color:#62666d; margin-top:2px;">· ${ss.key_reason}</div>` : ''}
+      </div>
+    </div>
+    <div style="background:rgba(94,106,210,0.07); border:1px solid rgba(94,106,210,0.2); border-radius:6px; padding:9px 11px;">
+      <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+        <span style="font-size:10px; font-weight:700; color:#a5b4fc;">综合裁决</span>
+        ${verdictHtml(sy.verdict)} ${conflictHtml}
+      </div>
+      ${sy.has_conflict && sy.conflict_reason ? `<div style="font-size:10px; color:#fca5a5; margin-bottom:5px;">分歧：${sy.conflict_reason}</div>` : ''}
+      <div style="font-size:11px; color:#e2e8f0; margin-bottom:5px;">${sy.recommended_action||''}</div>
+      ${sy.trigger_to_sell ? `<div style="font-size:10px; color:#62666d;">触发条件：${sy.trigger_to_sell}</div>` : ''}
+    </div>
+    ${m.nearest_resistance ? `<div style="margin-top:7px; font-size:10px; color:#62666d;">
+      当前 <b style="color:#f7f8f8;">$${m.current_price}</b> ·
+      阻力 <b style="color:#f87171;">$${m.nearest_resistance}</b>${m.resistance_pct ? ` (+${m.resistance_pct}%)` : ''} ·
+      支撑 <b style="color:#4ade80;">$${m.nearest_support||'—'}</b>
+    </div>` : ''}`;
+}
+
+async function runSellAnalysis(symbol, btn) {
+    const panel = document.getElementById('sell-panel-' + symbol);
+    if (!panel) return;
+
+    // toggle off if already shown
+    if (panel.classList.contains('active')) {
+        panel.classList.remove('active');
+        btn.textContent = '📊 卖点分析';
+        return;
+    }
+
+    btn.textContent = '⏳ 分析中…';
+    btn.disabled = true;
+    panel.innerHTML = '<div style="color:#62666d; font-size:11px; padding:6px 0;">正在调用双框架分析…</div>';
+    panel.classList.add('active');
+
+    try {
+        const r = await fetch('/api/sell-analysis', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ticker: symbol }),
+        });
+        const data = await r.json();
+        panel.innerHTML = renderSellPanel(data);
+    } catch (e) {
+        panel.innerHTML = `<div style="color:#f87171;">请求失败: ${e.message}</div>`;
+    } finally {
+        btn.textContent = '📊 卖点分析 ▲';
+        btn.disabled = false;
+    }
+}
 </script>
 {% endblock %}

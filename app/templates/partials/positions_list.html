@@ -13,20 +13,24 @@
             <th class="text-left">市场</th>
             <th class="text-right">入场价</th>
             <th class="text-right">止损价</th>
+            <th class="text-right">止盈目标</th>
             <th class="text-right">数量</th>
             <th class="text-right">风险</th>
+            <th class="text-center">出场信号</th>
             <th></th>
         </tr>
     </thead>
     <tbody>
     {% for p in positions %}
-    <tr class="border-b border-dark-600/50 hover:bg-dark-600/30">
+    <tr class="border-b border-dark-600/50 hover:bg-dark-600/30" id="pos-row-{{ p.id }}">
         <td class="py-2.5 font-medium text-white">{{ p.symbol }}</td>
         <td><span class="text-xs px-1.5 py-0.5 rounded {{ 'bg-accent-blue/20 text-accent-blue' if p.market == 'stock' else 'bg-accent-yellow/20 text-accent-yellow' if p.market == 'crypto' else 'bg-purple-500/20 text-purple-400' }}">{{ p.market }}</span></td>
         <td class="text-right text-gray-300">${{ "%.2f"|format(p.entry_price) }}</td>
         <td class="text-right text-gray-400">${{ "%.2f"|format(p.stop_loss) }}</td>
+        <td class="text-right text-gray-500" id="tp-{{ p.id }}">—</td>
         <td class="text-right text-gray-300">{{ p.quantity }}</td>
         <td class="text-right {{ 'text-accent-red' if (p.risk_pct_of_account or 0) > 0.03 else 'text-gray-300' }}">{{ "%.1f"|format((p.risk_pct_of_account or 0) * 100) }}%</td>
+        <td class="text-center" id="exit-{{ p.id }}"><span class="text-gray-600 text-xs">…</span></td>
         <td class="text-right">
             <form hx-post="/positions/{{ p.id }}/close" hx-target="#positions-area" hx-swap="innerHTML" class="inline-flex gap-1">
                 <input type="number" name="close_price" step="0.01" placeholder="平仓价" class="w-20 bg-dark-800 border border-dark-500 rounded px-2 py-1 text-xs text-white">
@@ -41,3 +45,46 @@
 <p class="text-center text-gray-500 py-6">暂无持仓</p>
 {% endif %}
 </div>
+
+{% if positions %}
+<script>
+(function loadExitStatus() {
+    fetch('/api/positions/exit-status')
+        .then(r => r.json())
+        .then(data => {
+            Object.entries(data).forEach(([id, info]) => {
+                const tpEl   = document.getElementById('tp-' + id);
+                const exitEl = document.getElementById('exit-' + id);
+                const rowEl  = document.getElementById('pos-row-' + id);
+                if (!exitEl) return;
+
+                // 止盈目标列
+                if (tpEl && info.take_profit) {
+                    const dist = info.tp_distance_pct != null ? ` <span style="font-size:9px;color:#62666d;">(+${info.tp_distance_pct}%)</span>` : '';
+                    tpEl.innerHTML = `<span style="color:#f87171;">$${info.take_profit}</span>${dist}`;
+                }
+
+                // 出场信号列
+                if (info.exit_signal) {
+                    const colors = { red:'#f87171', orange:'#fb923c', yellow:'#facc15', gray:'#4b5563' };
+                    const c = colors[info.exit_color] || '#4b5563';
+                    exitEl.innerHTML = `<span style="font-size:11px;color:${c};font-weight:600;">${info.exit_signal}</span>`;
+                    if (rowEl && (info.exit_color === 'red' || info.exit_color === 'orange')) {
+                        rowEl.style.background = 'rgba(239,68,68,0.06)';
+                    } else if (rowEl && info.exit_color === 'yellow') {
+                        rowEl.style.background = 'rgba(234,179,8,0.06)';
+                    }
+                    // 止损距离 tooltip on stop_loss cell
+                    if (info.stop_distance_pct != null) {
+                        const stopCell = rowEl && rowEl.querySelector('td:nth-child(4)');
+                        if (stopCell) stopCell.title = `距止损 ${info.stop_distance_pct}%`;
+                    }
+                } else {
+                    exitEl.innerHTML = '<span style="color:#374151;font-size:11px;">—</span>';
+                }
+            });
+        })
+        .catch(() => {});
+})();
+</script>
+{% endif %}

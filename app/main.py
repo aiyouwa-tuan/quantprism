@@ -4150,3 +4150,141 @@ async def api_indicators_refresh():
     from ta_indicators import clear_cache
     clear_cache()
     return JSONResponse({"status": "ok"})
+
+
+# ---------------------------------------------------------------------------
+# 卖点分析 — Dual-Framework Sell Analyst (Approach C)
+# ---------------------------------------------------------------------------
+
+@app.post("/api/sell-analysis")
+async def api_sell_analysis(request: Request):
+    """双框架卖点分析：技术面（墨菲体系）+ 战略面（金渐成道势法术）→ AI综合裁决"""
+    import asyncio, json as _json, re
+
+    body = await request.json()
+    ticker = body.get("ticker", "").upper().strip()
+    if not ticker:
+        return JSONResponse({"error": "ticker 必填"}, status_code=400)
+
+    # ── 1. 鸡哥战略信号 ──────────────────────────────────────────────────
+    jin_signal: dict = {}
+    try:
+        from jin_data import fetch_summary
+        from jin_strategy import analyze_stock as jin_analyze
+        raw_data = await asyncio.to_thread(fetch_summary)
+        jin_entry = next((d for d in raw_data if d.get("symbol") == ticker), None)
+        if jin_entry:
+            jin_result = jin_analyze(jin_entry)
+            jin_signal = jin_result.get("signal", {})
+    except Exception as e:
+        jin_signal = {"action": "获取失败", "reason": str(e), "level": "neutral"}
+
+    # ── 2. 技术面信号 ─────────────────────────────────────────────────────
+    ta_sr: dict = {}
+    ta_combined: dict = {}
+    try:
+        from ta_engine import calc_support_resistance
+        from ta_indicators import combined_signal
+        ta_sr, ta_combined = await asyncio.gather(
+            asyncio.to_thread(calc_support_resistance, ticker),
+            asyncio.to_thread(combined_signal, ticker),
+        )
+    except Exception as e:
+        ta_sr = {"error": str(e)}
+        ta_combined = {}
+
+    # ── 3. AI综合裁决 ─────────────────────────────────────────────────────
+    prompt = f"""你是专业量化交易分析师。请分析 {ticker} 的卖点，整合以下两套框架，输出综合裁决。
+
+【技术面（墨菲体系）】
+综合信号: {ta_combined.get("signal", "neutral")} | 得分: {ta_combined.get("net_score", 0):.2f}
+当前价格: ${ta_sr.get("current_price", "N/A")}
+最近阻力位: ${ta_sr.get("nearest_resistance", "N/A")}（距当前价 {ta_sr.get("resistance_distance_pct", "N/A")}%）
+最近支撑位: ${ta_sr.get("nearest_support", "N/A")}
+技术描述: {ta_combined.get("description", "无")}
+
+【战略面（金渐成道势法术）】
+操作建议: {jin_signal.get("action", "无")} {jin_signal.get("emoji", "")}
+核心理由: {jin_signal.get("reason", "无")}
+目标价位: {jin_signal.get("zones", {})}
+情境判断: {jin_signal.get("scenario", "无")}
+
+只返回如下JSON（不要任何其他文字）:
+{{"technical_signal":{{"verdict":"HOLD|WATCH|REDUCE|EXIT","confidence":0.0,"key_signals":["信号1"],"summary":"一句话"}},"strategic_signal":{{"verdict":"HOLD|WATCH|REDUCE|EXIT","confidence":0.0,"key_reason":"核心理由","summary":"一句话"}},"synthesis":{{"verdict":"HOLD|WATCH|REDUCE|EXIT","has_conflict":false,"conflict_reason":"","recommended_action":"操作建议","trigger_to_sell":"触发卖出条件"}}}}"""
+
+    ai_result: dict = {}
+    try:
+        from ai_analysis import call_ai
+        raw = call_ai(prompt, complexity="strong", max_tokens=600)
+        m = re.search(r"\{.*\}", raw, re.DOTALL)
+        if m:
+            ai_result = _json.loads(m.group())
+        else:
+            ai_result = {"error": "AI格式异常", "raw": raw[:300]}
+    except Exception as e:
+        ai_result = {"error": str(e)}
+
+    return JSONResponse({
+        **ai_result,
+        "ticker": ticker,
+        "meta": {
+            "current_price": ta_sr.get("current_price"),
+            "nearest_resistance": ta_sr.get("nearest_resistance"),
+            "nearest_support": ta_sr.get("nearest_support"),
+            "resistance_pct": ta_sr.get("resistance_distance_pct"),
+            "jin_action": jin_signal.get("action", "—"),
+            "ta_signal": ta_combined.get("signal", "neutral"),
+        },
+    })
+
+
+# ---------------------------------------------------------------------------
+# 持仓出场信号 — Position Exit Status (Approach B)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/positions/exit-status")
+async def api_positions_exit_status(db: Session = Depends(get_db)):
+    """计算每个开仓的出场信号：止损距离 + 最近阻力位（止盈目标）"""
+    import asyncio
+    from ta_engine import calc_support_resistance
+
+    positions = db.query(Position).filter(Position.is_open == True).all()
+
+    async def _calc_one(p: Position) -> tuple[int, dict]:
+        try:
+            current = p.current_price or p.entry_price
+            stop = p.stop_loss or 0
+            stop_pct = round((current - stop) / current * 100, 1) if current > 0 and stop > 0 else None
+
+            ta = await asyncio.to_thread(calc_support_resistance, p.symbol)
+            resistance = ta.get("nearest_resistance")
+            resistance_pct = ta.get("resistance_distance_pct")
+            support = ta.get("nearest_support")
+
+            # 出场信号判断
+            if stop_pct is not None and stop_pct <= 0:
+                signal, color = "🔴 触发止损", "red"
+            elif stop_pct is not None and stop_pct < 3:
+                signal, color = "⚠️ 近止损", "orange"
+            elif resistance_pct is not None and resistance_pct < 2:
+                signal, color = "🎯 近阻力", "yellow"
+            else:
+                signal, color = None, "gray"
+
+            return p.id, {
+                "symbol": p.symbol,
+                "current_price": current,
+                "stop_loss": stop,
+                "stop_distance_pct": stop_pct,
+                "take_profit": resistance,
+                "tp_distance_pct": resistance_pct,
+                "support": support,
+                "exit_signal": signal,
+                "exit_color": color,
+            }
+        except Exception as e:
+            return p.id, {"symbol": p.symbol, "error": str(e), "exit_signal": None, "exit_color": "gray"}
+
+    tasks = [_calc_one(p) for p in positions]
+    pairs = await asyncio.gather(*tasks)
+    return JSONResponse({str(pid): data for pid, data in pairs})
