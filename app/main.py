@@ -3746,14 +3746,16 @@ async def sentiment_page(request: Request):
     from qqq_metrics import fetch_qqq
     from vix_metrics import fetch_vix
     from longport_client import fetch_market_temperature
+    from fmp_client import fetch_qqq_top10_history
     import asyncio
     import json as _json
-    cnn, crypto, qqq, vix, lp_us = await asyncio.gather(
+    cnn, crypto, qqq, vix, lp_us, fmp = await asyncio.gather(
         asyncio.to_thread(fetch_cnn),
         asyncio.to_thread(fetch_crypto),
         asyncio.to_thread(fetch_qqq),
         asyncio.to_thread(fetch_vix),
         asyncio.to_thread(fetch_market_temperature, "US"),
+        asyncio.to_thread(fetch_qqq_top10_history),
     )
     return templates.TemplateResponse("market_sentiment.html", {
         "request": request,
@@ -3762,11 +3764,14 @@ async def sentiment_page(request: Request):
         "qqq": qqq,
         "vix": vix,
         "lp_us": lp_us,
+        "fmp": fmp,
         "cnn_history_json": _json.dumps(cnn.get("history", [])),
         "crypto_history_json": _json.dumps(crypto.get("history", [])),
         "qqq_history_json": _json.dumps(qqq.get("history", {})),
         "vix_history_json": _json.dumps(vix.get("history", {})),
         "lp_us_history_json": _json.dumps(lp_us.get("history", [])),
+        "fmp_matrix_json": _json.dumps(fmp.get("matrix", [])),
+        "fmp_weighted_json": _json.dumps(fmp.get("weighted", [])),
     })
 
 

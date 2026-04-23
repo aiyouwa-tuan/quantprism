@@ -696,10 +696,11 @@
             </div>
             <div style="display:flex; gap:10px;">
                 <!-- 指标 Tab -->
-                <div style="display:flex; gap:4px; background:rgba(255,255,255,0.04); border-radius:8px; padding:3px;">
+                <div style="display:flex; gap:4px; background:rgba(255,255,255,0.04); border-radius:8px; padding:3px; flex-wrap:wrap;">
                     <button class="tab-btn active" id="qqq-metric-price" onclick="switchQqqMetric('price')">价格</button>
                     <button class="tab-btn" id="qqq-metric-rsi" onclick="switchQqqMetric('rsi')">RSI-14</button>
                     <button class="tab-btn" id="qqq-metric-pe" onclick="switchQqqMetric('pe')">PE估算</button>
+                    <button class="tab-btn" id="qqq-metric-pe_real" onclick="switchQqqMetric('pe_real')">PE真实(Top10)</button>
                 </div>
                 <!-- 周期 Tab -->
                 <div style="display:flex; gap:4px; background:rgba(255,255,255,0.04); border-radius:8px; padding:3px; flex-wrap:wrap;">
@@ -987,6 +988,8 @@ var QQQ_HISTORY = {{ qqq_history_json|safe }};
 var QQQ_PCT = {{ qqq.percentile|tojson if qqq and not qqq.error else '{"3y":50,"5y":50,"10y":50,"20y":50}' }};
 var VIX_HISTORY = {{ vix_history_json|safe }};
 var LP_US_HISTORY = {{ lp_us_history_json|safe }};
+var FMP_MATRIX = {{ fmp_matrix_json|safe }};
+var FMP_WEIGHTED = {{ fmp_weighted_json|safe }};
 
 function openDrawer(id) {
     var key = id.replace('drawer-', '');
@@ -1218,6 +1221,10 @@ var qqqChart = qqqChartEl ? echarts.init(qqqChartEl, null, { renderer: 'canvas' 
 var qqqState = { metric: 'price', period: '3y' };
 
 function buildQqqOption(metric, period) {
+    // PE真实(Top10) 模式 — 10 条个股 PE 线 + 加权平均
+    if (metric === 'pe_real') {
+        return buildQqqPeRealOption();
+    }
     var data = (QQQ_HISTORY && QQQ_HISTORY[period]) || [];
     var isRsi = metric === 'rsi';
     var isPe = metric === 'pe';
@@ -1317,6 +1324,99 @@ function buildQqqOption(metric, period) {
     };
 }
 
+// 10只巨头 + 加权平均 的多线图（真实 FMP 数据，5年年报）
+function buildQqqPeRealOption() {
+    var palette = ['#818cf8','#fb923c','#4ade80','#f87171','#facc15','#22d3ee','#e879f9','#a3e635','#fb7185','#60a5fa'];
+    var series = (FMP_MATRIX || []).map(function(h, i) {
+        var color = palette[i % palette.length];
+        var points = (h.points || []).slice().sort(function(a,b){ return new Date(a.date) - new Date(b.date); });
+        return {
+            name: h.symbol + ' ' + h.name_zh,
+            type: 'line',
+            smooth: true,
+            symbol: 'circle',
+            symbolSize: 6,
+            lineStyle: { width: 1.5, color: color },
+            itemStyle: { color: color },
+            data: points.map(function(p) { return [p.date, p.pe]; }),
+        };
+    });
+    // 加权平均线（蓝色粗线）
+    var wSorted = (FMP_WEIGHTED || []).slice().sort(function(a,b){ return a.year - b.year; });
+    if (wSorted.length) {
+        series.push({
+            name: 'Top10 加权 PE',
+            type: 'line',
+            smooth: true,
+            symbol: 'diamond',
+            symbolSize: 10,
+            lineStyle: { width: 3, color: '#c4cdfd' },
+            itemStyle: { color: '#c4cdfd' },
+            data: wSorted.map(function(w) { return [w.year + '-12-31', w.pe_weighted]; }),
+            z: 10
+        });
+    }
+
+    return {
+        backgroundColor: 'transparent',
+        tooltip: {
+            trigger: 'axis',
+            backgroundColor: '#1a1b1e',
+            borderColor: 'rgba(255,255,255,0.1)',
+            textStyle: { color: '#d0d6e0', fontSize: 12 },
+            formatter: function(params) {
+                if (!params.length) return '';
+                var date = params[0].axisValue;
+                var d = new Date(date);
+                var dateStr = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+                var lines = '<div style="color:#8a8f98;font-size:11px;margin-bottom:4px;">' + dateStr + '</div>';
+                params.sort(function(a,b){ return (b.value[1]||0) - (a.value[1]||0); }).forEach(function(p) {
+                    lines += '<div style="display:flex;align-items:center;gap:8px;">'
+                        + '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + p.color + '"></span>'
+                        + '<span style="color:#8a8f98;font-size:11px;">' + p.seriesName + '</span>'
+                        + '<span style="font-weight:600;color:' + p.color + ';margin-left:auto;">' + (p.value[1] ? p.value[1].toFixed(1) + '×' : '—') + '</span>'
+                        + '</div>';
+                });
+                return lines;
+            }
+        },
+        legend: {
+            show: true,
+            type: 'scroll',
+            top: 0,
+            textStyle: { color: '#8a8f98', fontSize: 11 },
+            itemWidth: 10,
+            itemHeight: 4,
+            pageIconColor: '#8a8f98',
+            pageTextStyle: { color: '#8a8f98' }
+        },
+        grid: { left: 48, right: 20, top: 40, bottom: 36 },
+        xAxis: {
+            type: 'time',
+            axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
+            axisTick: { show: false },
+            axisLabel: {
+                color: '#62666d', fontSize: 11,
+                formatter: function(v) {
+                    var d = new Date(v);
+                    return d.getFullYear() + '/' + String(d.getMonth()+1).padStart(2,'0');
+                }
+            }
+        },
+        yAxis: {
+            type: 'value',
+            axisLine: { show: false },
+            axisTick: { show: false },
+            splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } },
+            axisLabel: {
+                color: '#62666d', fontSize: 11,
+                formatter: function(v) { return v + '×'; }
+            }
+        },
+        series: series
+    };
+}
+
 function renderQqq() {
     if (!qqqChart) return;
     qqqChart.setOption(buildQqqOption(qqqState.metric, qqqState.period), true);
@@ -1337,9 +1437,15 @@ function renderQqq() {
 
 function switchQqqMetric(metric) {
     qqqState.metric = metric;
-    ['price','rsi','pe'].forEach(function(m) {
+    ['price','rsi','pe','pe_real'].forEach(function(m) {
         var el = document.getElementById('qqq-metric-' + m);
         if (el) el.classList.toggle('active', m === metric);
+    });
+    // pe_real 只有 5 年年度数据，周期 tab 无意义 — 变灰但保留
+    var isPeReal = metric === 'pe_real';
+    ['3m','6m','1y','3y','5y','10y','20y'].forEach(function(p){
+        var el = document.getElementById('qqq-tab-' + p);
+        if (el) el.style.opacity = isPeReal ? '0.35' : '';
     });
     renderQqq();
 }
