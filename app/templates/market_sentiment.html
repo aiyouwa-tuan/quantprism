@@ -1,0 +1,485 @@
+{% extends "base.html" %}
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+
+<style>
+.fg-card {
+    background: #0f1011;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 28px;
+}
+.fg-zone-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+.tab-btn {
+    padding: 6px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: #8a8f98;
+}
+.tab-btn.active {
+    background: rgba(94,106,210,0.18);
+    color: #a5b4fc;
+}
+</style>
+
+<!-- 页面标题 -->
+<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:24px;">
+    <div>
+        <h1 style="font-size:20px; font-weight:600; color:#f7f8f8; margin:0 0 4px;">市场情绪温度计</h1>
+        <p style="font-size:13px; color:#8a8f98; margin:0;">Fear &amp; Greed Index — 美股 (CNN) · 加密货币 (Alternative.me)</p>
+    </div>
+    <button onclick="window.location.reload()" style="padding:6px 14px; border-radius:6px; font-size:12px; color:#8a8f98; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); cursor:pointer;">
+        刷新数据
+    </button>
+</div>
+
+<!-- 错误提示 -->
+{% if cnn.error %}
+<div style="background:rgba(248,113,113,0.1); border:1px solid rgba(248,113,113,0.25); border-radius:8px; padding:12px 16px; margin-bottom:16px; font-size:13px; color:#f87171;">
+    美股数据加载失败：{{ cnn.error }}
+</div>
+{% endif %}
+{% if crypto.error %}
+<div style="background:rgba(248,113,113,0.1); border:1px solid rgba(248,113,113,0.25); border-radius:8px; padding:12px 16px; margin-bottom:16px; font-size:13px; color:#f87171;">
+    加密货币数据加载失败：{{ crypto.error }}
+</div>
+{% endif %}
+
+<!-- 两个仪表盘 -->
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+
+    <!-- CNN 美股 -->
+    <div class="fg-card">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+            <div style="font-size:16px; color:#d0d6e0; font-weight:600;">美股恐贪指数</div>
+            <div style="font-size:12px; color:#62666d;">CNN · S&amp;P500</div>
+        </div>
+        {% if not cnn.error %}
+        <div style="display:flex; align-items:center; gap:16px; margin-bottom:16px;">
+            <span style="font-size:64px; font-weight:700; color:{{ cnn.color }}; font-variant-numeric:tabular-nums; line-height:1;">{{ cnn.score }}</span>
+            <div>
+                <div class="fg-zone-badge" style="background:{{ cnn.color }}22; color:{{ cnn.color }}; margin-bottom:6px;">{{ cnn.rating_zh or cnn.rating }}</div>
+                <div style="font-size:13px; color:#62666d;">满分 100</div>
+            </div>
+        </div>
+        <div id="cnn-gauge" style="height:220px;"></div>
+        <!-- 对比数据 -->
+        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:18px; border-top:1px solid rgba(255,255,255,0.05); padding-top:16px;">
+            {% for label, val in [('昨收', cnn.prev_close), ('上周', cnn.prev_week), ('上月', cnn.prev_month), ('去年', cnn.prev_year)] %}
+            <div style="text-align:center;">
+                <div style="font-size:12px; color:#62666d; margin-bottom:4px;">{{ label }}</div>
+                <div style="font-size:20px; font-weight:700; color:#f7f8f8; font-variant-numeric:tabular-nums;">{{ val }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="height:280px; display:flex; align-items:center; justify-content:center; color:#62666d; font-size:14px;">数据不可用</div>
+        {% endif %}
+    </div>
+
+    <!-- 加密货币 -->
+    <div class="fg-card">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+            <div style="font-size:16px; color:#d0d6e0; font-weight:600;">加密货币恐贪指数</div>
+            <div style="font-size:12px; color:#62666d;">Alternative.me · BTC</div>
+        </div>
+        {% if not crypto.error %}
+        <div style="display:flex; align-items:center; gap:16px; margin-bottom:16px;">
+            <span style="font-size:64px; font-weight:700; color:{{ crypto.color }}; font-variant-numeric:tabular-nums; line-height:1;">{{ crypto.score }}</span>
+            <div>
+                <div class="fg-zone-badge" style="background:{{ crypto.color }}22; color:{{ crypto.color }}; margin-bottom:6px;">{{ crypto.rating_zh or crypto.rating }}</div>
+                <div style="font-size:13px; color:#62666d;">满分 100</div>
+            </div>
+        </div>
+        <div id="crypto-gauge" style="height:220px;"></div>
+        <!-- 区间说明 -->
+        <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-top:18px; border-top:1px solid rgba(255,255,255,0.05); padding-top:16px;">
+            {% for label, color in [('极恐', '#f87171'), ('恐惧', '#fb923c'), ('中性', '#facc15'), ('贪婪', '#4ade80'), ('极贪', '#22c55e')] %}
+            <div style="text-align:center;">
+                <div style="width:32px; height:5px; border-radius:3px; background:{{ color }}; margin:0 auto 6px;"></div>
+                <div style="font-size:12px; color:#8a8f98; font-weight:500;">{{ label }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="height:280px; display:flex; align-items:center; justify-content:center; color:#62666d; font-size:14px;">数据不可用</div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 历史走势图 -->
+<div class="fg-card" style="margin-bottom:16px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+        <div style="font-size:14px; font-weight:600; color:#f7f8f8;">历史走势 (近90天)</div>
+        <div style="display:flex; gap:4px; background:rgba(255,255,255,0.04); border-radius:8px; padding:3px;">
+            <button class="tab-btn active" id="tab-us" onclick="switchTab('us')">美股</button>
+            <button class="tab-btn" id="tab-crypto" onclick="switchTab('crypto')">加密货币</button>
+            <button class="tab-btn" id="tab-both" onclick="switchTab('both')">对比</button>
+        </div>
+    </div>
+    <div id="history-chart" style="height:280px;"></div>
+</div>
+
+<!-- 信号解读 -->
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+    <!-- 入场信号卡 -->
+    <div class="fg-card">
+        <div style="font-size:13px; font-weight:600; color:#f7f8f8; margin-bottom:12px;">抄底信号参考</div>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+            {% set us_score = cnn.score|float %}
+            {% set cr_score = crypto.score|float %}
+            {% set us_extreme_fear = us_score <= 25 %}
+            {% set cr_extreme_fear = cr_score <= 25 %}
+            <div style="display:flex; align-items:center; gap:10px; padding:10px; border-radius:8px; background:rgba({{ '248,113,113' if us_extreme_fear else '255,255,255' }},0.05); border:1px solid rgba({{ '248,113,113' if us_extreme_fear else '255,255,255' }},0.1);">
+                <span style="font-size:18px;">{{ '🔴' if us_extreme_fear else '🟡' }}</span>
+                <div>
+                    <div style="font-size:12px; font-weight:600; color:{{ '#f87171' if us_extreme_fear else '#8a8f98' }};">美股 {{ '极度恐惧 ← 历史级抄底机会' if us_extreme_fear else '当前情绪：' + (cnn.rating_zh or '-') }}</div>
+                    <div style="font-size:11px; color:#62666d; margin-top:2px;">得分 {{ cnn.score }} / 100 · 历史上每1-2年出现一次 &lt;25</div>
+                </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; padding:10px; border-radius:8px; background:rgba({{ '248,113,113' if cr_extreme_fear else '255,255,255' }},0.05); border:1px solid rgba({{ '248,113,113' if cr_extreme_fear else '255,255,255' }},0.1);">
+                <span style="font-size:18px;">{{ '🔴' if cr_extreme_fear else '🟡' }}</span>
+                <div>
+                    <div style="font-size:12px; font-weight:600; color:{{ '#f87171' if cr_extreme_fear else '#8a8f98' }};">加密货币 {{ '极度恐惧 ← 历史级抄底机会' if cr_extreme_fear else '当前情绪：' + (crypto.rating_zh or '-') }}</div>
+                    <div style="font-size:11px; color:#62666d; margin-top:2px;">得分 {{ crypto.score }} / 100 · BTC主导 / 波动率 / 社媒综合</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 使用指南 -->
+    <div class="fg-card">
+        <div style="font-size:13px; font-weight:600; color:#f7f8f8; margin-bottom:12px;">指数解读框架</div>
+        <div style="display:flex; flex-direction:column; gap:6px;">
+            {% for score_range, color, zh, action in [
+                ('0–25', '#f87171', '极度恐惧', '巴菲特黄金买入区，市场通常已超卖'),
+                ('25–45', '#fb923c', '恐惧', '谨慎加仓，关注基本面支撑'),
+                ('45–55', '#facc15', '中性', '观望为主，等待方向确认'),
+                ('55–75', '#4ade80', '贪婪', '控制仓位，止盈意识增强'),
+                ('75–100', '#22c55e', '极度贪婪', '注意泡沫风险，减仓或对冲')
+            ] %}
+            <div style="display:flex; align-items:center; gap:10px;">
+                <div style="width:36px; height:4px; border-radius:2px; background:{{ color }}; flex-shrink:0;"></div>
+                <div style="font-size:11px; color:#8a8f98;"><span style="color:{{ color }}; font-weight:600;">{{ score_range }} {{ zh }}</span> — {{ action }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        <div style="margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.05); font-size:11px; color:#62666d; line-height:1.6;">
+            CNN 指数 = VIX + 涨跌幅广度 + Put/Call比 + 52周高低点 + 垃圾债利差 + 动量 + 避险需求 (7指标等权)
+        </div>
+    </div>
+</div>
+
+<!-- CNN 7指标构成 -->
+<div class="fg-card" style="margin-top:16px;">
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+        <span style="font-size:16px;">🧩</span>
+        <div style="font-size:14px; font-weight:600; color:#f7f8f8;">CNN 指数构成 — 7 指标等权平均</div>
+        <span style="font-size:10px; color:#a5b4fc; padding:2px 8px; border-radius:4px; background:rgba(94,106,210,0.12); margin-left:8px;">各占 1/7</span>
+    </div>
+    <div style="font-size:12px; color:#8a8f98; margin-bottom:14px;">记住这 7 个指标 = 看懂美股情绪的底层逻辑。每个指标先 Z-Score 标准化 → Min-Max 缩放到 0-100 → 7 个平均 → 最终分数。</div>
+
+    <div style="overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
+        <table style="width:100%; border-collapse:collapse; font-size:12px;">
+            <thead>
+                <tr style="background:rgba(255,255,255,0.03);">
+                    <th style="text-align:left; padding:10px 12px; color:#62666d; font-weight:510; font-size:11px; width:32px;">#</th>
+                    <th style="text-align:left; padding:10px 12px; color:#62666d; font-weight:510; font-size:11px;">指标</th>
+                    <th style="text-align:left; padding:10px 12px; color:#62666d; font-weight:510; font-size:11px;">数据来源</th>
+                    <th style="text-align:left; padding:10px 12px; color:#62666d; font-weight:510; font-size:11px;">判读逻辑</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for num, name, source, logic, bull in [
+                    (1, '股价动量', 'S&P500 vs 125日均线', '价格高于均线', True),
+                    (2, '52周新高/新低比', 'NYSE 高低点统计', '新高多', True),
+                    (3, '涨跌幅广度', 'NYSE McClellan 量能指数', '上涨股放量', True),
+                    (4, 'Put/Call 比率', 'CBOE 期权数据', 'Put 多', False),
+                    (5, '垃圾债利差', '高收益债 vs 投资级债', '利差缩窄', True),
+                    (6, '市场波动率', 'VIX vs 50日均线', 'VIX 低', True),
+                    (7, '避险需求', '股票 vs 国债20日收益差', '国债跑赢', False),
+                ] %}
+                <tr style="border-top:1px solid rgba(255,255,255,0.05);">
+                    <td style="padding:10px 12px; color:#62666d; font-family:'Berkeley Mono',ui-monospace,monospace; font-size:11px;">{{ num }}</td>
+                    <td style="padding:10px 12px; color:#f7f8f8; font-weight:510;">{{ name }}</td>
+                    <td style="padding:10px 12px; color:#8a8f98;">{{ source }}</td>
+                    <td style="padding:10px 12px;">
+                        <span style="color:#d0d6e0;">{{ logic }}</span>
+                        <span style="color:#62666d; margin:0 4px;">=</span>
+                        <span style="color:{{ '#4ade80' if bull else '#f87171' }}; font-weight:600;">{{ '贪婪' if bull else '恐惧' }}</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div style="margin-top:12px; padding:10px 12px; background:rgba(94,106,210,0.06); border-radius:6px; font-size:11px; color:#a5b4fc; line-height:1.6;">
+        💡 <span style="color:#8a8f98;">记忆口诀：</span>动量 + 新高 + 广度（趋势类3个）· Put/Call + VIX（恐惧类2个）· 债券利差 + 避险（资金类2个）
+    </div>
+</div>
+
+<!-- 数据源 -->
+<div class="fg-card" style="margin-top:16px;">
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
+        <span style="font-size:16px;">🔗</span>
+        <div style="font-size:14px; font-weight:600; color:#f7f8f8;">数据源</div>
+        <span style="font-size:10px; color:#62666d; padding:2px 8px; border-radius:4px; background:rgba(255,255,255,0.04); margin-left:8px;">本地缓存 15 分钟</span>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+
+        <!-- CNN 源 -->
+        <div style="padding:14px; border-radius:8px; background:rgba(129,140,248,0.05); border:1px solid rgba(129,140,248,0.15);">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                <span style="width:8px; height:8px; border-radius:50%; background:#818cf8;"></span>
+                <span style="font-size:13px; font-weight:600; color:#a5b4fc;">美股 · CNN Business</span>
+            </div>
+            <div style="font-size:11px; color:#8a8f98; line-height:1.7;">
+                <div><span style="color:#62666d;">页面：</span><a href="https://www.cnn.com/markets/fear-and-greed" target="_blank" style="color:#818cf8; text-decoration:none; word-break:break-all;">cnn.com/markets/fear-and-greed</a></div>
+                <div style="margin-top:4px;"><span style="color:#62666d;">API：</span><code style="color:#d0d6e0; background:rgba(0,0,0,0.3); padding:1px 6px; border-radius:3px; font-size:10px; word-break:break-all;">production.dataviz.cnn.io/index/fearandgreed/graphdata</code></div>
+                <div style="margin-top:4px;"><span style="color:#62666d;">方法：</span>官方 JSON 接口直取，无需鉴权</div>
+                <div style="margin-top:4px;"><span style="color:#62666d;">更新频率：</span>美股交易日每日更新（收盘后）</div>
+                <div style="margin-top:4px;"><span style="color:#62666d;">数据范围：</span>当前值 + 253 天历史 + 昨收/上周/上月/去年对比</div>
+            </div>
+        </div>
+
+        <!-- Alternative.me 源 -->
+        <div style="padding:14px; border-radius:8px; background:rgba(251,146,60,0.05); border:1px solid rgba(251,146,60,0.15);">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                <span style="width:8px; height:8px; border-radius:50%; background:#fb923c;"></span>
+                <span style="font-size:13px; font-weight:600; color:#fdba74;">加密货币 · Alternative.me</span>
+            </div>
+            <div style="font-size:11px; color:#8a8f98; line-height:1.7;">
+                <div><span style="color:#62666d;">页面：</span><a href="https://alternative.me/crypto/fear-and-greed-index/" target="_blank" style="color:#fb923c; text-decoration:none; word-break:break-all;">alternative.me/crypto/fear-and-greed-index</a></div>
+                <div style="margin-top:4px;"><span style="color:#62666d;">API：</span><code style="color:#d0d6e0; background:rgba(0,0,0,0.3); padding:1px 6px; border-radius:3px; font-size:10px; word-break:break-all;">api.alternative.me/fng/?limit=90</code></div>
+                <div style="margin-top:4px;"><span style="color:#62666d;">方法：</span>公开 REST API，免费无 key</div>
+                <div style="margin-top:4px;"><span style="color:#62666d;">更新频率：</span>每日 UTC 00:00 更新</div>
+                <div style="margin-top:4px;"><span style="color:#62666d;">数据范围：</span>BTC 波动率 25% + 市场动量 25% + 社媒 15% + BTC主导 10% + Google趋势 10%</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 本地实现细节 -->
+    <div style="margin-top:14px; padding:12px; background:rgba(0,0,0,0.3); border-radius:6px; font-size:11px; color:#8a8f98; font-family:'Berkeley Mono',ui-monospace,monospace;">
+        <div style="color:#62666d; margin-bottom:4px;">// 本地实现</div>
+        <div><span style="color:#a5b4fc;">app/fear_greed.py</span> → httpx 异步拉取 → 15min TTL 缓存 → FastAPI 路由 <span style="color:#fdba74;">/sentiment</span></div>
+    </div>
+</div>
+
+<script>
+var CNN_HISTORY = {{ cnn_history_json|safe }};
+var CRYPTO_HISTORY = {{ crypto_history_json|safe }};
+
+function scoreColor(v) {
+    if (v <= 25) return '#f87171';
+    if (v <= 45) return '#fb923c';
+    if (v <= 55) return '#facc15';
+    if (v <= 75) return '#4ade80';
+    return '#22c55e';
+}
+
+// ── Gauge chart helper ──────────────────────────────────────────────────────
+function makeGauge(domId, score) {
+    var el = document.getElementById(domId);
+    if (!el) return;
+    var chart = echarts.init(el, null, { renderer: 'canvas' });
+    chart.setOption({
+        backgroundColor: 'transparent',
+        series: [{
+            type: 'gauge',
+            startAngle: 200,
+            endAngle: -20,
+            min: 0,
+            max: 100,
+            splitNumber: 5,
+            radius: '90%',
+            center: ['50%', '68%'],
+            axisLine: {
+                lineStyle: {
+                    width: 20,
+                    color: [
+                        [0.25, '#f87171'],
+                        [0.45, '#fb923c'],
+                        [0.55, '#facc15'],
+                        [0.75, '#4ade80'],
+                        [1,    '#22c55e']
+                    ]
+                }
+            },
+            pointer: {
+                icon: 'triangle',
+                length: '95%',
+                width: 10,
+                offsetCenter: [0, '5%'],
+                itemStyle: {
+                    color: scoreColor(score),
+                    shadowColor: scoreColor(score) + '88',
+                    shadowBlur: 12
+                }
+            },
+            anchor: {
+                show: true,
+                showAbove: true,
+                size: 16,
+                itemStyle: {
+                    color: '#0f1011',
+                    borderColor: scoreColor(score),
+                    borderWidth: 3
+                }
+            },
+            axisTick: { show: false },
+            splitLine: { show: false },
+            axisLabel: {
+                distance: 22,
+                color: '#8a8f98',
+                fontSize: 13,
+                fontWeight: 500,
+                formatter: function(v) {
+                    var m = {0:'极恐', 25:'恐惧', 50:'中性', 75:'贪婪', 100:'极贪'};
+                    return m[v] || '';
+                }
+            },
+            detail: { show: false },
+            data: [{ value: score }]
+        }]
+    });
+}
+
+// ── History line chart ──────────────────────────────────────────────────────
+var histChart = echarts.init(document.getElementById('history-chart'), null, { renderer: 'canvas' });
+
+function buildHistOption(mode) {
+    var zones = [
+        { yAxis: 25, itemStyle: { color: 'rgba(248,113,113,0.06)' } },
+        { yAxis: 45, itemStyle: { color: 'rgba(251,146,60,0.06)' } },
+        { yAxis: 55, itemStyle: { color: 'rgba(250,204,21,0.06)' } },
+        { yAxis: 75, itemStyle: { color: 'rgba(74,222,128,0.06)' } },
+        { yAxis: 100, itemStyle: { color: 'rgba(34,197,94,0.06)' } },
+    ];
+
+    function toSeries(data, name, color) {
+        return {
+            name: name,
+            type: 'line',
+            smooth: true,
+            symbol: 'none',
+            lineStyle: { width: 2, color: color },
+            areaStyle: {
+                color: {
+                    type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+                    colorStops: [
+                        { offset: 0, color: color + '55' },
+                        { offset: 1, color: color + '05' }
+                    ]
+                }
+            },
+            markLine: {
+                silent: true,
+                symbol: 'none',
+                lineStyle: { color: 'rgba(255,255,255,0.08)', type: 'dashed', width: 1 },
+                data: [{ yAxis: 25 }, { yAxis: 45 }, { yAxis: 55 }, { yAxis: 75 }]
+            },
+            data: data.map(function(d) {
+                return [d.date * 1000, d.value];
+            })
+        };
+    }
+
+    var series = [];
+    if (mode === 'us' || mode === 'both') {
+        series.push(toSeries(CNN_HISTORY, '美股 F&G', '#818cf8'));
+    }
+    if (mode === 'crypto' || mode === 'both') {
+        series.push(toSeries(CRYPTO_HISTORY, '加密 F&G', '#fb923c'));
+    }
+
+    return {
+        backgroundColor: 'transparent',
+        tooltip: {
+            trigger: 'axis',
+            backgroundColor: '#1a1b1e',
+            borderColor: 'rgba(255,255,255,0.1)',
+            textStyle: { color: '#d0d6e0', fontSize: 12 },
+            formatter: function(params) {
+                var d = new Date(params[0].axisValue);
+                var dateStr = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+                var lines = '<div style="margin-bottom:4px;color:#8a8f98;font-size:11px;">' + dateStr + '</div>';
+                params.forEach(function(p) {
+                    var v = p.value[1];
+                    lines += '<div style="display:flex;align-items:center;gap:8px;">'
+                        + '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + p.color + '"></span>'
+                        + '<span style="color:#8a8f98;font-size:12px;">' + p.seriesName + '</span>'
+                        + '<span style="font-weight:600;color:' + scoreColor(v) + ';margin-left:auto;">' + v + '</span>'
+                        + '</div>';
+                });
+                return lines;
+            }
+        },
+        legend: {
+            show: mode === 'both',
+            top: 0,
+            right: 0,
+            textStyle: { color: '#8a8f98', fontSize: 12 },
+            itemWidth: 12,
+            itemHeight: 4
+        },
+        grid: { left: 40, right: 20, top: mode === 'both' ? 30 : 10, bottom: 40, containLabel: false },
+        xAxis: {
+            type: 'time',
+            axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
+            axisTick: { show: false },
+            axisLabel: {
+                color: '#62666d',
+                fontSize: 11,
+                formatter: function(v) {
+                    var d = new Date(v);
+                    return (d.getMonth()+1) + '/' + d.getDate();
+                }
+            }
+        },
+        yAxis: {
+            type: 'value',
+            min: 0,
+            max: 100,
+            splitNumber: 4,
+            axisLine: { show: false },
+            axisTick: { show: false },
+            splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } },
+            axisLabel: { color: '#62666d', fontSize: 11 }
+        },
+        series: series
+    };
+}
+
+var currentTab = 'us';
+function switchTab(tab) {
+    currentTab = tab;
+    ['us','crypto','both'].forEach(function(t) {
+        document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+    });
+    histChart.setOption(buildHistOption(tab), true);
+}
+
+// Init
+makeGauge('cnn-gauge', {{ cnn.score }});
+makeGauge('crypto-gauge', {{ crypto.score }});
+histChart.setOption(buildHistOption('us'));
+window.addEventListener('resize', function() { histChart.resize(); });
+</script>
+{% endblock %}

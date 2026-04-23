@@ -3724,6 +3724,22 @@ async def macro_page(request: Request):
     })
 
 
+@app.get("/sentiment", response_class=HTMLResponse)
+async def sentiment_page(request: Request):
+    """恐贪指数 — CNN 美股 + Alternative.me 加密货币"""
+    from fear_greed import fetch_cnn, fetch_crypto
+    import json as _json
+    cnn = fetch_cnn()
+    crypto = fetch_crypto()
+    return templates.TemplateResponse("market_sentiment.html", {
+        "request": request,
+        "cnn": cnn,
+        "crypto": crypto,
+        "cnn_history_json": _json.dumps(cnn.get("history", [])),
+        "crypto_history_json": _json.dumps(crypto.get("history", [])),
+    })
+
+
 @app.get("/api/fundamentals/{symbol}", response_class=HTMLResponse)
 async def api_fundamentals(request: Request, symbol: str):
     """基本面数据卡片 (HTMX partial)"""

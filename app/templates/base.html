@@ -78,6 +78,11 @@
             宏观经济
         </a>
 
+        <a href="/sentiment" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:6px; font-size:13px; text-decoration:none; transition:background 0.15s, color 0.15s; {{ 'background:rgba(94,106,210,0.12); color:#f7f8f8;' if request and '/sentiment' in request.url.path else 'color:#8a8f98;' }}" onmouseover="if(!this.style.background||this.style.background==''){this.style.background='rgba(255,255,255,0.05)';this.style.color='#d0d6e0';}" onmouseout="if(this.style.background=='rgba(255,255,255,0.05)'){this.style.background='';this.style.color='#8a8f98';}">
+            <span style="width:16px; text-align:center; font-size:14px;">&#x1F321;</span>
+            情绪温度计
+        </a>
+
         <a href="/jige-advisor" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:6px; font-size:13px; text-decoration:none; transition:background 0.15s, color 0.15s; {{ 'background:rgba(94,106,210,0.12); color:#f7f8f8;' if request and '/jige-advisor' in request.url.path else 'color:#8a8f98;' }}" onmouseover="if(!this.style.background||this.style.background==''){this.style.background='rgba(255,255,255,0.05)';this.style.color='#d0d6e0';}" onmouseout="if(this.style.background=='rgba(255,255,255,0.05)'){this.style.background='';this.style.color='#8a8f98';}">
             <span style="width:16px; text-align:center; font-size:14px;">&#x1F9E0;</span>
             鸡哥顾问
