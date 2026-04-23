@@ -472,6 +472,123 @@
     <div id="history-chart" style="height:280px;"></div>
 </div>
 
+<!-- ═══════════════════════════════════════ -->
+<!-- 📊 QQQ 估值 & 技术面（纳指100 ETF） -->
+<!-- ═══════════════════════════════════════ -->
+<div class="fg-card" style="margin-bottom:16px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+            <div style="font-size:16px; font-weight:600; color:#f7f8f8;">QQQ 估值面</div>
+            <div style="font-size:12px; color:#62666d;">纳斯达克 100 ETF</div>
+            <span class="fg-hover-wrap">
+                <span class="fg-hover-trigger">i</span>
+                <div class="fg-popover" style="width:480px;">
+                    <div class="fg-popover-header">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                        数据源 & 方法说明
+                    </div>
+                    <div style="font-size:11.5px; line-height:1.7; color:#d0d6e0;">
+                        <div><span style="color:#a5b4fc; font-weight:600;">来源：</span>Yahoo Finance（yfinance Python 库）</div>
+                        <div style="margin-top:6px;"><span style="color:#a5b4fc; font-weight:600;">实时字段：</span>PE / PB / 股息率 / 价格 — 来自 <code style="background:rgba(0,0,0,0.3); padding:1px 5px; border-radius:3px; font-size:10.5px;">Ticker("QQQ").info</code></div>
+                        <div style="margin-top:6px;"><span style="color:#a5b4fc; font-weight:600;">RSI-14：</span>Wilder 平滑法，基于近 6 个月日线价格</div>
+                        <div style="margin-top:6px;"><span style="color:#a5b4fc; font-weight:600;">历史价格：</span>10 年月线 K，分 3/5/10 年切片</div>
+                        <div style="margin-top:10px; padding:8px 10px; background:rgba(251,146,60,0.06); border:1px solid rgba(251,146,60,0.15); border-radius:5px; font-size:10.5px; color:#fdba74;">
+                            ⚠️ <span style="color:#8a8f98;">ETF 历史 PE/PB 走势需付费数据源（如 Bloomberg/FactSet），本页用「当前价格分位」作估值分位的近似代理。纯 ETF 无 ROE 字段。</span>
+                        </div>
+                        <div style="margin-top:8px; font-size:10.5px; color:#62666d;">缓存 15 分钟 · 每日盘后更新</div>
+                    </div>
+                </div>
+            </span>
+        </div>
+        <div style="font-size:11px; color:#62666d;">数据源 · Yahoo Finance</div>
+    </div>
+
+    {% if qqq.error %}
+    <div style="padding:20px; text-align:center; color:#f87171; font-size:13px;">QQQ 数据加载失败：{{ qqq.error }}</div>
+    {% else %}
+    <!-- 关键指标 6 格 -->
+    <div style="display:grid; grid-template-columns:repeat(6,1fr); gap:10px; margin-bottom:20px;">
+        {% set q = qqq.current %}
+        <!-- 价格 -->
+        <div style="padding:14px 12px; background:rgba(255,255,255,0.03); border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+            <div style="display:flex; align-items:center; gap:4px; font-size:11px; color:#62666d; margin-bottom:6px;">价格</div>
+            <div style="font-size:22px; font-weight:700; color:#f7f8f8; font-variant-numeric:tabular-nums;">${{ q.price }}</div>
+            <div style="font-size:11px; color:{{ '#4ade80' if q.yoy_return_pct and q.yoy_return_pct > 0 else '#f87171' }}; margin-top:4px; font-weight:500;">
+                {{ '▲' if q.yoy_return_pct and q.yoy_return_pct > 0 else '▼' }} 年涨{{ q.yoy_return_pct }}%
+            </div>
+        </div>
+        <!-- RSI -->
+        <div style="padding:14px 12px; background:rgba(255,255,255,0.03); border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+            <div style="display:flex; align-items:center; gap:4px; font-size:11px; color:#62666d; margin-bottom:6px;">
+                RSI-14<span class="fg-info" data-tip="Wilder 14日相对强弱指数。>70 超买，<30 超卖。基于近 6 个月日线价格用 ta-lib 式 EMA 平滑算法计算。">i</span>
+            </div>
+            {% set rsi_color = '#f87171' if q.rsi14 and q.rsi14 > 70 else ('#4ade80' if q.rsi14 and q.rsi14 < 30 else '#facc15') %}
+            <div style="font-size:22px; font-weight:700; color:{{ rsi_color }}; font-variant-numeric:tabular-nums;">{{ q.rsi14 or '--' }}</div>
+            <div style="font-size:11px; color:{{ rsi_color }}; margin-top:4px; font-weight:500;">
+                {% if q.rsi14 and q.rsi14 > 70 %}超买区{% elif q.rsi14 and q.rsi14 < 30 %}超卖区{% else %}中性{% endif %}
+            </div>
+        </div>
+        <!-- PE -->
+        <div style="padding:14px 12px; background:rgba(255,255,255,0.03); border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+            <div style="display:flex; align-items:center; gap:4px; font-size:11px; color:#62666d; margin-bottom:6px;">
+                市盈率 PE<span class="fg-info" data-tip="Trailing PE = 当前价格 / 过去 12 个月每股收益。ETF 的 PE 反映持仓加权平均。纳指 100 历史均值约 24-26，现值为溢价区间。">i</span>
+            </div>
+            <div style="font-size:22px; font-weight:700; color:#f7f8f8; font-variant-numeric:tabular-nums;">{{ q.pe or '--' }}</div>
+            <div style="font-size:11px; color:#62666d; margin-top:4px;">trailing</div>
+        </div>
+        <!-- PB -->
+        <div style="padding:14px 12px; background:rgba(255,255,255,0.03); border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+            <div style="display:flex; align-items:center; gap:4px; font-size:11px; color:#62666d; margin-bottom:6px;">
+                市净率 PB<span class="fg-info" data-tip="Price to Book = 当前价格 / 每股净资产。yfinance 给出的是 ETF 单位 PB，与持仓加权 PB 可能存在差异。科技股 PB 普遍高（轻资产）。">i</span>
+            </div>
+            <div style="font-size:22px; font-weight:700; color:#f7f8f8; font-variant-numeric:tabular-nums;">{{ q.pb or '--' }}</div>
+            <div style="font-size:11px; color:#62666d; margin-top:4px;">price/book</div>
+        </div>
+        <!-- 股息率 -->
+        <div style="padding:14px 12px; background:rgba(255,255,255,0.03); border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+            <div style="display:flex; align-items:center; gap:4px; font-size:11px; color:#62666d; margin-bottom:6px;">
+                股息率<span class="fg-info" data-tip="过去 12 个月分红 / 当前股价。QQQ 是科技成长型 ETF，股息率普遍低于 1%。适合做总回报型配置而非收益流。">i</span>
+            </div>
+            <div style="font-size:22px; font-weight:700; color:#f7f8f8; font-variant-numeric:tabular-nums;">{{ q.dividend_yield_pct or '--' }}%</div>
+            <div style="font-size:11px; color:#62666d; margin-top:4px;">TTM yield</div>
+        </div>
+        <!-- 3年价格分位 -->
+        <div style="padding:14px 12px; background:rgba(94,106,210,0.06); border-radius:8px; border:1px solid rgba(94,106,210,0.2);">
+            <div style="display:flex; align-items:center; gap:4px; font-size:11px; color:#a5b4fc; margin-bottom:6px;">
+                价格分位<span class="fg-info tip-right" data-tip="当前价格在过去 3/5/10 年范围内的百分位。100% = 创历史新高，0% = 创历史新低。此处用价格分位代理估值分位（ETF 历史 PE 需付费源）。">i</span>
+            </div>
+            {% set pct_color = '#f87171' if qqq.percentile['5y'] > 80 else ('#4ade80' if qqq.percentile['5y'] < 20 else '#facc15') %}
+            <div style="font-size:22px; font-weight:700; color:{{ pct_color }}; font-variant-numeric:tabular-nums;">{{ qqq.percentile['5y'] }}<span style="font-size:14px;">%</span></div>
+            <div style="font-size:11px; color:#62666d; margin-top:4px;">近 5 年</div>
+        </div>
+    </div>
+
+    <!-- 历史走势图 + 3/5/10Y 切换 -->
+    <div style="padding-top:16px; border-top:1px solid rgba(255,255,255,0.05);">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+            <div style="font-size:13px; font-weight:600; color:#d0d6e0;">
+                QQQ 历史价格走势<span class="fg-info" data-tip="月线级别价格走势。虚线为当前价格水平。分位条显示当前在所选周期的位置。">i</span>
+            </div>
+            <div style="display:flex; gap:4px; background:rgba(255,255,255,0.04); border-radius:8px; padding:3px;">
+                <button class="tab-btn active" id="qqq-tab-3y" onclick="switchQqqTab('3y')">近3年</button>
+                <button class="tab-btn" id="qqq-tab-5y" onclick="switchQqqTab('5y')">近5年</button>
+                <button class="tab-btn" id="qqq-tab-10y" onclick="switchQqqTab('10y')">近10年</button>
+            </div>
+        </div>
+        <div id="qqq-hist-chart" style="height:260px;"></div>
+        <!-- 分位条 -->
+        <div style="display:flex; align-items:center; gap:12px; margin-top:12px; padding:10px 14px; background:rgba(255,255,255,0.02); border-radius:6px; font-size:11px;">
+            <span style="color:#62666d;">当前分位：</span>
+            <span id="qqq-pct-label" style="font-weight:600; color:#facc15; font-variant-numeric:tabular-nums;">—</span>
+            <div style="flex:1; height:6px; background:linear-gradient(90deg, #4ade80 0%, #facc15 50%, #f87171 100%); border-radius:3px; position:relative;">
+                <div id="qqq-pct-marker" style="position:absolute; top:-4px; width:2px; height:14px; background:#f7f8f8; box-shadow:0 0 0 2px #0f1011;"></div>
+            </div>
+            <span style="color:#62666d;">← 低位 · 高位 →</span>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
 <!-- 信号解读 -->
 <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
     <!-- 入场信号卡 -->
@@ -644,6 +761,8 @@
 <script>
 var CNN_HISTORY = {{ cnn_history_json|safe }};
 var CRYPTO_HISTORY = {{ crypto_history_json|safe }};
+var QQQ_HISTORY = {{ qqq_history_json|safe }};
+var QQQ_PCT = {{ qqq.percentile|tojson if qqq and not qqq.error else '{"3y":50,"5y":50,"10y":50}' }};
 
 function openDrawer(id) {
     var key = id.replace('drawer-', '');
@@ -856,6 +975,110 @@ function switchTab(tab) {
 makeGauge('cnn-gauge', {{ cnn.score }});
 makeGauge('crypto-gauge', {{ crypto.score }});
 histChart.setOption(buildHistOption('us'));
+
+// ── QQQ 历史价格图 ──────────────────────────────────
+var qqqChartEl = document.getElementById('qqq-hist-chart');
+var qqqChart = qqqChartEl ? echarts.init(qqqChartEl, null, { renderer: 'canvas' }) : null;
+
+function buildQqqOption(period) {
+    var data = (QQQ_HISTORY && QQQ_HISTORY[period]) || [];
+    var closes = data.map(function(d) { return d.close; });
+    var current = closes.length ? closes[closes.length - 1] : 0;
+    var min = Math.min.apply(null, closes);
+    var max = Math.max.apply(null, closes);
+
+    return {
+        backgroundColor: 'transparent',
+        tooltip: {
+            trigger: 'axis',
+            backgroundColor: '#1a1b1e',
+            borderColor: 'rgba(255,255,255,0.1)',
+            textStyle: { color: '#d0d6e0', fontSize: 12 },
+            formatter: function(params) {
+                var d = new Date(params[0].axisValue);
+                var dateStr = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+                return '<div style="color:#8a8f98;font-size:11px;margin-bottom:4px;">' + dateStr + '</div>'
+                    + '<div style="font-weight:600;color:#a5b4fc;">$' + params[0].value[1].toFixed(2) + '</div>';
+            }
+        },
+        grid: { left: 50, right: 20, top: 16, bottom: 36, containLabel: false },
+        xAxis: {
+            type: 'time',
+            axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
+            axisTick: { show: false },
+            axisLabel: {
+                color: '#62666d',
+                fontSize: 11,
+                formatter: function(v) {
+                    var d = new Date(v);
+                    return d.getFullYear() + '/' + String(d.getMonth()+1).padStart(2,'0');
+                }
+            }
+        },
+        yAxis: {
+            type: 'value',
+            scale: true,
+            axisLine: { show: false },
+            axisTick: { show: false },
+            splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } },
+            axisLabel: {
+                color: '#62666d',
+                fontSize: 11,
+                formatter: function(v) { return '$' + v; }
+            }
+        },
+        series: [{
+            name: 'QQQ',
+            type: 'line',
+            smooth: true,
+            symbol: 'none',
+            lineStyle: { width: 2, color: '#a5b4fc' },
+            areaStyle: {
+                color: {
+                    type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+                    colorStops: [
+                        { offset: 0, color: 'rgba(165,180,252,0.35)' },
+                        { offset: 1, color: 'rgba(165,180,252,0.02)' }
+                    ]
+                }
+            },
+            markLine: {
+                silent: true,
+                symbol: 'none',
+                lineStyle: { color: 'rgba(250,204,21,0.5)', type: 'dashed', width: 1 },
+                label: {
+                    color: '#facc15', fontSize: 10,
+                    formatter: '当前 $' + current.toFixed(0), position: 'insideEndTop'
+                },
+                data: [{ yAxis: current }]
+            },
+            data: data.map(function(d) { return [d.date, d.close]; })
+        }]
+    };
+}
+
+function switchQqqTab(period) {
+    ['3y','5y','10y'].forEach(function(p) {
+        document.getElementById('qqq-tab-' + p).classList.toggle('active', p === period);
+    });
+    if (qqqChart) qqqChart.setOption(buildQqqOption(period), true);
+    // 更新分位条
+    var pct = QQQ_PCT[period] || 50;
+    var label = document.getElementById('qqq-pct-label');
+    var marker = document.getElementById('qqq-pct-marker');
+    if (label) {
+        label.textContent = pct.toFixed(1) + '%';
+        label.style.color = pct > 80 ? '#f87171' : (pct < 20 ? '#4ade80' : '#facc15');
+    }
+    if (marker) marker.style.left = pct + '%';
+}
+
+if (qqqChart) {
+    qqqChart.setOption(buildQqqOption('3y'));
+    switchQqqTab('3y');
+    window.addEventListener('resize', function() { qqqChart.resize(); });
+}
+
 window.addEventListener('resize', function() { histChart.resize(); });
 </script>
 {% endblock %}

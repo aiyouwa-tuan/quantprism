@@ -3726,17 +3726,24 @@ async def macro_page(request: Request):
 
 @app.get("/sentiment", response_class=HTMLResponse)
 async def sentiment_page(request: Request):
-    """恐贪指数 — CNN 美股 + Alternative.me 加密货币"""
+    """恐贪指数 — CNN 美股 + Alternative.me 加密货币 + QQQ 估值"""
     from fear_greed import fetch_cnn, fetch_crypto
+    from qqq_metrics import fetch_qqq
+    import asyncio
     import json as _json
-    cnn = fetch_cnn()
-    crypto = fetch_crypto()
+    cnn, crypto, qqq = await asyncio.gather(
+        asyncio.to_thread(fetch_cnn),
+        asyncio.to_thread(fetch_crypto),
+        asyncio.to_thread(fetch_qqq),
+    )
     return templates.TemplateResponse("market_sentiment.html", {
         "request": request,
         "cnn": cnn,
         "crypto": crypto,
+        "qqq": qqq,
         "cnn_history_json": _json.dumps(cnn.get("history", [])),
         "crypto_history_json": _json.dumps(crypto.get("history", [])),
+        "qqq_history_json": _json.dumps(qqq.get("history", {})),
     })
 
 
