@@ -661,12 +661,17 @@
                     <div class="fg-popover" style="width:420px;">
                         <div class="fg-popover-header">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
-                            关于 PE 走势
+                            关于三个指标
                         </div>
                         <div style="font-size:11.5px; line-height:1.7; color:#d0d6e0;">
-                            <div style="color:#fdba74; margin-bottom:6px;">⚠️ ETF 历史 PE/PB 时间序列 yfinance 不提供，需付费源（Bloomberg/FactSet）。</div>
-                            <div>替代方案：<strong style="color:#a5b4fc;">长桥市场温度计</strong>卡片的「估值」历史分位线（0-100）是真实历史估值数据，作用等同于 PE 百分位。向上滚动即可查看。</div>
-                            <div style="margin-top:6px; color:#8a8f98;">本图提供：价格走势 · RSI-14 走势（月线）· 3/5/10/20 年周期</div>
+                            <div><strong style="color:#a5b4fc;">价格</strong>：QQQ 月线收盘真实价格</div>
+                            <div><strong style="color:#a5b4fc;">RSI-14</strong>：基于月线价格的 Wilder 平滑相对强弱指数（真实）</div>
+                            <div style="margin-top:6px;"><strong style="color:#fdba74;">PE 估算</strong>：<span style="color:#fdba74;">近似值，不是真实历史 PE</span>
+                                <div style="margin-top:4px; padding:8px 10px; background:rgba(251,146,60,0.06); border-radius:5px; color:#8a8f98; font-size:11px;">
+                                    方法：已知当前 trailing PE = 34.6，反推当前 TTM EPS = $18.93。假设 EPS 按 14% 年化 CAGR 向历史衰减，逐月反推估算 EPS，再用历史价格 / 估算 EPS 得估算 PE。曲线形态合理但绝对值有偏差。
+                                </div>
+                                <div style="margin-top:6px; color:#a5b4fc; font-size:11px;">要看真实历史估值，请向上看「长桥市场温度计」的估值分位线（0-100 真实数据）。</div>
+                            </div>
                         </div>
                     </div>
                 </span>
@@ -676,6 +681,7 @@
                 <div style="display:flex; gap:4px; background:rgba(255,255,255,0.04); border-radius:8px; padding:3px;">
                     <button class="tab-btn active" id="qqq-metric-price" onclick="switchQqqMetric('price')">价格</button>
                     <button class="tab-btn" id="qqq-metric-rsi" onclick="switchQqqMetric('rsi')">RSI-14</button>
+                    <button class="tab-btn" id="qqq-metric-pe" onclick="switchQqqMetric('pe')">PE估算</button>
                 </div>
                 <!-- 周期 Tab -->
                 <div style="display:flex; gap:4px; background:rgba(255,255,255,0.04); border-radius:8px; padding:3px;">
@@ -724,9 +730,9 @@
                             <span style="color:#f87171;">&gt;30</span> 恐慌（常见买点）
                         </div>
                         <div style="margin-top:8px; padding:8px 10px; background:rgba(94,106,210,0.06); border-radius:5px; color:#8a8f98;">
-                            历史极值：2008 金融危机 80+ · 2020 疫情 82 · 2022 加息周期 35
+                            历史极值：2008 金融危机 80+ · 2020 疫情 82 · <strong style="color:#f87171;">2025-04 关税恐慌 52.3</strong>
                         </div>
-                        <div style="margin-top:6px; font-size:10.5px; color:#62666d;">数据源：Yahoo Finance ^VIX · 月线</div>
+                        <div style="margin-top:6px; font-size:10.5px; color:#62666d;">数据源：Yahoo Finance ^VIX · 日线（捕捉脉冲高点）</div>
                     </div>
                 </div>
             </span>
@@ -1178,15 +1184,34 @@ var qqqState = { metric: 'price', period: '3y' };
 function buildQqqOption(metric, period) {
     var data = (QQQ_HISTORY && QQQ_HISTORY[period]) || [];
     var isRsi = metric === 'rsi';
-    var values = data.map(function(d) { return isRsi ? d.rsi : d.close; });
+    var isPe = metric === 'pe';
+    var field = isRsi ? 'rsi' : (isPe ? 'pe_est' : 'close');
+    var values = data.map(function(d) { return d[field]; }).filter(function(v){ return v != null; });
     var current = values.length ? values[values.length - 1] : 0;
 
-    var color = isRsi ? (current > 70 ? '#f87171' : (current < 30 ? '#4ade80' : '#facc15')) : '#a5b4fc';
-    var markLines = [{ yAxis: current, lineStyle: { color: color + '88', type: 'dashed', width: 1 },
-        label: { color: color, fontSize: 10, formatter: (isRsi ? '当前 ' : '当前 $') + current.toFixed(isRsi ? 1 : 0), position: 'insideEndTop' } }];
+    var color;
+    if (isRsi) color = current > 70 ? '#f87171' : (current < 30 ? '#4ade80' : '#facc15');
+    else if (isPe) color = current > 35 ? '#f87171' : (current < 18 ? '#4ade80' : '#facc15');
+    else color = '#a5b4fc';
+
+    var unitFmt = function(v) {
+        if (isRsi) return v.toFixed(1);
+        if (isPe) return v.toFixed(1) + '×';
+        return '$' + v.toFixed(2);
+    };
+
+    var markLines = [{
+        yAxis: current,
+        lineStyle: { color: color + '88', type: 'dashed', width: 1 },
+        label: { color: color, fontSize: 10, formatter: '当前 ' + unitFmt(current), position: 'insideEndTop' }
+    }];
     if (isRsi) {
         markLines.push({ yAxis: 70, lineStyle: { color: '#f87171', type: 'dashed', width: 1, opacity: 0.4 }, label: { show: true, color: '#f87171', fontSize: 9, formatter: '超买 70', position: 'insideStartTop' } });
         markLines.push({ yAxis: 30, lineStyle: { color: '#4ade80', type: 'dashed', width: 1, opacity: 0.4 }, label: { show: true, color: '#4ade80', fontSize: 9, formatter: '超卖 30', position: 'insideStartTop' } });
+    }
+    if (isPe) {
+        // NDX 长期 trailing PE 均值约 22-25
+        markLines.push({ yAxis: 25, lineStyle: { color: 'rgba(250,204,21,0.4)', type: 'dashed', width: 1 }, label: { show: true, color: '#facc15', fontSize: 9, formatter: '均值 ~25', position: 'insideStartTop' } });
     }
 
     return {
@@ -1200,9 +1225,8 @@ function buildQqqOption(metric, period) {
                 var d = new Date(params[0].axisValue);
                 var dateStr = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
                 var v = params[0].value[1];
-                var disp = isRsi ? v.toFixed(1) : '$' + v.toFixed(2);
                 return '<div style="color:#8a8f98;font-size:11px;margin-bottom:4px;">' + dateStr + '</div>'
-                    + '<div style="font-weight:600;color:' + color + ';">' + disp + '</div>';
+                    + '<div style="font-weight:600;color:' + color + ';">' + unitFmt(v) + '</div>';
             }
         },
         grid: { left: 48, right: 20, top: 16, bottom: 36, containLabel: false },
@@ -1228,11 +1252,15 @@ function buildQqqOption(metric, period) {
             splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } },
             axisLabel: {
                 color: '#62666d', fontSize: 11,
-                formatter: function(v) { return isRsi ? v : '$' + v; }
+                formatter: function(v) {
+                    if (isRsi) return v;
+                    if (isPe) return v + '×';
+                    return '$' + v;
+                }
             }
         },
         series: [{
-            name: isRsi ? 'RSI-14' : 'QQQ',
+            name: isRsi ? 'RSI-14' : (isPe ? 'PE估算' : 'QQQ'),
             type: 'line',
             smooth: true,
             symbol: 'none',
@@ -1248,7 +1276,7 @@ function buildQqqOption(metric, period) {
                 }
             },
             markLine: { silent: true, symbol: 'none', data: markLines },
-            data: data.map(function(d) { return [d.date, isRsi ? d.rsi : d.close]; })
+            data: data.map(function(d) { return [d.date, d[field]]; })
         }]
     };
 }
@@ -1273,7 +1301,7 @@ function renderQqq() {
 
 function switchQqqMetric(metric) {
     qqqState.metric = metric;
-    ['price','rsi'].forEach(function(m) {
+    ['price','rsi','pe'].forEach(function(m) {
         var el = document.getElementById('qqq-metric-' + m);
         if (el) el.classList.toggle('active', m === metric);
     });

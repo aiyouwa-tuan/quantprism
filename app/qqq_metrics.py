@@ -22,6 +22,27 @@ def _cached(key, fn):
     return data
 
 
+def _pe_estimate_series(close: pd.Series, current_eps_ttm: float, annual_growth: float = 0.14) -> pd.Series:
+    """近似历史 PE 时间序列。
+
+    方法：已知当前 trailing EPS，假设 EPS 以年化 `annual_growth`（默认14%，
+    NDX 过去20年trailing EPS大致水平）反向复合衰减到每个历史月份，
+    然后用各月收盘价除以当月估算 EPS 得到估算 PE。
+
+    注意：这是估算，非真实历史 PE（ETF 历史 PE 需付费数据源）。
+    曲线形状合理反映"贵/便宜"变化，绝对值仅供参考。
+    """
+    if current_eps_ttm is None or current_eps_ttm <= 0:
+        return pd.Series([None] * len(close), index=close.index)
+    now = close.index[-1]
+    # 每个点距 now 的年数（负值表示过去）
+    deltas = [(idx - now).days / 365.25 for idx in close.index]
+    # 历史 EPS = current / (1+g)^(-years_back)
+    hist_eps = [current_eps_ttm / ((1 + annual_growth) ** (-d)) for d in deltas]
+    return pd.Series([float(p) / float(e) if e and e > 0 else None
+                      for p, e in zip(close.values, hist_eps)], index=close.index)
+
+
 def _rsi_series(close: pd.Series, period: int = 14) -> pd.Series:
     """Wilder's RSI — 返回整个时间序列。"""
     delta = close.diff()
@@ -59,17 +80,27 @@ def fetch_qqq() -> dict:
             # 计算月线 RSI（滚动 14 个月窗口）
             monthly_rsi = _rsi_series(monthly["Close"])
 
+            # 估算历史 PE（基于当前 PE/价格推当前 EPS，再按 14% 年化衰减）
+            pe_now = info.get("trailingPE")
+            current_eps = None
+            if pe_now and float(pe_now) > 0:
+                current_eps = float(monthly["Close"].iloc[-1]) / float(pe_now)
+            pe_growth_assumption = 0.14
+            monthly_pe_est = _pe_estimate_series(monthly["Close"], current_eps, pe_growth_assumption)
+
             # 按周期切片 + 结构化数据
-            def _series(df, rsi_df):
+            def _series(df, rsi_df, pe_df):
                 out = []
                 for idx, row in df.iterrows():
                     if pd.isna(row["Close"]):
                         continue
                     rsi_val = rsi_df.loc[idx] if idx in rsi_df.index else None
+                    pe_val = pe_df.loc[idx] if idx in pe_df.index else None
                     out.append({
                         "date": int(idx.timestamp() * 1000),
                         "close": round(float(row["Close"]), 2),
                         "rsi": round(float(rsi_val), 1) if rsi_val is not None and not pd.isna(rsi_val) else None,
+                        "pe_est": round(float(pe_val), 1) if pe_val is not None and not pd.isna(pe_val) else None,
                     })
                 return out
 
@@ -80,7 +111,7 @@ def fetch_qqq() -> dict:
                 "10y": monthly[monthly.index >= now - pd.DateOffset(years=10)],
                 "20y": monthly[monthly.index >= now - pd.DateOffset(years=20)],
             }
-            history = {k: _series(v, monthly_rsi) for k, v in slices.items()}
+            history = {k: _series(v, monthly_rsi, monthly_pe_est) for k, v in slices.items()}
 
             current_price = float(monthly["Close"].iloc[-1])
 
