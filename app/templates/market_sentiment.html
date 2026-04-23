@@ -457,11 +457,99 @@
     </div>
 </div>
 
+<!-- ═══════════════════════════════════════ -->
+<!-- 🌡️ 长桥市场温度计（三层：温度/估值/情绪） -->
+<!-- ═══════════════════════════════════════ -->
+<div class="fg-card" style="margin-bottom:16px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+            <div style="font-size:16px; font-weight:600; color:#f7f8f8;">长桥市场温度计</div>
+            <div style="font-size:12px; color:#62666d;">美股 · 温度 / 估值 / 情绪 三层</div>
+            <span class="fg-hover-wrap">
+                <span class="fg-hover-trigger">i</span>
+                <div class="fg-popover" style="width:460px;">
+                    <div class="fg-popover-header">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
+                        长桥市场温度说明
+                    </div>
+                    <div style="font-size:11.5px; line-height:1.7; color:#d0d6e0;">
+                        <div><span style="color:#a5b4fc; font-weight:600;">温度：</span>估值 + 情绪的综合分数（0-100），越高越过热</div>
+                        <div><span style="color:#a5b4fc; font-weight:600;">估值：</span>基于 PE/PB 等基本面指标的百分位分位</div>
+                        <div><span style="color:#a5b4fc; font-weight:600;">情绪：</span>基于成交量、涨跌家数、资金流向等</div>
+                        <div style="margin-top:8px; padding:8px 10px; background:rgba(94,106,210,0.06); border-radius:5px;">
+                            <div style="color:#a5b4fc; font-weight:600; margin-bottom:4px;">与 CNN F&G 的互补关系：</div>
+                            <div style="color:#8a8f98;">CNN = 纯情绪（不含估值）· 长桥 = 估值+情绪分开展示。估值低 + 情绪恐惧 = 真黄金坑。</div>
+                        </div>
+                        <div style="margin-top:8px; font-size:10.5px; color:#62666d;">数据源：长桥 OpenAPI · 15 分钟缓存</div>
+                    </div>
+                </div>
+            </span>
+        </div>
+        <div style="font-size:11px; color:#62666d;">数据源 · Longport OpenAPI</div>
+    </div>
+
+    {% if lp_us.error %}
+    <div style="padding:20px; text-align:center; color:#f87171; font-size:13px;">长桥数据加载失败：{{ lp_us.error }}</div>
+    {% else %}
+    {% set lc = lp_us.current %}
+    <!-- 三层当前数值 + 大字显示 -->
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:20px;">
+        <!-- 综合温度 -->
+        <div style="padding:16px 18px; background:rgba(255,255,255,0.03); border-radius:8px; border:1px solid rgba(255,255,255,0.05); position:relative;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                <div style="font-size:12px; color:#8a8f98; font-weight:500;">🌡️ 综合温度</div>
+                <span style="font-size:10px; padding:2px 8px; border-radius:3px; background:{{ lc.temp_color }}22; color:{{ lc.temp_color }}; font-weight:600;">{{ lc.description }}</span>
+            </div>
+            <div style="display:flex; align-items:baseline; gap:8px;">
+                <span style="font-size:44px; font-weight:700; color:{{ lc.temp_color }}; font-variant-numeric:tabular-nums; line-height:1;">{{ lc.temperature }}</span>
+                <span style="font-size:12px; color:#62666d;">/ 100</span>
+            </div>
+        </div>
+        <!-- 估值 -->
+        <div style="padding:16px 18px; background:rgba(255,255,255,0.03); border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                <div style="font-size:12px; color:#8a8f98; font-weight:500;">💰 估值</div>
+                <span style="font-size:10px; color:#62666d;">PE/PB 分位</span>
+            </div>
+            <div style="display:flex; align-items:baseline; gap:8px;">
+                <span style="font-size:44px; font-weight:700; color:{{ lc.val_color }}; font-variant-numeric:tabular-nums; line-height:1;">{{ lc.valuation }}</span>
+                <span style="font-size:12px; color:#62666d;">/ 100</span>
+            </div>
+        </div>
+        <!-- 情绪 -->
+        <div style="padding:16px 18px; background:rgba(255,255,255,0.03); border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                <div style="font-size:12px; color:#8a8f98; font-weight:500;">🎭 情绪</div>
+                <span style="font-size:10px; color:#62666d;">资金/广度</span>
+            </div>
+            <div style="display:flex; align-items:baseline; gap:8px;">
+                <span style="font-size:44px; font-weight:700; color:{{ lc.sent_color }}; font-variant-numeric:tabular-nums; line-height:1;">{{ lc.sentiment }}</span>
+                <span style="font-size:12px; color:#62666d;">/ 100</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 历史三层叠加图 + 切换 -->
+    <div style="padding-top:16px; border-top:1px solid rgba(255,255,255,0.05);">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+            <div style="font-size:13px; font-weight:600; color:#d0d6e0;">历史走势（近1年）</div>
+            <div style="display:flex; gap:4px; background:rgba(255,255,255,0.04); border-radius:8px; padding:3px;">
+                <button class="tab-btn active" id="lp-tab-all" onclick="switchLpTab('all')">全部</button>
+                <button class="tab-btn" id="lp-tab-temperature" onclick="switchLpTab('temperature')">温度</button>
+                <button class="tab-btn" id="lp-tab-valuation" onclick="switchLpTab('valuation')">估值</button>
+                <button class="tab-btn" id="lp-tab-sentiment" onclick="switchLpTab('sentiment')">情绪</button>
+            </div>
+        </div>
+        <div id="lp-hist-chart" style="height:280px;"></div>
+    </div>
+    {% endif %}
+</div>
+
 <!-- 历史走势图 -->
 <div class="fg-card" style="margin-bottom:16px;">
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
         <div style="font-size:14px; font-weight:600; color:#f7f8f8;">
-            历史走势 (近90天)<span class="fg-info" data-tip="两个市场均以 0-100 归一化，可直接叠加对比。观察重点：是否同步下探（系统性恐慌）或出现背离（单一市场特质）。虚线为 25/45/55/75 四条阈值分界。">i</span>
+            CNN 恐贪历史走势 (近90天)<span class="fg-info" data-tip="两个市场均以 0-100 归一化，可直接叠加对比。观察重点：是否同步下探（系统性恐慌）或出现背离（单一市场特质）。虚线为 25/45/55/75 四条阈值分界。">i</span>
         </div>
         <div style="display:flex; gap:4px; background:rgba(255,255,255,0.04); border-radius:8px; padding:3px;">
             <button class="tab-btn active" id="tab-us" onclick="switchTab('us')">美股</button>
@@ -763,6 +851,7 @@ var CNN_HISTORY = {{ cnn_history_json|safe }};
 var CRYPTO_HISTORY = {{ crypto_history_json|safe }};
 var QQQ_HISTORY = {{ qqq_history_json|safe }};
 var QQQ_PCT = {{ qqq.percentile|tojson if qqq and not qqq.error else '{"3y":50,"5y":50,"10y":50}' }};
+var LP_US_HISTORY = {{ lp_us_history_json|safe }};
 
 function openDrawer(id) {
     var key = id.replace('drawer-', '');
@@ -1077,6 +1166,109 @@ if (qqqChart) {
     qqqChart.setOption(buildQqqOption('3y'));
     switchQqqTab('3y');
     window.addEventListener('resize', function() { qqqChart.resize(); });
+}
+
+// ── 长桥市场温度历史图 ──────────────────────────────────
+var lpChartEl = document.getElementById('lp-hist-chart');
+var lpChart = lpChartEl ? echarts.init(lpChartEl, null, { renderer: 'canvas' }) : null;
+
+function buildLpOption(mode) {
+    var seriesDefs = [
+        { key: 'temperature', name: '温度', color: '#818cf8' },
+        { key: 'valuation',   name: '估值', color: '#fb923c' },
+        { key: 'sentiment',   name: '情绪', color: '#4ade80' },
+    ];
+    var visible = mode === 'all' ? seriesDefs : seriesDefs.filter(function(s){ return s.key === mode; });
+
+    var series = visible.map(function(s) {
+        return {
+            name: s.name,
+            type: 'line',
+            smooth: true,
+            symbol: 'none',
+            lineStyle: { width: 2, color: s.color },
+            areaStyle: mode !== 'all' ? {
+                color: {
+                    type: 'linear', x:0, y:0, x2:0, y2:1,
+                    colorStops: [
+                        { offset: 0, color: s.color + '55' },
+                        { offset: 1, color: s.color + '05' }
+                    ]
+                }
+            } : undefined,
+            markLine: {
+                silent: true,
+                symbol: 'none',
+                lineStyle: { color: 'rgba(255,255,255,0.06)', type: 'dashed', width: 1 },
+                data: [{ yAxis: 25 }, { yAxis: 50 }, { yAxis: 75 }]
+            },
+            data: LP_US_HISTORY.map(function(d) { return [d.date, d[s.key]]; })
+        };
+    });
+
+    return {
+        backgroundColor: 'transparent',
+        tooltip: {
+            trigger: 'axis',
+            backgroundColor: '#1a1b1e',
+            borderColor: 'rgba(255,255,255,0.1)',
+            textStyle: { color: '#d0d6e0', fontSize: 12 },
+            formatter: function(params) {
+                var d = new Date(params[0].axisValue);
+                var dateStr = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+                var lines = '<div style="color:#8a8f98;font-size:11px;margin-bottom:4px;">'+dateStr+'</div>';
+                params.forEach(function(p){
+                    var v = p.value[1];
+                    lines += '<div style="display:flex;align-items:center;gap:8px;">'
+                        + '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+p.color+'"></span>'
+                        + '<span style="color:#8a8f98;font-size:12px;">'+p.seriesName+'</span>'
+                        + '<span style="font-weight:600;color:'+scoreColor(v)+';margin-left:auto;">'+v+'</span>'
+                        + '</div>';
+                });
+                return lines;
+            }
+        },
+        legend: {
+            show: mode === 'all',
+            top: 0, right: 0,
+            textStyle: { color: '#8a8f98', fontSize: 12 },
+            itemWidth: 12, itemHeight: 4
+        },
+        grid: { left: 40, right: 20, top: mode === 'all' ? 30 : 12, bottom: 40, containLabel: false },
+        xAxis: {
+            type: 'time',
+            axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
+            axisTick: { show: false },
+            axisLabel: {
+                color: '#62666d', fontSize: 11,
+                formatter: function(v) {
+                    var d = new Date(v);
+                    return (d.getMonth()+1)+'/'+d.getDate();
+                }
+            }
+        },
+        yAxis: {
+            type: 'value', min: 0, max: 100, splitNumber: 4,
+            axisLine: { show: false },
+            axisTick: { show: false },
+            splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } },
+            axisLabel: { color: '#62666d', fontSize: 11 }
+        },
+        series: series
+    };
+}
+
+function switchLpTab(mode) {
+    ['all','temperature','valuation','sentiment'].forEach(function(t){
+        var el = document.getElementById('lp-tab-'+t);
+        if (el) el.classList.toggle('active', t === mode);
+    });
+    if (lpChart) lpChart.setOption(buildLpOption(mode), true);
+}
+
+if (lpChart) {
+    lpChart.setOption(buildLpOption('all'));
+    window.addEventListener('resize', function() { lpChart.resize(); });
 }
 
 window.addEventListener('resize', function() { histChart.resize(); });

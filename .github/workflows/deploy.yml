@@ -37,6 +37,25 @@ jobs:
             'echo SSH_OK' 2>&1 || true
           echo "SSH test exit: $?"
 
+      - name: Sync secrets to VPS .env
+        env:
+          LONGPORT_APP_KEY: ${{ secrets.LONGPORT_APP_KEY }}
+          LONGPORT_APP_SECRET: ${{ secrets.LONGPORT_APP_SECRET }}
+          LONGPORT_ACCESS_TOKEN: ${{ secrets.LONGPORT_ACCESS_TOKEN }}
+        run: |
+          ssh -i ~/.ssh/id_rsa \
+            -o StrictHostKeyChecking=no \
+            -o ConnectTimeout=30 \
+            root@${{ secrets.VPS_HOST }} \
+            "set -e
+             ENV_FILE=/opt/quant/Quant/.env
+             touch \$ENV_FILE
+             # 移除旧的 LONGPORT_* 行，再追加新值
+             sed -i '/^LONGPORT_/d' \$ENV_FILE
+             printf '\nLONGPORT_APP_KEY=%s\nLONGPORT_APP_SECRET=%s\nLONGPORT_ACCESS_TOKEN=%s\n' '$LONGPORT_APP_KEY' '$LONGPORT_APP_SECRET' '$LONGPORT_ACCESS_TOKEN' >> \$ENV_FILE
+             chmod 600 \$ENV_FILE
+             chown www-data:www-data \$ENV_FILE"
+
       - name: Run remote deploy script
         run: |
           ssh -i ~/.ssh/id_rsa \

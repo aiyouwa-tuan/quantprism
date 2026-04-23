@@ -25,3 +25,5 @@ psycopg2-binary>=2.9      # PostgreSQL 驱动 (Supabase 用户数据)
 PyPortfolioOpt>=1.5       # 有效前沿优化：目标收益 → 最优持仓权重
 riskfolio-lib>=6.0        # CDaR 回撤约束优化（Riskfolio-Lib）
 backtesting>=0.3          # 快速策略回测验证（backtesting.py）
+
+longport>=3.0.23
