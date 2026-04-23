@@ -732,12 +732,12 @@
                         <div style="margin-top:8px; padding:8px 10px; background:rgba(94,106,210,0.06); border-radius:5px; color:#8a8f98;">
                             历史极值：2008 金融危机 80+ · 2020 疫情 82 · <strong style="color:#f87171;">2025-04 关税恐慌 52.3</strong>
                         </div>
-                        <div style="margin-top:6px; font-size:10.5px; color:#62666d;">数据源：Yahoo Finance ^VIX · 日线（捕捉脉冲高点）</div>
+                        <div style="margin-top:6px; font-size:10.5px; color:#62666d;">数据源：长桥 OpenAPI 代码 <code style="background:rgba(0,0,0,0.3); padding:1px 4px; border-radius:2px;">.VIX.US</code> · 日线 OHLC 覆盖 2005-至今 21+ 年 · yfinance 备用</div>
                     </div>
                 </div>
             </span>
         </div>
-        <div style="font-size:11px; color:#62666d;">数据源 · Yahoo Finance ^VIX</div>
+        <div style="font-size:11px; color:#62666d;">数据源 · {{ vix.source or '长桥 OpenAPI' }}</div>
     </div>
 
     {% if vix.error %}

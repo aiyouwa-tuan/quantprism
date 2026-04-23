@@ -1,12 +1,11 @@
-"""VIX（CBOE 恐慌指数）历史 —— yfinance ^VIX。
+"""VIX（CBOE 恐慌指数）历史 —— 长桥 OpenAPI 为主源，yfinance 做 fallback。
 
-关键点：VIX 是脉冲式指数，月线收盘会掩盖日内极值（例如 2025-04-08
-盘中 60+，但月末收盘仅 ~25）。所以必须用 **日线** 抓真实高点。
+长桥代码 `.VIX.US` 返回真实 CBOE VIX 日线 OHLC，覆盖 2005-至今 21+ 年。
+yfinance `^VIX` 作为备用（长桥未初始化时用）。
 
 阈值：<12 极度平静 / 12-20 正常 / 20-30 警戒 / >30 恐慌 / >40 极端
 """
 import time
-import yfinance as yf
 import pandas as pd
 
 _cache: dict = {}
@@ -39,64 +38,94 @@ def _vix_label(v: float) -> str:
     return "极端恐慌"
 
 
-def _downsample(df: pd.DataFrame, max_points: int = 800) -> pd.DataFrame:
-    """如果点数太多就按均匀间隔采样，保留首尾和高低点。"""
-    if len(df) <= max_points:
-        return df
-    step = max(1, len(df) // max_points)
-    return df.iloc[::step]
+def _downsample(bars: list, max_points: int) -> list:
+    if len(bars) <= max_points:
+        return bars
+    step = max(1, len(bars) // max_points)
+    return bars[::step]
+
+
+def _load_bars() -> tuple[list, str]:
+    """拉 VIX 日线，优先长桥；失败回落 yfinance。返回 (bars, source)。
+
+    bars 格式：[{date: ms_ts, close, high, low, open}, ...] 升序
+    """
+    # 主源：长桥
+    try:
+        from longport_client import fetch_vix_history
+        d = fetch_vix_history()
+        if not d.get("error") and d.get("bars"):
+            return d["bars"], "长桥 OpenAPI (.VIX.US)"
+    except Exception:
+        pass
+
+    # 备源：yfinance
+    import yfinance as yf
+    tk = yf.Ticker("^VIX")
+    daily = tk.history(period="max", interval="1d")
+    bars = []
+    for idx, row in daily.iterrows():
+        if pd.isna(row["Close"]):
+            continue
+        bars.append({
+            "date": int(idx.timestamp() * 1000),
+            "open": float(row["Open"]),
+            "high": float(row["High"]),
+            "low": float(row["Low"]),
+            "close": float(row["Close"]),
+        })
+    return bars, "Yahoo Finance ^VIX"
 
 
 def fetch_vix() -> dict:
     def _fetch():
         try:
-            tk = yf.Ticker("^VIX")
-            # 拉 max 日线，覆盖所有周期需求
-            daily = tk.history(period="max", interval="1d")
-            if daily.empty:
-                return {"error": "no VIX history"}
+            bars, source = _load_bars()
+            if not bars:
+                return {"error": "no VIX data"}
 
-            current = float(daily["Close"].iloc[-1])
-            today = daily.index[-1]
+            current = bars[-1]["close"]
+            now_ms = bars[-1]["date"]
 
-            # 周期切片（日线）
+            def _years_ago(years: int) -> int:
+                return now_ms - int(years * 365.25 * 86400 * 1000)
+
             slices = {
-                "3y": daily[daily.index >= today - pd.DateOffset(years=3)],
-                "5y": daily[daily.index >= today - pd.DateOffset(years=5)],
-                "10y": daily[daily.index >= today - pd.DateOffset(years=10)],
-                "20y": daily[daily.index >= today - pd.DateOffset(years=20)],
+                "3y": [b for b in bars if b["date"] >= _years_ago(3)],
+                "5y": [b for b in bars if b["date"] >= _years_ago(5)],
+                "10y": [b for b in bars if b["date"] >= _years_ago(10)],
+                "20y": [b for b in bars if b["date"] >= _years_ago(20)],
             }
 
-            # 统计 — 用日线真实 Close（已包含 2025-04 的 52+ 恐慌）
+            def _date_str(ms: int) -> str:
+                import datetime
+                return datetime.datetime.fromtimestamp(ms / 1000).strftime("%Y-%m-%d")
+
             stats = {}
             for k, v in slices.items():
-                if v.empty:
+                if not v:
                     continue
+                closes = [b["close"] for b in v]
+                max_bar = max(v, key=lambda b: b["close"])
                 stats[k] = {
-                    "mean": round(float(v["Close"].mean()), 1),
-                    "max": round(float(v["Close"].max()), 1),
-                    "min": round(float(v["Close"].min()), 1),
-                    "percentile": round(float((v["Close"] <= current).mean() * 100), 1),
-                    "max_date": v["Close"].idxmax().strftime("%Y-%m-%d"),
+                    "mean": round(sum(closes) / len(closes), 1),
+                    "max": round(max_bar["close"], 1),
+                    "min": round(min(closes), 1),
+                    "percentile": round(sum(1 for c in closes if c <= current) / len(closes) * 100, 1),
+                    "max_date": _date_str(max_bar["date"]),
                 }
 
-            # 历史序列 — 长周期做降采样防性能问题
-            def _series(df, max_pts):
-                df2 = _downsample(df, max_pts)
-                return [
-                    {"date": int(idx.timestamp() * 1000), "value": round(float(row["Close"]), 2)}
-                    for idx, row in df2.iterrows() if not pd.isna(row["Close"])
-                ]
-
+            # 降采样控制前端渲染性能
             history = {
-                "3y": _series(slices["3y"], 800),
-                "5y": _series(slices["5y"], 800),
-                "10y": _series(slices["10y"], 800),
-                "20y": _series(slices["20y"], 1000),
+                "3y": _downsample([{"date": b["date"], "value": round(b["close"], 2)} for b in slices["3y"]], 800),
+                "5y": _downsample([{"date": b["date"], "value": round(b["close"], 2)} for b in slices["5y"]], 800),
+                "10y": _downsample([{"date": b["date"], "value": round(b["close"], 2)} for b in slices["10y"]], 900),
+                "20y": _downsample([{"date": b["date"], "value": round(b["close"], 2)} for b in slices["20y"]], 1000),
             }
 
             return {
                 "error": None,
+                "source": source,
                 "current": {
                     "value": round(current, 2),
                     "color": _vix_color(current),

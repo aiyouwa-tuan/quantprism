@@ -53,6 +53,65 @@ def _score_color(score: float) -> str:
     return "#22c55e"
 
 
+def fetch_vix_history() -> list:
+    """VIX 日线历史 — 长桥 .VIX.US。分段拉（每次最多 1000 条）。
+
+    返回：[{date: ms_ts, open, high, low, close}, ...] 升序
+    """
+    def _fetch():
+        try:
+            from longport.openapi import Period, AdjustType
+            from datetime import date, timedelta
+            ctx = _get_ctx()
+            # 分 3 年段拉 2006-现在 约 7 段
+            all_bars = []
+            today = date.today()
+            # 起点 2006 年
+            end = today + timedelta(days=1)
+            while end > date(2005, 1, 1):
+                start = date(max(2005, end.year - 3), 1, 1)
+                bars = ctx.history_candlesticks_by_date(
+                    ".VIX.US", Period.Day, AdjustType.NoAdjust, start, end
+                )
+                if not bars:
+                    break
+                all_bars.extend(bars)
+                # 下一段：把 end 设为当前段最早的一天
+                earliest = min(b.timestamp for b in bars).date()
+                if earliest >= end:
+                    break
+                end = earliest - timedelta(days=1)
+                if len(all_bars) > 6000:
+                    break
+            # 去重 + 排序
+            seen = set()
+            unique = []
+            for b in all_bars:
+                ts = b.timestamp
+                if ts not in seen:
+                    seen.add(ts)
+                    unique.append(b)
+            unique.sort(key=lambda b: b.timestamp)
+            return {
+                "error": None,
+                "source": "longport",
+                "bars": [
+                    {
+                        "date": int(b.timestamp.timestamp() * 1000),
+                        "open": float(b.open),
+                        "high": float(b.high),
+                        "low": float(b.low),
+                        "close": float(b.close),
+                    }
+                    for b in unique
+                ],
+            }
+        except Exception as e:
+            return {"error": str(e), "source": "longport", "bars": []}
+
+    return _cached("lp_vix", _fetch)
+
+
 def fetch_market_temperature(market: str = "US") -> dict:
     """拉取指定市场的当前温度 + 一年历史。"""
     def _fetch():
