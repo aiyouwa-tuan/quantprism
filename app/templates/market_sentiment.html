@@ -43,9 +43,17 @@
         <h1 style="font-size:20px; font-weight:600; color:#f7f8f8; margin:0 0 4px;">市场情绪温度计</h1>
         <p style="font-size:13px; color:#8a8f98; margin:0;">Fear &amp; Greed Index — 美股 (CNN) · 加密货币 (Alternative.me)</p>
     </div>
-    <button onclick="window.location.reload()" style="padding:6px 14px; border-radius:6px; font-size:12px; color:#8a8f98; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); cursor:pointer;">
-        刷新数据
-    </button>
+    <div style="display:flex; align-items:center; gap:8px;">
+        <button onclick="openModal('modal-indicators')" title="查看指数构成" style="width:32px; height:32px; border-radius:6px; color:#8a8f98; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; transition:all 0.15s;" onmouseover="this.style.color='#a5b4fc';this.style.background='rgba(94,106,210,0.12)';" onmouseout="this.style.color='#8a8f98';this.style.background='rgba(255,255,255,0.05)';">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        </button>
+        <button onclick="openModal('modal-sources')" title="查看数据源" style="width:32px; height:32px; border-radius:6px; color:#8a8f98; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; transition:all 0.15s;" onmouseover="this.style.color='#a5b4fc';this.style.background='rgba(94,106,210,0.12)';" onmouseout="this.style.color='#8a8f98';this.style.background='rgba(255,255,255,0.05)';">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        </button>
+        <button onclick="window.location.reload()" style="padding:6px 14px; border-radius:6px; font-size:12px; color:#8a8f98; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); cursor:pointer;">
+            刷新数据
+        </button>
+    </div>
 </div>
 
 <!-- 错误提示 -->
@@ -185,8 +193,12 @@
     </div>
 </div>
 
-<!-- CNN 7指标构成 -->
-<div class="fg-card" style="margin-top:16px;">
+<!-- ══ 模态弹窗: CNN 7指标构成 ══ -->
+<div id="modal-indicators" class="fg-modal" onclick="if(event.target===this)closeModal('modal-indicators')" style="display:none; position:fixed; inset:0; z-index:100; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); align-items:flex-start; justify-content:center; padding:60px 20px; overflow-y:auto;">
+    <div style="width:100%; max-width:900px; background:#0f1011; border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:28px; position:relative;">
+        <button onclick="closeModal('modal-indicators')" style="position:absolute; top:16px; right:16px; width:28px; height:28px; border-radius:6px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); color:#8a8f98; cursor:pointer; display:inline-flex; align-items:center; justify-content:center;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
     <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
         <span style="font-size:16px;">🧩</span>
         <div style="font-size:14px; font-weight:600; color:#f7f8f8;">CNN 指数构成 — 7 指标等权平均</div>
@@ -232,10 +244,16 @@
     <div style="margin-top:12px; padding:10px 12px; background:rgba(94,106,210,0.06); border-radius:6px; font-size:11px; color:#a5b4fc; line-height:1.6;">
         💡 <span style="color:#8a8f98;">记忆口诀：</span>动量 + 新高 + 广度（趋势类3个）· Put/Call + VIX（恐惧类2个）· 债券利差 + 避险（资金类2个）
     </div>
+    </div>
 </div>
+<!-- ══ 模态弹窗结束: CNN 7指标构成 ══ -->
 
-<!-- 数据源 -->
-<div class="fg-card" style="margin-top:16px;">
+<!-- ══ 模态弹窗: 数据源 ══ -->
+<div id="modal-sources" class="fg-modal" onclick="if(event.target===this)closeModal('modal-sources')" style="display:none; position:fixed; inset:0; z-index:100; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); align-items:flex-start; justify-content:center; padding:60px 20px; overflow-y:auto;">
+    <div style="width:100%; max-width:900px; background:#0f1011; border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:28px; position:relative;">
+        <button onclick="closeModal('modal-sources')" style="position:absolute; top:16px; right:16px; width:28px; height:28px; border-radius:6px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); color:#8a8f98; cursor:pointer; display:inline-flex; align-items:center; justify-content:center;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
     <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
         <span style="font-size:16px;">🔗</span>
         <div style="font-size:14px; font-weight:600; color:#f7f8f8;">数据源</div>
@@ -280,11 +298,30 @@
         <div style="color:#62666d; margin-bottom:4px;">// 本地实现</div>
         <div><span style="color:#a5b4fc;">app/fear_greed.py</span> → httpx 异步拉取 → 15min TTL 缓存 → FastAPI 路由 <span style="color:#fdba74;">/sentiment</span></div>
     </div>
+    </div>
 </div>
+<!-- ══ 模态弹窗结束: 数据源 ══ -->
 
 <script>
 var CNN_HISTORY = {{ cnn_history_json|safe }};
 var CRYPTO_HISTORY = {{ crypto_history_json|safe }};
+
+function openModal(id) {
+    document.getElementById(id).style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+function closeModal(id) {
+    document.getElementById(id).style.display = 'none';
+    document.body.style.overflow = '';
+}
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.fg-modal').forEach(function(m) {
+            m.style.display = 'none';
+        });
+        document.body.style.overflow = '';
+    }
+});
 
 function scoreColor(v) {
     if (v <= 25) return '#f87171';
