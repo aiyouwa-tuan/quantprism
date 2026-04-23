@@ -162,6 +162,21 @@ def startup():
     from scheduler import init_scheduler
     init_scheduler()
 
+    # 后台预热 /sentiment 页面的数据缓存（避免首次访问 18s 冷启动）
+    import threading
+    def _warm_sentiment_cache():
+        try:
+            from fear_greed import fetch_cnn, fetch_crypto
+            from qqq_metrics import fetch_qqq
+            from vix_metrics import fetch_vix
+            from longport_client import fetch_market_temperature
+            # 串行但非阻塞 worker 主线程
+            fetch_cnn(); fetch_crypto(); fetch_qqq(); fetch_vix()
+            fetch_market_temperature("US")
+        except Exception as _e:
+            print(f"[warm_cache] {_e}")
+    threading.Thread(target=_warm_sentiment_cache, daemon=True).start()
+
 
 @app.on_event("shutdown")
 def shutdown():
