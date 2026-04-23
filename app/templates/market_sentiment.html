@@ -145,6 +145,81 @@
     overflow-y: auto;
     padding: 24px;
 }
+
+/* ── hover 信息 i 图标 ─────────────────────────────── */
+.fg-info {
+    display: inline-flex;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.06);
+    color: #8a8f98;
+    font-size: 10px;
+    font-weight: 700;
+    align-items: center;
+    justify-content: center;
+    cursor: help;
+    margin-left: 6px;
+    position: relative;
+    font-family: 'Georgia', serif;
+    font-style: italic;
+    transition: all 0.15s;
+    vertical-align: middle;
+    user-select: none;
+}
+.fg-info:hover {
+    background: rgba(94,106,210,0.2);
+    color: #c4cdfd;
+}
+.fg-info::before {
+    content: attr(data-tip);
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 0;
+    background: #1a1b1e;
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #d0d6e0;
+    padding: 12px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 400;
+    white-space: normal;
+    width: max-content;
+    max-width: 320px;
+    font-style: normal;
+    font-family: inherit;
+    text-align: left;
+    line-height: 1.65;
+    letter-spacing: normal;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(-4px);
+    transition: opacity 0.18s ease, visibility 0.18s ease, transform 0.18s ease;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+    z-index: 50;
+}
+.fg-info::after {
+    content: '';
+    position: absolute;
+    top: calc(100% + 5px);
+    left: 4px;
+    border: 5px solid transparent;
+    border-bottom-color: #1a1b1e;
+    opacity: 0;
+    transition: opacity 0.18s ease;
+    pointer-events: none;
+}
+.fg-info:hover::before {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+.fg-info:hover::after { opacity: 1; }
+
+/* 当 i 图标靠右侧时，tooltip 改到左侧对齐 */
+.fg-info.tip-right::before { left: auto; right: 0; }
+.fg-info.tip-right::after { left: auto; right: 4px; }
 </style>
 
 <!-- 页面标题 -->
@@ -187,7 +262,9 @@
     <!-- CNN 美股 -->
     <div class="fg-card">
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-            <div style="font-size:16px; color:#d0d6e0; font-weight:600;">美股恐贪指数</div>
+            <div style="font-size:16px; color:#d0d6e0; font-weight:600;">
+                美股恐贪指数<span class="fg-info" data-tip="CNN Fear & Greed Index — 7个指标等权平均合成（VIX、Put/Call、涨跌广度、52周高低、动量、垃圾债利差、避险需求）。衡量市场情绪，不包含估值。0=极度恐惧，100=极度贪婪。">i</span>
+            </div>
             <div style="font-size:12px; color:#62666d;">CNN · S&amp;P500</div>
         </div>
         {% if not cnn.error %}
@@ -216,7 +293,9 @@
     <!-- 加密货币 -->
     <div class="fg-card">
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-            <div style="font-size:16px; color:#d0d6e0; font-weight:600;">加密货币恐贪指数</div>
+            <div style="font-size:16px; color:#d0d6e0; font-weight:600;">
+                加密货币恐贪指数<span class="fg-info" data-tip="Alternative.me Crypto Fear & Greed — 5分量加权：波动率25% + 市场动量25% + 社媒情绪15% + BTC主导度10% + Google趋势10%。以BTC为主代表整个加密市场。">i</span>
+            </div>
             <div style="font-size:12px; color:#62666d;">Alternative.me · BTC</div>
         </div>
         {% if not crypto.error %}
@@ -246,7 +325,9 @@
 <!-- 历史走势图 -->
 <div class="fg-card" style="margin-bottom:16px;">
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
-        <div style="font-size:14px; font-weight:600; color:#f7f8f8;">历史走势 (近90天)</div>
+        <div style="font-size:14px; font-weight:600; color:#f7f8f8;">
+            历史走势 (近90天)<span class="fg-info" data-tip="两个市场均以 0-100 归一化，可直接叠加对比。观察重点：是否同步下探（系统性恐慌）或出现背离（单一市场特质）。虚线为 25/45/55/75 四条阈值分界。">i</span>
+        </div>
         <div style="display:flex; gap:4px; background:rgba(255,255,255,0.04); border-radius:8px; padding:3px;">
             <button class="tab-btn active" id="tab-us" onclick="switchTab('us')">美股</button>
             <button class="tab-btn" id="tab-crypto" onclick="switchTab('crypto')">加密货币</button>
@@ -260,7 +341,9 @@
 <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
     <!-- 入场信号卡 -->
     <div class="fg-card">
-        <div style="font-size:13px; font-weight:600; color:#f7f8f8; margin-bottom:12px;">抄底信号参考</div>
+        <div style="font-size:13px; font-weight:600; color:#f7f8f8; margin-bottom:12px;">
+            抄底信号参考<span class="fg-info" data-tip="得分 ≤25 视为极度恐惧，历史上每 1-2 年出现一次，常伴随短期反弹。最佳信号：F&G 极度恐惧 + RSI<22 同时满足。但这是情绪指标，必须叠加估值判断是否真正见底。">i</span>
+        </div>
         <div style="display:flex; flex-direction:column; gap:8px;">
             {% set us_score = cnn.score|float %}
             {% set cr_score = crypto.score|float %}
@@ -285,7 +368,9 @@
 
     <!-- 使用指南 -->
     <div class="fg-card">
-        <div style="font-size:13px; font-weight:600; color:#f7f8f8; margin-bottom:12px;">指数解读框架</div>
+        <div style="font-size:13px; font-weight:600; color:#f7f8f8; margin-bottom:12px;">
+            指数解读框架<span class="fg-info tip-right" data-tip="情绪 × 估值 四象限参考：估值低 + 极度恐惧 = 真黄金坑；估值高 + 极度恐惧 = 反弹抄底；估值低 + 极度贪婪 = 继续持有；估值高 + 极度贪婪 = 泡沫顶部。此页仅反映情绪维度。">i</span>
+        </div>
         <div style="display:flex; flex-direction:column; gap:6px;">
             {% for score_range, color, zh, action in [
                 ('0–25', '#f87171', '极度恐惧', '巴菲特黄金买入区，市场通常已超卖'),
