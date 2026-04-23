@@ -90,7 +90,13 @@ def fetch_vix() -> dict:
             def _years_ago(years: int) -> int:
                 return now_ms - int(years * 365.25 * 86400 * 1000)
 
+            def _days_ago(days: int) -> int:
+                return now_ms - int(days * 86400 * 1000)
+
             slices = {
+                "3m": [b for b in bars if b["date"] >= _days_ago(90)],
+                "6m": [b for b in bars if b["date"] >= _days_ago(180)],
+                "1y": [b for b in bars if b["date"] >= _days_ago(365)],
                 "3y": [b for b in bars if b["date"] >= _years_ago(3)],
                 "5y": [b for b in bars if b["date"] >= _years_ago(5)],
                 "10y": [b for b in bars if b["date"] >= _years_ago(10)],
@@ -115,12 +121,17 @@ def fetch_vix() -> dict:
                     "max_date": _date_str(max_bar["date"]),
                 }
 
-            # 降采样控制前端渲染性能
+            # 降采样控制前端渲染性能（短周期数据少，无需降采样）
+            def _to_points(bucket):
+                return [{"date": b["date"], "value": round(b["close"], 2)} for b in bucket]
             history = {
-                "3y": _downsample([{"date": b["date"], "value": round(b["close"], 2)} for b in slices["3y"]], 800),
-                "5y": _downsample([{"date": b["date"], "value": round(b["close"], 2)} for b in slices["5y"]], 800),
-                "10y": _downsample([{"date": b["date"], "value": round(b["close"], 2)} for b in slices["10y"]], 900),
-                "20y": _downsample([{"date": b["date"], "value": round(b["close"], 2)} for b in slices["20y"]], 1000),
+                "3m": _to_points(slices["3m"]),
+                "6m": _to_points(slices["6m"]),
+                "1y": _to_points(slices["1y"]),
+                "3y": _downsample(_to_points(slices["3y"]), 800),
+                "5y": _downsample(_to_points(slices["5y"]), 800),
+                "10y": _downsample(_to_points(slices["10y"]), 900),
+                "20y": _downsample(_to_points(slices["20y"]), 1000),
             }
 
             return {

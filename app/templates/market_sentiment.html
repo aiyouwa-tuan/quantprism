@@ -531,13 +531,22 @@
 
     <!-- 历史三层叠加图 + 切换 -->
     <div style="padding-top:16px; border-top:1px solid rgba(255,255,255,0.05);">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
-            <div style="font-size:13px; font-weight:600; color:#d0d6e0;">历史走势（近1年）</div>
-            <div style="display:flex; gap:4px; background:rgba(255,255,255,0.04); border-radius:8px; padding:3px;">
-                <button class="tab-btn active" id="lp-tab-all" onclick="switchLpTab('all')">全部</button>
-                <button class="tab-btn" id="lp-tab-temperature" onclick="switchLpTab('temperature')">温度</button>
-                <button class="tab-btn" id="lp-tab-valuation" onclick="switchLpTab('valuation')">估值</button>
-                <button class="tab-btn" id="lp-tab-sentiment" onclick="switchLpTab('sentiment')">情绪</button>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+            <div style="font-size:13px; font-weight:600; color:#d0d6e0;">历史走势</div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <!-- 周期 -->
+                <div style="display:flex; gap:4px; background:rgba(255,255,255,0.04); border-radius:8px; padding:3px;">
+                    <button class="tab-btn" id="lp-period-3m" onclick="switchLpPeriod('3m')">3M</button>
+                    <button class="tab-btn" id="lp-period-6m" onclick="switchLpPeriod('6m')">6M</button>
+                    <button class="tab-btn active" id="lp-period-1y" onclick="switchLpPeriod('1y')">1Y</button>
+                </div>
+                <!-- 指标 -->
+                <div style="display:flex; gap:4px; background:rgba(255,255,255,0.04); border-radius:8px; padding:3px;">
+                    <button class="tab-btn active" id="lp-tab-all" onclick="switchLpTab('all')">全部</button>
+                    <button class="tab-btn" id="lp-tab-temperature" onclick="switchLpTab('temperature')">温度</button>
+                    <button class="tab-btn" id="lp-tab-valuation" onclick="switchLpTab('valuation')">估值</button>
+                    <button class="tab-btn" id="lp-tab-sentiment" onclick="switchLpTab('sentiment')">情绪</button>
+                </div>
             </div>
         </div>
         <div id="lp-hist-chart" style="height:280px;"></div>
@@ -547,14 +556,23 @@
 
 <!-- 历史走势图 -->
 <div class="fg-card" style="margin-bottom:16px;">
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; flex-wrap:wrap; gap:8px;">
         <div style="font-size:14px; font-weight:600; color:#f7f8f8;">
-            CNN 恐贪历史走势 (近90天)<span class="fg-info" data-tip="两个市场均以 0-100 归一化，可直接叠加对比。观察重点：是否同步下探（系统性恐慌）或出现背离（单一市场特质）。虚线为 25/45/55/75 四条阈值分界。">i</span>
+            CNN 恐贪历史走势<span class="fg-info" data-tip="两个市场均以 0-100 归一化，可直接叠加对比。观察重点：是否同步下探（系统性恐慌）或出现背离（单一市场特质）。虚线为 25/45/55/75 四条阈值分界。加密货币数据 API 最多 90 天，周期长于 90 天时加密线会被截断。">i</span>
         </div>
-        <div style="display:flex; gap:4px; background:rgba(255,255,255,0.04); border-radius:8px; padding:3px;">
-            <button class="tab-btn active" id="tab-us" onclick="switchTab('us')">美股</button>
-            <button class="tab-btn" id="tab-crypto" onclick="switchTab('crypto')">加密货币</button>
-            <button class="tab-btn" id="tab-both" onclick="switchTab('both')">对比</button>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <!-- 周期 -->
+            <div style="display:flex; gap:4px; background:rgba(255,255,255,0.04); border-radius:8px; padding:3px;">
+                <button class="tab-btn" id="cnn-period-3m" onclick="switchCnnPeriod('3m')">3M</button>
+                <button class="tab-btn" id="cnn-period-6m" onclick="switchCnnPeriod('6m')">6M</button>
+                <button class="tab-btn active" id="cnn-period-1y" onclick="switchCnnPeriod('1y')">1Y</button>
+            </div>
+            <!-- 指标 -->
+            <div style="display:flex; gap:4px; background:rgba(255,255,255,0.04); border-radius:8px; padding:3px;">
+                <button class="tab-btn active" id="tab-us" onclick="switchTab('us')">美股</button>
+                <button class="tab-btn" id="tab-crypto" onclick="switchTab('crypto')">加密货币</button>
+                <button class="tab-btn" id="tab-both" onclick="switchTab('both')">对比</button>
+            </div>
         </div>
     </div>
     <div id="history-chart" style="height:280px;"></div>
@@ -684,7 +702,10 @@
                     <button class="tab-btn" id="qqq-metric-pe" onclick="switchQqqMetric('pe')">PE估算</button>
                 </div>
                 <!-- 周期 Tab -->
-                <div style="display:flex; gap:4px; background:rgba(255,255,255,0.04); border-radius:8px; padding:3px;">
+                <div style="display:flex; gap:4px; background:rgba(255,255,255,0.04); border-radius:8px; padding:3px; flex-wrap:wrap;">
+                    <button class="tab-btn" id="qqq-tab-3m" onclick="switchQqqTab('3m')">3M</button>
+                    <button class="tab-btn" id="qqq-tab-6m" onclick="switchQqqTab('6m')">6M</button>
+                    <button class="tab-btn" id="qqq-tab-1y" onclick="switchQqqTab('1y')">1Y</button>
                     <button class="tab-btn active" id="qqq-tab-3y" onclick="switchQqqTab('3y')">3Y</button>
                     <button class="tab-btn" id="qqq-tab-5y" onclick="switchQqqTab('5y')">5Y</button>
                     <button class="tab-btn" id="qqq-tab-10y" onclick="switchQqqTab('10y')">10Y</button>
@@ -775,9 +796,12 @@
     <div style="padding-top:16px; border-top:1px solid rgba(255,255,255,0.05);">
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
             <div style="font-size:13px; font-weight:600; color:#d0d6e0;">VIX 历史走势</div>
-            <div style="display:flex; gap:4px; background:rgba(255,255,255,0.04); border-radius:8px; padding:3px;">
-                <button class="tab-btn active" id="vix-tab-3y" onclick="switchVixTab('3y')">3Y</button>
-                <button class="tab-btn" id="vix-tab-5y" onclick="switchVixTab('5y')">5Y</button>
+            <div style="display:flex; gap:4px; background:rgba(255,255,255,0.04); border-radius:8px; padding:3px; flex-wrap:wrap;">
+                <button class="tab-btn" id="vix-tab-3m" onclick="switchVixTab('3m')">3M</button>
+                <button class="tab-btn" id="vix-tab-6m" onclick="switchVixTab('6m')">6M</button>
+                <button class="tab-btn" id="vix-tab-1y" onclick="switchVixTab('1y')">1Y</button>
+                <button class="tab-btn" id="vix-tab-3y" onclick="switchVixTab('3y')">3Y</button>
+                <button class="tab-btn active" id="vix-tab-5y" onclick="switchVixTab('5y')">5Y</button>
                 <button class="tab-btn" id="vix-tab-10y" onclick="switchVixTab('10y')">10Y</button>
                 <button class="tab-btn" id="vix-tab-20y" onclick="switchVixTab('20y')">20Y</button>
             </div>
@@ -1058,15 +1082,20 @@ function makeGauge(domId, score) {
 
 // ── History line chart ──────────────────────────────────────────────────────
 var histChart = echarts.init(document.getElementById('history-chart'), null, { renderer: 'canvas' });
+var cnnState = { mode: 'us', period: '1y' };
 
-function buildHistOption(mode) {
-    var zones = [
-        { yAxis: 25, itemStyle: { color: 'rgba(248,113,113,0.06)' } },
-        { yAxis: 45, itemStyle: { color: 'rgba(251,146,60,0.06)' } },
-        { yAxis: 55, itemStyle: { color: 'rgba(250,204,21,0.06)' } },
-        { yAxis: 75, itemStyle: { color: 'rgba(74,222,128,0.06)' } },
-        { yAxis: 100, itemStyle: { color: 'rgba(34,197,94,0.06)' } },
-    ];
+function _sliceByDays(data, days) {
+    if (!data || !data.length) return [];
+    var cutoff = Date.now() - days * 86400 * 1000;
+    return data.filter(function(d) { return (d.date * 1000) >= cutoff; });
+}
+
+function _cnnPeriodDays(p) { return { '3m': 90, '6m': 180, '1y': 365 }[p] || 365; }
+
+function buildHistOption(mode, period) {
+    var days = _cnnPeriodDays(period || cnnState.period);
+    var cnnData = _sliceByDays(CNN_HISTORY, days);
+    var cryptoData = _sliceByDays(CRYPTO_HISTORY, days);
 
     function toSeries(data, name, color) {
         return {
@@ -1098,10 +1127,10 @@ function buildHistOption(mode) {
 
     var series = [];
     if (mode === 'us' || mode === 'both') {
-        series.push(toSeries(CNN_HISTORY, '美股 F&G', '#818cf8'));
+        series.push(toSeries(cnnData, '美股 F&G', '#818cf8'));
     }
     if (mode === 'crypto' || mode === 'both') {
-        series.push(toSeries(CRYPTO_HISTORY, '加密 F&G', '#fb923c'));
+        series.push(toSeries(cryptoData, '加密 F&G', '#fb923c'));
     }
 
     return {
@@ -1162,13 +1191,20 @@ function buildHistOption(mode) {
     };
 }
 
-var currentTab = 'us';
 function switchTab(tab) {
-    currentTab = tab;
+    cnnState.mode = tab;
     ['us','crypto','both'].forEach(function(t) {
         document.getElementById('tab-' + t).classList.toggle('active', t === tab);
     });
-    histChart.setOption(buildHistOption(tab), true);
+    histChart.setOption(buildHistOption(cnnState.mode, cnnState.period), true);
+}
+function switchCnnPeriod(p) {
+    cnnState.period = p;
+    ['3m','6m','1y'].forEach(function(x) {
+        var el = document.getElementById('cnn-period-' + x);
+        if (el) el.classList.toggle('active', x === p);
+    });
+    histChart.setOption(buildHistOption(cnnState.mode, cnnState.period), true);
 }
 
 // Init
@@ -1310,7 +1346,7 @@ function switchQqqMetric(metric) {
 
 function switchQqqTab(period) {
     qqqState.period = period;
-    ['3y','5y','10y','20y'].forEach(function(p) {
+    ['3m','6m','1y','3y','5y','10y','20y'].forEach(function(p) {
         var el = document.getElementById('qqq-tab-' + p);
         if (el) el.classList.toggle('active', p === period);
     });
@@ -1403,7 +1439,7 @@ function buildVixOption(period) {
 }
 
 function switchVixTab(period) {
-    ['3y','5y','10y','20y'].forEach(function(p) {
+    ['3m','6m','1y','3y','5y','10y','20y'].forEach(function(p) {
         var el = document.getElementById('vix-tab-' + p);
         if (el) el.classList.toggle('active', p === period);
     });
@@ -1419,8 +1455,15 @@ if (vixChart) {
 // ── 长桥市场温度历史图 ──────────────────────────────────
 var lpChartEl = document.getElementById('lp-hist-chart');
 var lpChart = lpChartEl ? echarts.init(lpChartEl, null, { renderer: 'canvas' }) : null;
+var lpState = { mode: 'all', period: '1y' };
 
-function buildLpOption(mode) {
+function _lpPeriodDays(p) { return { '3m': 90, '6m': 180, '1y': 9999 }[p] || 9999; }
+
+function buildLpOption(mode, period) {
+    var days = _lpPeriodDays(period || lpState.period);
+    var cutoff = Date.now() - days * 86400 * 1000;
+    var data = LP_US_HISTORY.filter(function(d) { return d.date >= cutoff; });
+
     var seriesDefs = [
         { key: 'temperature', name: '温度', color: '#818cf8' },
         { key: 'valuation',   name: '估值', color: '#fb923c' },
@@ -1450,7 +1493,7 @@ function buildLpOption(mode) {
                 lineStyle: { color: 'rgba(255,255,255,0.06)', type: 'dashed', width: 1 },
                 data: [{ yAxis: 25 }, { yAxis: 50 }, { yAxis: 75 }]
             },
-            data: LP_US_HISTORY.map(function(d) { return [d.date, d[s.key]]; })
+            data: data.map(function(d) { return [d.date, d[s.key]]; })
         };
     });
 
@@ -1507,15 +1550,24 @@ function buildLpOption(mode) {
 }
 
 function switchLpTab(mode) {
+    lpState.mode = mode;
     ['all','temperature','valuation','sentiment'].forEach(function(t){
         var el = document.getElementById('lp-tab-'+t);
         if (el) el.classList.toggle('active', t === mode);
     });
-    if (lpChart) lpChart.setOption(buildLpOption(mode), true);
+    if (lpChart) lpChart.setOption(buildLpOption(lpState.mode, lpState.period), true);
+}
+function switchLpPeriod(p) {
+    lpState.period = p;
+    ['3m','6m','1y'].forEach(function(x){
+        var el = document.getElementById('lp-period-'+x);
+        if (el) el.classList.toggle('active', x === p);
+    });
+    if (lpChart) lpChart.setOption(buildLpOption(lpState.mode, lpState.period), true);
 }
 
 if (lpChart) {
-    lpChart.setOption(buildLpOption('all'));
+    lpChart.setOption(buildLpOption('all', '1y'));
     window.addEventListener('resize', function() { lpChart.resize(); });
 }
 

@@ -65,7 +65,7 @@ def fetch_cnn() -> dict:
                     "value": round(item["y"], 1),
                     "rating": item.get("rating", ""),
                 }
-                for item in hist_raw[-90:]
+                for item in hist_raw
             ]
             score = round(float(fg.get("score", 0)), 1)
             return {

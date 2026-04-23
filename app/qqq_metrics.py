@@ -66,11 +66,13 @@ def fetch_qqq() -> dict:
             tk = yf.Ticker("QQQ")
             info = tk.info or {}
 
-            # 日线 6M 用于 RSI 当前值（日 RSI 更灵敏）
-            daily = tk.history(period="6mo", interval="1d")
+            # 日线 1Y 用于 RSI 当前值 + 短周期图（3M/6M/1Y）
+            daily = tk.history(period="1y", interval="1d")
             rsi_current = None
+            daily_rsi = None
             if not daily.empty:
-                rsi_current = float(_rsi_series(daily["Close"]).iloc[-1])
+                daily_rsi = _rsi_series(daily["Close"])
+                rsi_current = float(daily_rsi.iloc[-1])
 
             # 月线 max 用于 20 年历史
             monthly = tk.history(period="max", interval="1mo")
@@ -113,10 +115,25 @@ def fetch_qqq() -> dict:
             }
             history = {k: _series(v, monthly_rsi, monthly_pe_est) for k, v in slices.items()}
 
+            # 短周期：日线（分辨率高，适合近期走势）
+            if not daily.empty:
+                daily_pe_est = _pe_estimate_series(daily["Close"], current_eps, pe_growth_assumption)
+                daily_now = daily.index[-1]
+                short_slices = {
+                    "3m": daily[daily.index >= daily_now - pd.DateOffset(months=3)],
+                    "6m": daily[daily.index >= daily_now - pd.DateOffset(months=6)],
+                    "1y": daily,
+                }
+                for k, v in short_slices.items():
+                    history[k] = _series(v, daily_rsi, daily_pe_est)
+
             current_price = float(monthly["Close"].iloc[-1])
 
-            # 价格分位
+            # 价格分位（包含短周期）
             pct = {k: round(_percentile(v["Close"], current_price), 1) for k, v in slices.items()}
+            if not daily.empty:
+                for k, v in short_slices.items():
+                    pct[k] = round(_percentile(v["Close"], current_price), 1)
 
             # 1年涨幅
             one_year_ago = monthly[monthly.index <= now - pd.DateOffset(years=1)]
