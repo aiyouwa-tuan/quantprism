@@ -220,6 +220,25 @@
 /* 当 i 图标靠右侧时，tooltip 改到左侧对齐 */
 .fg-info.tip-right::before { left: auto; right: 0; }
 .fg-info.tip-right::after { left: auto; right: 4px; }
+
+/* 可点击的 i 图标 — 紫色强调 + 光晕 */
+.fg-info.fg-info-clickable {
+    cursor: pointer;
+    background: rgba(94,106,210,0.15);
+    color: #a5b4fc;
+    box-shadow: 0 0 0 0 rgba(94,106,210,0.4);
+    animation: fg-pulse 2.5s ease-in-out infinite;
+}
+.fg-info.fg-info-clickable:hover {
+    background: rgba(94,106,210,0.3);
+    color: #c4cdfd;
+    transform: scale(1.15);
+    animation: none;
+}
+@keyframes fg-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(94,106,210,0.35); }
+    50%      { box-shadow: 0 0 0 4px rgba(94,106,210,0);    }
+}
 </style>
 
 <!-- 页面标题 -->
@@ -229,10 +248,6 @@
         <p style="font-size:13px; color:#8a8f98; margin:0;">Fear &amp; Greed Index — 美股 (CNN) · 加密货币 (Alternative.me)</p>
     </div>
     <div style="display:flex; align-items:center; gap:8px;">
-        <button class="fg-chip" onclick="openDrawer('drawer-indicators')">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-            指标构成
-        </button>
         <button class="fg-chip" onclick="openDrawer('drawer-sources')">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
             数据源
@@ -263,7 +278,7 @@
     <div class="fg-card">
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
             <div style="font-size:16px; color:#d0d6e0; font-weight:600;">
-                美股恐贪指数<span class="fg-info" data-tip="CNN Fear & Greed Index — 7个指标等权平均合成（VIX、Put/Call、涨跌广度、52周高低、动量、垃圾债利差、避险需求）。衡量市场情绪，不包含估值。0=极度恐惧，100=极度贪婪。">i</span>
+                美股恐贪指数<span class="fg-info fg-info-clickable" data-tip="点击查看 7 指标详细构成 →" onclick="openDrawer('drawer-indicators')">i</span>
             </div>
             <div style="font-size:12px; color:#62666d;">CNN · S&amp;P500</div>
         </div>
