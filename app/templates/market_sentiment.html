@@ -35,6 +35,116 @@
     background: rgba(94,106,210,0.18);
     color: #a5b4fc;
 }
+
+/* ── 顶部按钮 chip ─────────────────────────────── */
+.fg-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #8a8f98;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+    letter-spacing: -0.01em;
+}
+.fg-chip:hover {
+    color: #f7f8f8;
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.14);
+}
+.fg-chip-primary {
+    color: #a5b4fc;
+    background: rgba(94,106,210,0.1);
+    border-color: rgba(94,106,210,0.25);
+}
+.fg-chip-primary:hover {
+    color: #c4cdfd;
+    background: rgba(94,106,210,0.18);
+    border-color: rgba(94,106,210,0.4);
+}
+
+/* ── 右侧抽屉 ─────────────────────────────── */
+.fg-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(6px);
+    z-index: 99;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.25s ease, visibility 0.25s ease;
+}
+.fg-backdrop.open {
+    opacity: 1;
+    visibility: visible;
+}
+.fg-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 560px;
+    max-width: 92vw;
+    background: #0b0c0d;
+    border-left: 1px solid rgba(255,255,255,0.08);
+    box-shadow: -20px 0 60px rgba(0,0,0,0.5);
+    z-index: 100;
+    transform: translateX(100%);
+    transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+    display: flex;
+    flex-direction: column;
+}
+.fg-drawer.open {
+    transform: translateX(0);
+}
+.fg-drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 24px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    background: rgba(15,16,17,0.6);
+    backdrop-filter: blur(12px);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+.fg-drawer-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #f7f8f8;
+}
+.fg-drawer-close {
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #8a8f98;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+}
+.fg-drawer-close:hover {
+    color: #f7f8f8;
+    background: rgba(255,255,255,0.08);
+}
+.fg-drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+}
 </style>
 
 <!-- 页面标题 -->
@@ -44,13 +154,16 @@
         <p style="font-size:13px; color:#8a8f98; margin:0;">Fear &amp; Greed Index — 美股 (CNN) · 加密货币 (Alternative.me)</p>
     </div>
     <div style="display:flex; align-items:center; gap:8px;">
-        <button onclick="openModal('modal-indicators')" title="查看指数构成" style="width:32px; height:32px; border-radius:6px; color:#8a8f98; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; transition:all 0.15s;" onmouseover="this.style.color='#a5b4fc';this.style.background='rgba(94,106,210,0.12)';" onmouseout="this.style.color='#8a8f98';this.style.background='rgba(255,255,255,0.05)';">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <button class="fg-chip" onclick="openDrawer('drawer-indicators')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            指标构成
         </button>
-        <button onclick="openModal('modal-sources')" title="查看数据源" style="width:32px; height:32px; border-radius:6px; color:#8a8f98; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; transition:all 0.15s;" onmouseover="this.style.color='#a5b4fc';this.style.background='rgba(94,106,210,0.12)';" onmouseout="this.style.color='#8a8f98';this.style.background='rgba(255,255,255,0.05)';">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <button class="fg-chip" onclick="openDrawer('drawer-sources')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            数据源
         </button>
-        <button onclick="window.location.reload()" style="padding:6px 14px; border-radius:6px; font-size:12px; color:#8a8f98; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); cursor:pointer;">
+        <button class="fg-chip fg-chip-primary" onclick="window.location.reload()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
             刷新数据
         </button>
     </div>
@@ -193,17 +306,20 @@
     </div>
 </div>
 
-<!-- ══ 模态弹窗: CNN 7指标构成 ══ -->
-<div id="modal-indicators" class="fg-modal" onclick="if(event.target===this)closeModal('modal-indicators')" style="display:none; position:fixed; inset:0; z-index:100; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); align-items:flex-start; justify-content:center; padding:60px 20px; overflow-y:auto;">
-    <div style="width:100%; max-width:900px; background:#0f1011; border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:28px; position:relative;">
-        <button onclick="closeModal('modal-indicators')" style="position:absolute; top:16px; right:16px; width:28px; height:28px; border-radius:6px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); color:#8a8f98; cursor:pointer; display:inline-flex; align-items:center; justify-content:center;">
+<!-- ══ 抽屉: CNN 7指标构成 ══ -->
+<div id="backdrop-indicators" class="fg-backdrop" onclick="closeDrawer('indicators')"></div>
+<aside id="drawer-indicators" class="fg-drawer">
+    <div class="fg-drawer-header">
+        <div class="fg-drawer-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            CNN 指数构成
+            <span style="font-size:11px; color:#a5b4fc; padding:2px 8px; border-radius:4px; background:rgba(94,106,210,0.12); font-weight:500;">7 指标等权 · 各 1/7</span>
+        </div>
+        <button class="fg-drawer-close" onclick="closeDrawer('indicators')" aria-label="关闭">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
-    <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
-        <span style="font-size:16px;">🧩</span>
-        <div style="font-size:14px; font-weight:600; color:#f7f8f8;">CNN 指数构成 — 7 指标等权平均</div>
-        <span style="font-size:10px; color:#a5b4fc; padding:2px 8px; border-radius:4px; background:rgba(94,106,210,0.12); margin-left:8px;">各占 1/7</span>
     </div>
+    <div class="fg-drawer-body">
     <div style="font-size:12px; color:#8a8f98; margin-bottom:14px;">记住这 7 个指标 = 看懂美股情绪的底层逻辑。每个指标先 Z-Score 标准化 → Min-Max 缩放到 0-100 → 7 个平均 → 最终分数。</div>
 
     <div style="overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
@@ -245,20 +361,23 @@
         💡 <span style="color:#8a8f98;">记忆口诀：</span>动量 + 新高 + 广度（趋势类3个）· Put/Call + VIX（恐惧类2个）· 债券利差 + 避险（资金类2个）
     </div>
     </div>
-</div>
-<!-- ══ 模态弹窗结束: CNN 7指标构成 ══ -->
+</aside>
+<!-- ══ 抽屉结束: CNN 7指标构成 ══ -->
 
-<!-- ══ 模态弹窗: 数据源 ══ -->
-<div id="modal-sources" class="fg-modal" onclick="if(event.target===this)closeModal('modal-sources')" style="display:none; position:fixed; inset:0; z-index:100; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); align-items:flex-start; justify-content:center; padding:60px 20px; overflow-y:auto;">
-    <div style="width:100%; max-width:900px; background:#0f1011; border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:28px; position:relative;">
-        <button onclick="closeModal('modal-sources')" style="position:absolute; top:16px; right:16px; width:28px; height:28px; border-radius:6px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); color:#8a8f98; cursor:pointer; display:inline-flex; align-items:center; justify-content:center;">
+<!-- ══ 抽屉: 数据源 ══ -->
+<div id="backdrop-sources" class="fg-backdrop" onclick="closeDrawer('sources')"></div>
+<aside id="drawer-sources" class="fg-drawer">
+    <div class="fg-drawer-header">
+        <div class="fg-drawer-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            数据源
+            <span style="font-size:11px; color:#62666d; padding:2px 8px; border-radius:4px; background:rgba(255,255,255,0.04); font-weight:500;">本地缓存 15 分钟</span>
+        </div>
+        <button class="fg-drawer-close" onclick="closeDrawer('sources')" aria-label="关闭">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
-    <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
-        <span style="font-size:16px;">🔗</span>
-        <div style="font-size:14px; font-weight:600; color:#f7f8f8;">数据源</div>
-        <span style="font-size:10px; color:#62666d; padding:2px 8px; border-radius:4px; background:rgba(255,255,255,0.04); margin-left:8px;">本地缓存 15 分钟</span>
     </div>
+    <div class="fg-drawer-body">
 
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
 
@@ -299,27 +418,27 @@
         <div><span style="color:#a5b4fc;">app/fear_greed.py</span> → httpx 异步拉取 → 15min TTL 缓存 → FastAPI 路由 <span style="color:#fdba74;">/sentiment</span></div>
     </div>
     </div>
-</div>
-<!-- ══ 模态弹窗结束: 数据源 ══ -->
+</aside>
+<!-- ══ 抽屉结束: 数据源 ══ -->
 
 <script>
 var CNN_HISTORY = {{ cnn_history_json|safe }};
 var CRYPTO_HISTORY = {{ crypto_history_json|safe }};
 
-function openModal(id) {
-    document.getElementById(id).style.display = 'flex';
+function openDrawer(id) {
+    var key = id.replace('drawer-', '');
+    document.getElementById('drawer-' + key).classList.add('open');
+    document.getElementById('backdrop-' + key).classList.add('open');
     document.body.style.overflow = 'hidden';
 }
-function closeModal(id) {
-    document.getElementById(id).style.display = 'none';
+function closeDrawer(key) {
+    document.getElementById('drawer-' + key).classList.remove('open');
+    document.getElementById('backdrop-' + key).classList.remove('open');
     document.body.style.overflow = '';
 }
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
-        document.querySelectorAll('.fg-modal').forEach(function(m) {
-            m.style.display = 'none';
-        });
-        document.body.style.overflow = '';
+        ['indicators', 'sources'].forEach(closeDrawer);
     }
 });
 
