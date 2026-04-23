@@ -3729,13 +3729,15 @@ async def sentiment_page(request: Request):
     """恐贪指数 — CNN 美股 + Alternative.me 加密货币 + QQQ 估值"""
     from fear_greed import fetch_cnn, fetch_crypto
     from qqq_metrics import fetch_qqq
+    from vix_metrics import fetch_vix
     from longport_client import fetch_market_temperature
     import asyncio
     import json as _json
-    cnn, crypto, qqq, lp_us = await asyncio.gather(
+    cnn, crypto, qqq, vix, lp_us = await asyncio.gather(
         asyncio.to_thread(fetch_cnn),
         asyncio.to_thread(fetch_crypto),
         asyncio.to_thread(fetch_qqq),
+        asyncio.to_thread(fetch_vix),
         asyncio.to_thread(fetch_market_temperature, "US"),
     )
     return templates.TemplateResponse("market_sentiment.html", {
@@ -3743,10 +3745,12 @@ async def sentiment_page(request: Request):
         "cnn": cnn,
         "crypto": crypto,
         "qqq": qqq,
+        "vix": vix,
         "lp_us": lp_us,
         "cnn_history_json": _json.dumps(cnn.get("history", [])),
         "crypto_history_json": _json.dumps(crypto.get("history", [])),
         "qqq_history_json": _json.dumps(qqq.get("history", {})),
+        "vix_history_json": _json.dumps(vix.get("history", {})),
         "lp_us_history_json": _json.dumps(lp_us.get("history", [])),
     })
 

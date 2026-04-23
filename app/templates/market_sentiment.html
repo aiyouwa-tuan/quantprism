@@ -651,28 +651,132 @@
         </div>
     </div>
 
-    <!-- 历史走势图 + 3/5/10Y 切换 -->
+    <!-- 历史走势图 — 双 Tab（指标 × 周期） -->
     <div style="padding-top:16px; border-top:1px solid rgba(255,255,255,0.05);">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
-            <div style="font-size:13px; font-weight:600; color:#d0d6e0;">
-                QQQ 历史价格走势<span class="fg-info" data-tip="月线级别价格走势。虚线为当前价格水平。分位条显示当前在所选周期的位置。">i</span>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; gap:12px; flex-wrap:wrap;">
+            <div style="font-size:13px; font-weight:600; color:#d0d6e0; display:flex; align-items:center; gap:6px;">
+                QQQ 历史走势
+                <span class="fg-hover-wrap">
+                    <span class="fg-hover-trigger">i</span>
+                    <div class="fg-popover" style="width:420px;">
+                        <div class="fg-popover-header">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+                            关于 PE 走势
+                        </div>
+                        <div style="font-size:11.5px; line-height:1.7; color:#d0d6e0;">
+                            <div style="color:#fdba74; margin-bottom:6px;">⚠️ ETF 历史 PE/PB 时间序列 yfinance 不提供，需付费源（Bloomberg/FactSet）。</div>
+                            <div>替代方案：<strong style="color:#a5b4fc;">长桥市场温度计</strong>卡片的「估值」历史分位线（0-100）是真实历史估值数据，作用等同于 PE 百分位。向上滚动即可查看。</div>
+                            <div style="margin-top:6px; color:#8a8f98;">本图提供：价格走势 · RSI-14 走势（月线）· 3/5/10/20 年周期</div>
+                        </div>
+                    </div>
+                </span>
             </div>
-            <div style="display:flex; gap:4px; background:rgba(255,255,255,0.04); border-radius:8px; padding:3px;">
-                <button class="tab-btn active" id="qqq-tab-3y" onclick="switchQqqTab('3y')">近3年</button>
-                <button class="tab-btn" id="qqq-tab-5y" onclick="switchQqqTab('5y')">近5年</button>
-                <button class="tab-btn" id="qqq-tab-10y" onclick="switchQqqTab('10y')">近10年</button>
+            <div style="display:flex; gap:10px;">
+                <!-- 指标 Tab -->
+                <div style="display:flex; gap:4px; background:rgba(255,255,255,0.04); border-radius:8px; padding:3px;">
+                    <button class="tab-btn active" id="qqq-metric-price" onclick="switchQqqMetric('price')">价格</button>
+                    <button class="tab-btn" id="qqq-metric-rsi" onclick="switchQqqMetric('rsi')">RSI-14</button>
+                </div>
+                <!-- 周期 Tab -->
+                <div style="display:flex; gap:4px; background:rgba(255,255,255,0.04); border-radius:8px; padding:3px;">
+                    <button class="tab-btn active" id="qqq-tab-3y" onclick="switchQqqTab('3y')">3Y</button>
+                    <button class="tab-btn" id="qqq-tab-5y" onclick="switchQqqTab('5y')">5Y</button>
+                    <button class="tab-btn" id="qqq-tab-10y" onclick="switchQqqTab('10y')">10Y</button>
+                    <button class="tab-btn" id="qqq-tab-20y" onclick="switchQqqTab('20y')">20Y</button>
+                </div>
             </div>
         </div>
-        <div id="qqq-hist-chart" style="height:260px;"></div>
-        <!-- 分位条 -->
-        <div style="display:flex; align-items:center; gap:12px; margin-top:12px; padding:10px 14px; background:rgba(255,255,255,0.02); border-radius:6px; font-size:11px;">
-            <span style="color:#62666d;">当前分位：</span>
+        <div id="qqq-hist-chart" style="height:280px;"></div>
+        <!-- 分位条（仅价格模式显示） -->
+        <div id="qqq-pct-bar" style="display:flex; align-items:center; gap:12px; margin-top:12px; padding:10px 14px; background:rgba(255,255,255,0.02); border-radius:6px; font-size:11px;">
+            <span style="color:#62666d;">当前价格分位：</span>
             <span id="qqq-pct-label" style="font-weight:600; color:#facc15; font-variant-numeric:tabular-nums;">—</span>
             <div style="flex:1; height:6px; background:linear-gradient(90deg, #4ade80 0%, #facc15 50%, #f87171 100%); border-radius:3px; position:relative;">
                 <div id="qqq-pct-marker" style="position:absolute; top:-4px; width:2px; height:14px; background:#f7f8f8; box-shadow:0 0 0 2px #0f1011;"></div>
             </div>
             <span style="color:#62666d;">← 低位 · 高位 →</span>
         </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 📉 VIX 恐慌指数历史 -->
+<!-- ═══════════════════════════════════════ -->
+<div class="fg-card" style="margin-bottom:16px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+            <div style="font-size:16px; font-weight:600; color:#f7f8f8;">VIX 恐慌指数</div>
+            <div style="font-size:12px; color:#62666d;">CBOE 市场波动率</div>
+            <span class="fg-hover-wrap">
+                <span class="fg-hover-trigger">i</span>
+                <div class="fg-popover" style="width:440px;">
+                    <div class="fg-popover-header">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                        VIX 解读框架
+                    </div>
+                    <div style="font-size:11.5px; line-height:1.7; color:#d0d6e0;">
+                        <div>VIX = S&P 500 未来 30 天预期波动率（由期权价格反推）。市场用它衡量对恐慌的定价。</div>
+                        <div style="margin-top:8px;">
+                            <span style="color:#4ade80;">&lt;12</span> 极度平静（多头期）·
+                            <span style="color:#facc15;">12-20</span> 正常 ·
+                            <span style="color:#fb923c;">20-30</span> 警戒 ·
+                            <span style="color:#f87171;">&gt;30</span> 恐慌（常见买点）
+                        </div>
+                        <div style="margin-top:8px; padding:8px 10px; background:rgba(94,106,210,0.06); border-radius:5px; color:#8a8f98;">
+                            历史极值：2008 金融危机 80+ · 2020 疫情 82 · 2022 加息周期 35
+                        </div>
+                        <div style="margin-top:6px; font-size:10.5px; color:#62666d;">数据源：Yahoo Finance ^VIX · 月线</div>
+                    </div>
+                </div>
+            </span>
+        </div>
+        <div style="font-size:11px; color:#62666d;">数据源 · Yahoo Finance ^VIX</div>
+    </div>
+
+    {% if vix.error %}
+    <div style="padding:20px; text-align:center; color:#f87171; font-size:13px;">VIX 数据加载失败：{{ vix.error }}</div>
+    {% else %}
+    {% set vc = vix.current %}
+    <!-- 当前值 + 统计 -->
+    <div style="display:grid; grid-template-columns:1fr 3fr; gap:16px; margin-bottom:20px;">
+        <div style="padding:18px 20px; background:rgba(255,255,255,0.03); border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+            <div style="font-size:12px; color:#62666d; margin-bottom:8px;">当前 VIX</div>
+            <div style="display:flex; align-items:baseline; gap:10px;">
+                <span style="font-size:48px; font-weight:700; color:{{ vc.color }}; font-variant-numeric:tabular-nums; line-height:1;">{{ vc.value }}</span>
+            </div>
+            <div style="margin-top:8px;"><span style="font-size:11px; padding:2px 10px; border-radius:3px; background:{{ vc.color }}22; color:{{ vc.color }}; font-weight:600;">{{ vc.label }}</span></div>
+        </div>
+        <div style="padding:18px 20px; background:rgba(255,255,255,0.03); border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+            <div style="font-size:12px; color:#62666d; margin-bottom:12px;">各周期统计（月线）</div>
+            <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px;">
+                {% for period in ['3y', '5y', '10y', '20y'] %}
+                {% set s = vix.stats.get(period) %}
+                {% if s %}
+                <div style="text-align:center;">
+                    <div style="font-size:10px; color:#62666d; margin-bottom:4px; letter-spacing:0.05em;">近 {{ period|upper }}</div>
+                    <div style="font-size:15px; font-weight:600; color:#d0d6e0; font-variant-numeric:tabular-nums;">均值 {{ s.mean }}</div>
+                    <div style="font-size:10.5px; color:#62666d; margin-top:3px;">{{ s.min }}–{{ s.max }}</div>
+                    <div style="font-size:10px; color:#a5b4fc; margin-top:4px; font-weight:500;">当前分位 {{ s.percentile }}%</div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 历史图 -->
+    <div style="padding-top:16px; border-top:1px solid rgba(255,255,255,0.05);">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+            <div style="font-size:13px; font-weight:600; color:#d0d6e0;">VIX 历史走势</div>
+            <div style="display:flex; gap:4px; background:rgba(255,255,255,0.04); border-radius:8px; padding:3px;">
+                <button class="tab-btn active" id="vix-tab-3y" onclick="switchVixTab('3y')">3Y</button>
+                <button class="tab-btn" id="vix-tab-5y" onclick="switchVixTab('5y')">5Y</button>
+                <button class="tab-btn" id="vix-tab-10y" onclick="switchVixTab('10y')">10Y</button>
+                <button class="tab-btn" id="vix-tab-20y" onclick="switchVixTab('20y')">20Y</button>
+            </div>
+        </div>
+        <div id="vix-hist-chart" style="height:280px;"></div>
     </div>
     {% endif %}
 </div>
@@ -850,7 +954,8 @@
 var CNN_HISTORY = {{ cnn_history_json|safe }};
 var CRYPTO_HISTORY = {{ crypto_history_json|safe }};
 var QQQ_HISTORY = {{ qqq_history_json|safe }};
-var QQQ_PCT = {{ qqq.percentile|tojson if qqq and not qqq.error else '{"3y":50,"5y":50,"10y":50}' }};
+var QQQ_PCT = {{ qqq.percentile|tojson if qqq and not qqq.error else '{"3y":50,"5y":50,"10y":50,"20y":50}' }};
+var VIX_HISTORY = {{ vix_history_json|safe }};
 var LP_US_HISTORY = {{ lp_us_history_json|safe }};
 
 function openDrawer(id) {
@@ -1065,16 +1170,24 @@ makeGauge('cnn-gauge', {{ cnn.score }});
 makeGauge('crypto-gauge', {{ crypto.score }});
 histChart.setOption(buildHistOption('us'));
 
-// ── QQQ 历史价格图 ──────────────────────────────────
+// ── QQQ 历史走势图（价格 / RSI） ──────────────────────────────────
 var qqqChartEl = document.getElementById('qqq-hist-chart');
 var qqqChart = qqqChartEl ? echarts.init(qqqChartEl, null, { renderer: 'canvas' }) : null;
+var qqqState = { metric: 'price', period: '3y' };
 
-function buildQqqOption(period) {
+function buildQqqOption(metric, period) {
     var data = (QQQ_HISTORY && QQQ_HISTORY[period]) || [];
-    var closes = data.map(function(d) { return d.close; });
-    var current = closes.length ? closes[closes.length - 1] : 0;
-    var min = Math.min.apply(null, closes);
-    var max = Math.max.apply(null, closes);
+    var isRsi = metric === 'rsi';
+    var values = data.map(function(d) { return isRsi ? d.rsi : d.close; });
+    var current = values.length ? values[values.length - 1] : 0;
+
+    var color = isRsi ? (current > 70 ? '#f87171' : (current < 30 ? '#4ade80' : '#facc15')) : '#a5b4fc';
+    var markLines = [{ yAxis: current, lineStyle: { color: color + '88', type: 'dashed', width: 1 },
+        label: { color: color, fontSize: 10, formatter: (isRsi ? '当前 ' : '当前 $') + current.toFixed(isRsi ? 1 : 0), position: 'insideEndTop' } }];
+    if (isRsi) {
+        markLines.push({ yAxis: 70, lineStyle: { color: '#f87171', type: 'dashed', width: 1, opacity: 0.4 }, label: { show: true, color: '#f87171', fontSize: 9, formatter: '超买 70', position: 'insideStartTop' } });
+        markLines.push({ yAxis: 30, lineStyle: { color: '#4ade80', type: 'dashed', width: 1, opacity: 0.4 }, label: { show: true, color: '#4ade80', fontSize: 9, formatter: '超卖 30', position: 'insideStartTop' } });
+    }
 
     return {
         backgroundColor: 'transparent',
@@ -1086,18 +1199,19 @@ function buildQqqOption(period) {
             formatter: function(params) {
                 var d = new Date(params[0].axisValue);
                 var dateStr = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+                var v = params[0].value[1];
+                var disp = isRsi ? v.toFixed(1) : '$' + v.toFixed(2);
                 return '<div style="color:#8a8f98;font-size:11px;margin-bottom:4px;">' + dateStr + '</div>'
-                    + '<div style="font-weight:600;color:#a5b4fc;">$' + params[0].value[1].toFixed(2) + '</div>';
+                    + '<div style="font-weight:600;color:' + color + ';">' + disp + '</div>';
             }
         },
-        grid: { left: 50, right: 20, top: 16, bottom: 36, containLabel: false },
+        grid: { left: 48, right: 20, top: 16, bottom: 36, containLabel: false },
         xAxis: {
             type: 'time',
             axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
             axisTick: { show: false },
             axisLabel: {
-                color: '#62666d',
-                fontSize: 11,
+                color: '#62666d', fontSize: 11,
                 formatter: function(v) {
                     var d = new Date(v);
                     return d.getFullYear() + '/' + String(d.getMonth()+1).padStart(2,'0');
@@ -1106,66 +1220,172 @@ function buildQqqOption(period) {
         },
         yAxis: {
             type: 'value',
-            scale: true,
+            scale: !isRsi,
+            min: isRsi ? 0 : undefined,
+            max: isRsi ? 100 : undefined,
             axisLine: { show: false },
             axisTick: { show: false },
             splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } },
             axisLabel: {
-                color: '#62666d',
-                fontSize: 11,
-                formatter: function(v) { return '$' + v; }
+                color: '#62666d', fontSize: 11,
+                formatter: function(v) { return isRsi ? v : '$' + v; }
             }
         },
         series: [{
-            name: 'QQQ',
+            name: isRsi ? 'RSI-14' : 'QQQ',
             type: 'line',
             smooth: true,
             symbol: 'none',
-            lineStyle: { width: 2, color: '#a5b4fc' },
+            connectNulls: true,
+            lineStyle: { width: 2, color: color },
             areaStyle: {
                 color: {
-                    type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+                    type: 'linear', x:0, y:0, x2:0, y2:1,
                     colorStops: [
-                        { offset: 0, color: 'rgba(165,180,252,0.35)' },
-                        { offset: 1, color: 'rgba(165,180,252,0.02)' }
+                        { offset: 0, color: color + '55' },
+                        { offset: 1, color: color + '05' }
                     ]
                 }
             },
-            markLine: {
-                silent: true,
-                symbol: 'none',
-                lineStyle: { color: 'rgba(250,204,21,0.5)', type: 'dashed', width: 1 },
-                label: {
-                    color: '#facc15', fontSize: 10,
-                    formatter: '当前 $' + current.toFixed(0), position: 'insideEndTop'
-                },
-                data: [{ yAxis: current }]
-            },
-            data: data.map(function(d) { return [d.date, d.close]; })
+            markLine: { silent: true, symbol: 'none', data: markLines },
+            data: data.map(function(d) { return [d.date, isRsi ? d.rsi : d.close]; })
         }]
     };
 }
 
-function switchQqqTab(period) {
-    ['3y','5y','10y'].forEach(function(p) {
-        document.getElementById('qqq-tab-' + p).classList.toggle('active', p === period);
-    });
-    if (qqqChart) qqqChart.setOption(buildQqqOption(period), true);
-    // 更新分位条
-    var pct = QQQ_PCT[period] || 50;
-    var label = document.getElementById('qqq-pct-label');
-    var marker = document.getElementById('qqq-pct-marker');
-    if (label) {
-        label.textContent = pct.toFixed(1) + '%';
-        label.style.color = pct > 80 ? '#f87171' : (pct < 20 ? '#4ade80' : '#facc15');
+function renderQqq() {
+    if (!qqqChart) return;
+    qqqChart.setOption(buildQqqOption(qqqState.metric, qqqState.period), true);
+    // 分位条仅价格模式显示
+    var bar = document.getElementById('qqq-pct-bar');
+    if (bar) bar.style.display = qqqState.metric === 'price' ? 'flex' : 'none';
+    if (qqqState.metric === 'price') {
+        var pct = QQQ_PCT[qqqState.period] || 50;
+        var label = document.getElementById('qqq-pct-label');
+        var marker = document.getElementById('qqq-pct-marker');
+        if (label) {
+            label.textContent = pct.toFixed(1) + '%';
+            label.style.color = pct > 80 ? '#f87171' : (pct < 20 ? '#4ade80' : '#facc15');
+        }
+        if (marker) marker.style.left = pct + '%';
     }
-    if (marker) marker.style.left = pct + '%';
+}
+
+function switchQqqMetric(metric) {
+    qqqState.metric = metric;
+    ['price','rsi'].forEach(function(m) {
+        var el = document.getElementById('qqq-metric-' + m);
+        if (el) el.classList.toggle('active', m === metric);
+    });
+    renderQqq();
+}
+
+function switchQqqTab(period) {
+    qqqState.period = period;
+    ['3y','5y','10y','20y'].forEach(function(p) {
+        var el = document.getElementById('qqq-tab-' + p);
+        if (el) el.classList.toggle('active', p === period);
+    });
+    renderQqq();
 }
 
 if (qqqChart) {
-    qqqChart.setOption(buildQqqOption('3y'));
-    switchQqqTab('3y');
+    renderQqq();
     window.addEventListener('resize', function() { qqqChart.resize(); });
+}
+
+// ── VIX 历史走势图 ──────────────────────────────────
+var vixChartEl = document.getElementById('vix-hist-chart');
+var vixChart = vixChartEl ? echarts.init(vixChartEl, null, { renderer: 'canvas' }) : null;
+
+function vixColor(v) {
+    if (v < 15) return '#4ade80';
+    if (v < 20) return '#facc15';
+    if (v < 30) return '#fb923c';
+    return '#f87171';
+}
+
+function buildVixOption(period) {
+    var data = (VIX_HISTORY && VIX_HISTORY[period]) || [];
+    var current = data.length ? data[data.length - 1].value : 0;
+
+    return {
+        backgroundColor: 'transparent',
+        tooltip: {
+            trigger: 'axis',
+            backgroundColor: '#1a1b1e',
+            borderColor: 'rgba(255,255,255,0.1)',
+            textStyle: { color: '#d0d6e0', fontSize: 12 },
+            formatter: function(params) {
+                var d = new Date(params[0].axisValue);
+                var dateStr = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+                var v = params[0].value[1];
+                return '<div style="color:#8a8f98;font-size:11px;margin-bottom:4px;">' + dateStr + '</div>'
+                    + '<div style="font-weight:600;color:' + vixColor(v) + ';">VIX ' + v.toFixed(2) + '</div>';
+            }
+        },
+        grid: { left: 40, right: 20, top: 16, bottom: 36, containLabel: false },
+        xAxis: {
+            type: 'time',
+            axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
+            axisTick: { show: false },
+            axisLabel: {
+                color: '#62666d', fontSize: 11,
+                formatter: function(v) {
+                    var d = new Date(v);
+                    return d.getFullYear() + '/' + String(d.getMonth()+1).padStart(2,'0');
+                }
+            }
+        },
+        yAxis: {
+            type: 'value',
+            axisLine: { show: false },
+            axisTick: { show: false },
+            splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } },
+            axisLabel: { color: '#62666d', fontSize: 11 }
+        },
+        visualMap: {
+            show: false,
+            pieces: [
+                { lte: 15, color: '#4ade80' },
+                { gt: 15, lte: 20, color: '#facc15' },
+                { gt: 20, lte: 30, color: '#fb923c' },
+                { gt: 30, color: '#f87171' }
+            ]
+        },
+        series: [{
+            name: 'VIX',
+            type: 'line',
+            smooth: true,
+            symbol: 'none',
+            lineStyle: { width: 2 },
+            areaStyle: { opacity: 0.15 },
+            markLine: {
+                silent: true,
+                symbol: 'none',
+                data: [
+                    { yAxis: 20, lineStyle: { color: 'rgba(250,204,21,0.3)', type: 'dashed', width: 1 }, label: { show: true, color: '#facc15', fontSize: 9, formatter: '警戒 20', position: 'insideStartTop' } },
+                    { yAxis: 30, lineStyle: { color: 'rgba(248,113,113,0.3)', type: 'dashed', width: 1 }, label: { show: true, color: '#f87171', fontSize: 9, formatter: '恐慌 30', position: 'insideStartTop' } },
+                    { yAxis: current, lineStyle: { color: vixColor(current) + '88', type: 'dashed', width: 1 }, label: { color: vixColor(current), fontSize: 10, formatter: '当前 ' + current.toFixed(1), position: 'insideEndTop' } }
+                ]
+            },
+            data: data.map(function(d) { return [d.date, d.value]; })
+        }]
+    };
+}
+
+function switchVixTab(period) {
+    ['3y','5y','10y','20y'].forEach(function(p) {
+        var el = document.getElementById('vix-tab-' + p);
+        if (el) el.classList.toggle('active', p === period);
+    });
+    if (vixChart) vixChart.setOption(buildVixOption(period), true);
+}
+
+if (vixChart) {
+    vixChart.setOption(buildVixOption('5y'));
+    switchVixTab('5y');
+    window.addEventListener('resize', function() { vixChart.resize(); });
 }
 
 // ── 长桥市场温度历史图 ──────────────────────────────────

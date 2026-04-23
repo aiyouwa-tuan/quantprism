@@ -1,7 +1,8 @@
 """QQQ (Nasdaq 100 ETF) 估值 & 技术指标 —— 通过 yfinance 拉取。
 
 当前指标：价格 / RSI-14 / PE / PB / 股息率 / 1年涨幅
-历史序列：价格月线 3/5/10Y + 当前价格分位（PE/PB 历史需付费数据源，这里用价格分位代理）
+历史序列：价格 + RSI 月线 3/5/10/20Y + 当前价格分位
+注：ETF 历史 PE/PB/ROE 时间序列 yfinance 无 — 需付费源，用价格分位代理
 """
 import time
 import yfinance as yf
@@ -21,22 +22,18 @@ def _cached(key, fn):
     return data
 
 
-def _rsi(series: pd.Series, period: int = 14) -> float | None:
-    """Wilder's RSI from pandas Close series."""
-    if len(series) < period + 1:
-        return None
-    delta = series.diff()
+def _rsi_series(close: pd.Series, period: int = 14) -> pd.Series:
+    """Wilder's RSI — 返回整个时间序列。"""
+    delta = close.diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
     avg_gain = gain.ewm(alpha=1 / period, adjust=False).mean()
     avg_loss = loss.ewm(alpha=1 / period, adjust=False).mean()
     rs = avg_gain / avg_loss.replace(0, 1e-10)
-    rsi = 100 - (100 / (1 + rs))
-    return float(rsi.iloc[-1])
+    return 100 - (100 / (1 + rs))
 
 
 def _percentile(series: pd.Series, value: float) -> float:
-    """Current value's percentile rank within series (0-100)."""
     if len(series) == 0:
         return 50.0
     return float((series <= value).mean() * 100)
@@ -48,34 +45,47 @@ def fetch_qqq() -> dict:
             tk = yf.Ticker("QQQ")
             info = tk.info or {}
 
-            # 1) 日线 6M 用于 RSI
+            # 日线 6M 用于 RSI 当前值（日 RSI 更灵敏）
             daily = tk.history(period="6mo", interval="1d")
-            rsi14 = _rsi(daily["Close"]) if not daily.empty else None
+            rsi_current = None
+            if not daily.empty:
+                rsi_current = float(_rsi_series(daily["Close"]).iloc[-1])
 
-            # 2) 月线 10Y 用于历史走势
-            monthly = tk.history(period="10y", interval="1mo")
+            # 月线 max 用于 20 年历史
+            monthly = tk.history(period="max", interval="1mo")
             if monthly.empty:
                 return {"error": "no price history"}
 
-            # 结构化数据：时间戳(ms) + 收盘价
-            def _to_series(df):
-                return [
-                    {"date": int(idx.timestamp() * 1000), "close": round(float(row["Close"]), 2)}
-                    for idx, row in df.iterrows() if not pd.isna(row["Close"])
-                ]
+            # 计算月线 RSI（滚动 14 个月窗口）
+            monthly_rsi = _rsi_series(monthly["Close"])
 
-            # 按周期切片
+            # 按周期切片 + 结构化数据
+            def _series(df, rsi_df):
+                out = []
+                for idx, row in df.iterrows():
+                    if pd.isna(row["Close"]):
+                        continue
+                    rsi_val = rsi_df.loc[idx] if idx in rsi_df.index else None
+                    out.append({
+                        "date": int(idx.timestamp() * 1000),
+                        "close": round(float(row["Close"]), 2),
+                        "rsi": round(float(rsi_val), 1) if rsi_val is not None and not pd.isna(rsi_val) else None,
+                    })
+                return out
+
             now = monthly.index[-1]
-            hist_3y = monthly[monthly.index >= now - pd.DateOffset(years=3)]
-            hist_5y = monthly[monthly.index >= now - pd.DateOffset(years=5)]
-            hist_10y = monthly
+            slices = {
+                "3y": monthly[monthly.index >= now - pd.DateOffset(years=3)],
+                "5y": monthly[monthly.index >= now - pd.DateOffset(years=5)],
+                "10y": monthly[monthly.index >= now - pd.DateOffset(years=10)],
+                "20y": monthly[monthly.index >= now - pd.DateOffset(years=20)],
+            }
+            history = {k: _series(v, monthly_rsi) for k, v in slices.items()}
 
             current_price = float(monthly["Close"].iloc[-1])
 
-            # 当前价格分位（作为估值分位的代理）
-            pct_3y = _percentile(hist_3y["Close"], current_price)
-            pct_5y = _percentile(hist_5y["Close"], current_price)
-            pct_10y = _percentile(hist_10y["Close"], current_price)
+            # 价格分位
+            pct = {k: round(_percentile(v["Close"], current_price), 1) for k, v in slices.items()}
 
             # 1年涨幅
             one_year_ago = monthly[monthly.index <= now - pd.DateOffset(years=1)]
@@ -84,40 +94,26 @@ def fetch_qqq() -> dict:
                 prev = float(one_year_ago["Close"].iloc[-1])
                 yoy_return = round((current_price / prev - 1) * 100, 2)
 
-            # yfinance info 字段（有的可能为 None）
             pe = info.get("trailingPE")
             pb = info.get("priceToBook")
-            dividend_yield = info.get("yield")  # ETF 的分红率在 yield 字段
+            dividend_yield = info.get("yield")
             if dividend_yield is None:
-                # 有时在 dividendYield，值是百分比或小数
                 dy = info.get("dividendYield")
                 if dy is not None:
                     dividend_yield = dy / 100 if dy > 1 else dy
 
-            roe = info.get("returnOnEquity")  # ETF 通常为 None
-
             return {
                 "error": None,
-                "fetched_at": int(time.time()),
                 "current": {
                     "price": round(current_price, 2),
-                    "rsi14": round(rsi14, 1) if rsi14 is not None else None,
+                    "rsi14": round(rsi_current, 1) if rsi_current is not None else None,
                     "pe": round(float(pe), 2) if pe else None,
                     "pb": round(float(pb), 2) if pb else None,
                     "dividend_yield_pct": round(float(dividend_yield) * 100, 2) if dividend_yield else None,
                     "yoy_return_pct": yoy_return,
-                    "roe": round(float(roe) * 100, 2) if roe else None,
                 },
-                "percentile": {
-                    "3y": round(pct_3y, 1),
-                    "5y": round(pct_5y, 1),
-                    "10y": round(pct_10y, 1),
-                },
-                "history": {
-                    "3y": _to_series(hist_3y),
-                    "5y": _to_series(hist_5y),
-                    "10y": _to_series(hist_10y),
-                },
+                "percentile": pct,
+                "history": history,
             }
         except Exception as e:
             return {"error": str(e)}
