@@ -27,7 +27,7 @@
 </div>
 
 <!-- 加载状态 -->
-<div id="ta-loading" style="text-align:center; padding:60px 0; color:#62666d; display:none;">
+<div id="ta-loading" style="text-align:center; padding:60px 0; color:#697386; display:none;">
     <div style="font-size:24px; margin-bottom:10px;">⏳</div>
     <div>正在从 VPS 拉取数据并计算…</div>
 </div>
@@ -70,18 +70,18 @@ function renderRow(d) {
     const div = d.divergence || {};
 
     if (d.error) {
-        return `<div class="ta-card" style="color:#f87171;">${d.symbol}: ${d.error}</div>`;
+        return `<div class="ta-card" style="color:#b42318;">${d.symbol}: ${d.error}</div>`;
     }
 
     const suppDistHtml = sr.nearest_support
-        ? `<span style="color:#4ade80; font-size:12px;">$${sr.nearest_support}</span>
-           <span style="color:#3e3e44; font-size:11px; margin-left:4px;">-${sr.support_distance_pct}%${pctBar(sr.support_distance_pct,'#4ade80')}</span>`
-        : '<span style="color:#3e3e44;">—</span>';
+        ? `<span style="color:#067647; font-size:12px;">$${sr.nearest_support}</span>
+           <span style="color:#8a94a6; font-size:11px; margin-left:4px;">-${sr.support_distance_pct}%${pctBar(sr.support_distance_pct,'#067647')}</span>`
+        : '<span style="color:#8a94a6;">—</span>';
 
     const resDistHtml = sr.nearest_resistance
-        ? `<span style="color:#f87171; font-size:12px;">$${sr.nearest_resistance}</span>
-           <span style="color:#3e3e44; font-size:11px; margin-left:4px;">+${sr.resistance_distance_pct}%${pctBar(sr.resistance_distance_pct,'#f87171')}</span>`
-        : '<span style="color:#3e3e44;">—</span>';
+        ? `<span style="color:#b42318; font-size:12px;">$${sr.nearest_resistance}</span>
+           <span style="color:#8a94a6; font-size:11px; margin-left:4px;">+${sr.resistance_distance_pct}%${pctBar(sr.resistance_distance_pct,'#b42318')}</span>`
+        : '<span style="color:#8a94a6;">—</span>';
 
     return `
     <div class="ta-card">
@@ -89,34 +89,34 @@ function renderRow(d) {
 
             <!-- 标的名 + 价格 -->
             <div>
-                <div style="font-size:14px; font-weight:700; color:#f7f8f8;">${d.symbol}</div>
-                <div style="font-size:13px; color:#62666d; margin-top:2px;">$${d.price}</div>
+                <div style="font-size:14px; font-weight:700; color:#0a2540;">${d.symbol}</div>
+                <div style="font-size:13px; color:#697386; margin-top:2px;">$${d.price}</div>
             </div>
 
             <!-- 支撑位 -->
             <div>
-                <div style="font-size:10px; color:#3e3e44; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px;">最近支撑</div>
+                <div style="font-size:10px; color:#8a94a6; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px;">最近支撑</div>
                 ${suppDistHtml}
             </div>
 
             <!-- 阻力位 -->
             <div>
-                <div style="font-size:10px; color:#3e3e44; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px;">最近阻力</div>
+                <div style="font-size:10px; color:#8a94a6; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px;">最近阻力</div>
                 ${resDistHtml}
             </div>
 
             <!-- 海龟信号 -->
             <div>
-                <div style="font-size:10px; color:#3e3e44; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:6px;">海龟系统</div>
+                <div style="font-size:10px; color:#8a94a6; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:6px;">海龟系统</div>
                 ${turtleBadge(trt.recommendation)}
-                <div style="font-size:11px; color:#3e3e44; margin-top:4px; line-height:1.4; max-width:160px;">${trt.detail || ''}</div>
+                <div style="font-size:11px; color:#8a94a6; margin-top:4px; line-height:1.4; max-width:160px;">${trt.detail || ''}</div>
             </div>
 
             <!-- 量价背离 -->
             <div>
-                <div style="font-size:10px; color:#3e3e44; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:6px;">量价背离</div>
+                <div style="font-size:10px; color:#8a94a6; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:6px;">量价背离</div>
                 ${divBadge(div.overall || '', div.strength || '无')}
-                <div style="font-size:11px; color:#3e3e44; margin-top:4px; line-height:1.4;">${div.overall || ''}</div>
+                <div style="font-size:11px; color:#8a94a6; margin-top:4px; line-height:1.4;">${div.overall || ''}</div>
             </div>
         </div>
     </div>`;
@@ -135,7 +135,7 @@ async function loadTA(showLoading) {
             new Date().toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'});
     } catch(e) {
         document.getElementById('ta-grid').innerHTML =
-            `<div style="color:#f87171; padding:20px;">加载失败：${e.message}</div>`;
+            `<div style="color:#b42318; padding:20px;">加载失败：${e.message}</div>`;
     } finally {
         document.getElementById('ta-loading').style.display = 'none';
         document.getElementById('ta-grid').style.opacity = '1';

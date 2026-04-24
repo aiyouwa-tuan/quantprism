@@ -45,7 +45,7 @@
 </div>
 
 <!-- 加载状态 -->
-<div id="jin-loading" style="text-align:center; padding:60px 0; color:#62666d; display:none;">
+<div id="jin-loading" style="text-align:center; padding:60px 0; color:#697386; display:none;">
     <div style="font-size:24px; margin-bottom:12px;">⏳</div>
     <div style="font-size:14px;">正在拉取实时数据…</div>
 </div>
@@ -96,13 +96,13 @@ function stars(n) {
 }
 
 function progressColor(pct) {
-    if (pct > 85) return '#f87171';
-    if (pct > 60) return '#facc15';
-    return '#4ade80';
+    if (pct > 85) return '#b42318';
+    if (pct > 60) return '#b45309';
+    return '#067647';
 }
 
 function pctColor(v) {
-    return v > 0 ? '#4ade80' : v < 0 ? '#f87171' : '#94a3b8';
+    return v > 0 ? '#067647' : v < 0 ? '#b42318' : '#697386';
 }
 
 function renderCard(d) {
@@ -113,23 +113,23 @@ function renderCard(d) {
 
     let zonesHtml = '';
     const z = sig.zones || {};
-    if (z.sell)  zonesHtml += `<span style="font-size:11px; color:#94a3b8;">减仓目标 <b style="color:#f87171;">$${z.sell}</b></span>`;
-    if (z.rebuy) zonesHtml += `<span style="font-size:11px; color:#94a3b8; margin-left:10px;">回买参考 <b style="color:#4ade80;">$${z.rebuy}</b></span>`;
-    if (z.watch) zonesHtml += `<span style="font-size:11px; color:#94a3b8;">观察位 MA200 <b style="color:#facc15;">$${z.watch}</b></span>`;
-    if (z.buy1)  zonesHtml += `<span style="font-size:11px; color:#94a3b8;">建仓参考 <b style="color:#4ade80;">$${z.buy1}</b></span>`;
-    if (z.add)   zonesHtml += `<span style="font-size:11px; color:#94a3b8;">加仓参考 <b style="color:#4ade80;">$${z.add}</b></span>`;
+    if (z.sell)  zonesHtml += `<span style="font-size:11px; color:#697386;">减仓目标 <b style="color:#b42318;">$${z.sell}</b></span>`;
+    if (z.rebuy) zonesHtml += `<span style="font-size:11px; color:#697386; margin-left:10px;">回买参考 <b style="color:#067647;">$${z.rebuy}</b></span>`;
+    if (z.watch) zonesHtml += `<span style="font-size:11px; color:#697386;">观察位 MA200 <b style="color:#b45309;">$${z.watch}</b></span>`;
+    if (z.buy1)  zonesHtml += `<span style="font-size:11px; color:#697386;">建仓参考 <b style="color:#067647;">$${z.buy1}</b></span>`;
+    if (z.add)   zonesHtml += `<span style="font-size:11px; color:#697386;">加仓参考 <b style="color:#067647;">$${z.add}</b></span>`;
 
     const changeAmt  = d.close - d.open;
     const changePct  = d.open > 0 ? ((changeAmt / d.open) * 100).toFixed(2) : '0.00';
     const changeSign = changeAmt >= 0 ? '+' : '';
-    const changeClr  = changeAmt >= 0 ? '#4ade80' : '#f87171';
+    const changeClr  = changeAmt >= 0 ? '#067647' : '#b42318';
 
     return `
     <div class="jin-card" onclick="location.href='/jin-view/${d.symbol}'">
         <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:10px;">
             <div>
-                <div style="font-size:15px; font-weight:700; color:#f7f8f8; letter-spacing:-0.2px;">${d.symbol}</div>
-                <div style="font-size:20px; font-weight:700; color:#f7f8f8; margin-top:2px;">$${d.close.toLocaleString()}</div>
+                <div style="font-size:15px; font-weight:700; color:#0a2540; letter-spacing:-0.2px;">${d.symbol}</div>
+                <div style="font-size:20px; font-weight:700; color:#0a2540; margin-top:2px;">$${d.close.toLocaleString()}</div>
                 <div style="font-size:12px; color:${changeClr}; margin-top:1px;">${changeSign}${changePct}%</div>
             </div>
             <div style="text-align:right;">
@@ -141,34 +141,34 @@ function renderCard(d) {
         <!-- MA 偏离 -->
         <div style="display:flex; gap:10px; margin-bottom:10px;">
             <div style="flex:1; background:rgba(255,255,255,0.04); border-radius:6px; padding:7px 10px;">
-                <div style="font-size:10px; color:#62666d; margin-bottom:2px;">vs MA50</div>
+                <div style="font-size:10px; color:#697386; margin-bottom:2px;">vs MA50</div>
                 <div style="font-size:13px; font-weight:600; color:${pctColor(d.pct_vs_ma50)};">${d.pct_vs_ma50 > 0 ? '+' : ''}${d.pct_vs_ma50}%</div>
-                <div style="font-size:11px; color:#3e3e44;">$${d.ma50}</div>
+                <div style="font-size:11px; color:#8a94a6;">$${d.ma50}</div>
             </div>
             <div style="flex:1; background:rgba(255,255,255,0.04); border-radius:6px; padding:7px 10px;">
-                <div style="font-size:10px; color:#62666d; margin-bottom:2px;">vs MA200</div>
+                <div style="font-size:10px; color:#697386; margin-bottom:2px;">vs MA200</div>
                 <div style="font-size:13px; font-weight:600; color:${pctColor(d.pct_vs_ma200)};">${d.pct_vs_ma200 > 0 ? '+' : ''}${d.pct_vs_ma200}%</div>
-                <div style="font-size:11px; color:#3e3e44;">$${d.ma200}</div>
+                <div style="font-size:11px; color:#8a94a6;">$${d.ma200}</div>
             </div>
         </div>
 
         <!-- 52周位置 -->
         <div style="margin-bottom:10px;">
-            <div style="display:flex; justify-content:space-between; font-size:11px; color:#62666d; margin-bottom:4px;">
+            <div style="display:flex; justify-content:space-between; font-size:11px; color:#697386; margin-bottom:4px;">
                 <span>52周位置</span>
                 <span style="color:${pctColor52}; font-weight:600;">${d.pct_in_52w_range}%</span>
             </div>
             <div class="jin-progress-bg">
                 <div class="jin-progress-fill" style="width:${d.pct_in_52w_range}%; background:${pctColor52};"></div>
             </div>
-            <div style="display:flex; justify-content:space-between; font-size:10px; color:#3e3e44; margin-top:3px;">
+            <div style="display:flex; justify-content:space-between; font-size:10px; color:#8a94a6; margin-top:3px;">
                 <span>$${d.low_52w}</span>
                 <span>$${d.high_52w}</span>
             </div>
         </div>
 
         <!-- 操作建议理由 -->
-        <div style="font-size:11px; color:#62666d; line-height:1.5; border-top:1px solid rgba(255,255,255,0.05); padding-top:9px; margin-top:2px;">
+        <div style="font-size:11px; color:#697386; line-height:1.5; border-top:1px solid #f2f4f7; padding-top:9px; margin-top:2px;">
             ${sig.reason}
         </div>
 
@@ -176,7 +176,7 @@ function renderCard(d) {
         ${zonesHtml ? `<div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px;">${zonesHtml}</div>` : ''}
 
         <!-- 卖点分析按钮 -->
-        <div style="margin-top:10px; border-top:1px solid rgba(255,255,255,0.05); padding-top:8px; display:flex; justify-content:flex-end;">
+        <div style="margin-top:10px; border-top:1px solid #f2f4f7; padding-top:8px; display:flex; justify-content:flex-end;">
             <button class="sell-btn" onclick="event.stopPropagation(); runSellAnalysis('${d.symbol}', this)">
                 📊 卖点分析
             </button>
@@ -194,12 +194,12 @@ function renderTiers(stockData) {
     grid.innerHTML = TIERS.map(t => {
         const tags = t.symbols.map(s => {
             const act = actionMap[s] || '—';
-            return `<span style="font-size:12px; color:#94a3b8; background:rgba(255,255,255,0.05); padding:2px 8px; border-radius:4px;">${s} · ${act}</span>`;
+            return `<span style="font-size:12px; color:#697386; background:#f2f4f7; padding:2px 8px; border-radius:4px;">${s} · ${act}</span>`;
         }).join('');
         return `
         <div class="tier-card">
-            <div style="font-size:13px; font-weight:600; color:#f7f8f8; margin-bottom:4px;">${t.emoji} ${t.label}</div>
-            <div style="font-size:11px; color:#62666d; margin-bottom:10px;">${t.desc}</div>
+            <div style="font-size:13px; font-weight:600; color:#0a2540; margin-bottom:4px;">${t.emoji} ${t.label}</div>
+            <div style="font-size:11px; color:#697386; margin-bottom:10px;">${t.desc}</div>
             <div style="display:flex; flex-wrap:wrap; gap:5px;">${tags}</div>
         </div>`;
     }).join('');
@@ -220,7 +220,7 @@ async function loadJin(showLoading) {
         renderTiers(data);
         document.getElementById('jin-update-time').textContent = new Date().toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit' });
     } catch(e) {
-        document.getElementById('jin-grid').innerHTML = '<div style="color:#f87171; padding:20px;">加载失败: ' + e.message + '</div>';
+        document.getElementById('jin-grid').innerHTML = '<div style="color:#b42318; padding:20px;">加载失败: ' + e.message + '</div>';
     } finally {
         document.getElementById('jin-loading').style.display = 'none';
         document.getElementById('jin-grid').style.opacity = '1';
@@ -244,7 +244,7 @@ loadJin(true);
 const VERDICT_LABELS = { EXIT:'清仓', REDUCE:'减仓', WATCH:'观察', HOLD:'持有' };
 
 function renderSellPanel(data) {
-    if (data.error) return `<div style="color:#f87171;">分析失败: ${data.error}</div>`;
+    if (data.error) return `<div style="color:#b42318;">分析失败: ${data.error}</div>`;
     const ts = data.technical_signal || {};
     const ss = data.strategic_signal || {};
     const sy = data.synthesis || {};
@@ -257,20 +257,20 @@ function renderSellPanel(data) {
     return `
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;">
       <div style="background:rgba(255,255,255,0.03); border-radius:6px; padding:8px 10px;">
-        <div style="font-size:10px; color:#62666d; margin-bottom:4px;">📈 技术面</div>
+        <div style="font-size:10px; color:#697386; margin-bottom:4px;">📈 技术面</div>
         <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">${verdictHtml(ts.verdict)}
-          <span style="font-size:10px; color:#62666d;">置信度 ${((ts.confidence||0)*100).toFixed(0)}%</span>
+          <span style="font-size:10px; color:#697386;">置信度 ${((ts.confidence||0)*100).toFixed(0)}%</span>
         </div>
-        <div style="font-size:10px; color:#94a3b8;">${ts.summary||''}</div>
-        ${(ts.key_signals||[]).map(s=>`<div style="font-size:10px; color:#62666d; margin-top:2px;">· ${s}</div>`).join('')}
+        <div style="font-size:10px; color:#697386;">${ts.summary||''}</div>
+        ${(ts.key_signals||[]).map(s=>`<div style="font-size:10px; color:#697386; margin-top:2px;">· ${s}</div>`).join('')}
       </div>
       <div style="background:rgba(255,255,255,0.03); border-radius:6px; padding:8px 10px;">
-        <div style="font-size:10px; color:#62666d; margin-bottom:4px;">🏮 鸡哥战略</div>
+        <div style="font-size:10px; color:#697386; margin-bottom:4px;">🏮 鸡哥战略</div>
         <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">${verdictHtml(ss.verdict)}
-          <span style="font-size:10px; color:#62666d;">置信度 ${((ss.confidence||0)*100).toFixed(0)}%</span>
+          <span style="font-size:10px; color:#697386;">置信度 ${((ss.confidence||0)*100).toFixed(0)}%</span>
         </div>
-        <div style="font-size:10px; color:#94a3b8;">${ss.summary||''}</div>
-        ${ss.key_reason ? `<div style="font-size:10px; color:#62666d; margin-top:2px;">· ${ss.key_reason}</div>` : ''}
+        <div style="font-size:10px; color:#697386;">${ss.summary||''}</div>
+        ${ss.key_reason ? `<div style="font-size:10px; color:#697386; margin-top:2px;">· ${ss.key_reason}</div>` : ''}
       </div>
     </div>
     <div style="background:rgba(94,106,210,0.07); border:1px solid rgba(94,106,210,0.2); border-radius:6px; padding:9px 11px;">
@@ -280,12 +280,12 @@ function renderSellPanel(data) {
       </div>
       ${sy.has_conflict && sy.conflict_reason ? `<div style="font-size:10px; color:#fca5a5; margin-bottom:5px;">分歧：${sy.conflict_reason}</div>` : ''}
       <div style="font-size:11px; color:#e2e8f0; margin-bottom:5px;">${sy.recommended_action||''}</div>
-      ${sy.trigger_to_sell ? `<div style="font-size:10px; color:#62666d;">触发条件：${sy.trigger_to_sell}</div>` : ''}
+      ${sy.trigger_to_sell ? `<div style="font-size:10px; color:#697386;">触发条件：${sy.trigger_to_sell}</div>` : ''}
     </div>
-    ${m.nearest_resistance ? `<div style="margin-top:7px; font-size:10px; color:#62666d;">
-      当前 <b style="color:#f7f8f8;">$${m.current_price}</b> ·
-      阻力 <b style="color:#f87171;">$${m.nearest_resistance}</b>${m.resistance_pct ? ` (+${m.resistance_pct}%)` : ''} ·
-      支撑 <b style="color:#4ade80;">$${m.nearest_support||'—'}</b>
+    ${m.nearest_resistance ? `<div style="margin-top:7px; font-size:10px; color:#697386;">
+      当前 <b style="color:#0a2540;">$${m.current_price}</b> ·
+      阻力 <b style="color:#b42318;">$${m.nearest_resistance}</b>${m.resistance_pct ? ` (+${m.resistance_pct}%)` : ''} ·
+      支撑 <b style="color:#067647;">$${m.nearest_support||'—'}</b>
     </div>` : ''}`;
 }
 
@@ -302,7 +302,7 @@ async function runSellAnalysis(symbol, btn) {
 
     btn.textContent = '⏳ 分析中…';
     btn.disabled = true;
-    panel.innerHTML = '<div style="color:#62666d; font-size:11px; padding:6px 0;">正在调用双框架分析…</div>';
+    panel.innerHTML = '<div style="color:#697386; font-size:11px; padding:6px 0;">正在调用双框架分析…</div>';
     panel.classList.add('active');
 
     try {
@@ -314,7 +314,7 @@ async function runSellAnalysis(symbol, btn) {
         const data = await r.json();
         panel.innerHTML = renderSellPanel(data);
     } catch (e) {
-        panel.innerHTML = `<div style="color:#f87171;">请求失败: ${e.message}</div>`;
+        panel.innerHTML = `<div style="color:#b42318;">请求失败: ${e.message}</div>`;
     } finally {
         btn.textContent = '📊 卖点分析 ▲';
         btn.disabled = false;
