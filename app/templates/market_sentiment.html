@@ -1284,7 +1284,7 @@ function makeGauge(domId, score) {
             splitLine: { show: false },
             axisLabel: {
                 distance: 22,
-                color: '#8a8f98',
+                color: '#697386',
                 fontSize: 13,
                 fontWeight: 500,
                 formatter: function(v) {
@@ -1334,7 +1334,7 @@ function buildHistOption(mode, period) {
             markLine: {
                 silent: true,
                 symbol: 'none',
-                lineStyle: { color: 'rgba(255,255,255,0.08)', type: 'dashed', width: 1 },
+                lineStyle: { color: '#d9e0e8', type: 'dashed', width: 1 },
                 data: [{ yAxis: 25 }, { yAxis: 45 }, { yAxis: 55 }, { yAxis: 75 }]
             },
             data: data.map(function(d) {
@@ -1355,9 +1355,9 @@ function buildHistOption(mode, period) {
         backgroundColor: 'transparent',
         tooltip: {
             trigger: 'axis',
-            backgroundColor: '#1a1b1e',
-            borderColor: 'rgba(255,255,255,0.1)',
-            textStyle: { color: '#d0d6e0', fontSize: 12 },
+            backgroundColor: '#ffffff',
+            borderColor: '#e3e8ee',
+            textStyle: { color: '#0a2540', fontSize: 12 },
             formatter: function(params) {
                 var d = new Date(params[0].axisValue);
                 var dateStr = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
@@ -1377,17 +1377,17 @@ function buildHistOption(mode, period) {
             show: mode === 'both',
             top: 0,
             right: 0,
-            textStyle: { color: '#8a8f98', fontSize: 12 },
+            textStyle: { color: '#697386', fontSize: 12 },
             itemWidth: 12,
             itemHeight: 4
         },
         grid: { left: 40, right: 20, top: mode === 'both' ? 30 : 10, bottom: 40, containLabel: false },
         xAxis: {
             type: 'time',
-            axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
+            axisLine: { lineStyle: { color: '#d9e0e8' } },
             axisTick: { show: false },
             axisLabel: {
-                color: '#62666d',
+                color: '#697386',
                 fontSize: 11,
                 formatter: function(v) {
                     var d = new Date(v);
@@ -1402,8 +1402,8 @@ function buildHistOption(mode, period) {
             splitNumber: 4,
             axisLine: { show: false },
             axisTick: { show: false },
-            splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } },
-            axisLabel: { color: '#62666d', fontSize: 11 }
+            splitLine: { lineStyle: { color: '#f2f4f7' } },
+            axisLabel: { color: '#697386', fontSize: 11 }
         },
         series: series
     };
@@ -1453,7 +1453,7 @@ makeGauge('cnn-gauge', {{ cnn.score }});
             anchor: { show: true, showAbove: true, size: 16,
                 itemStyle: { color: '#0f1011', borderColor: vixColor(vixVal), borderWidth: 3 }},
             axisTick: { show: false }, splitLine: { show: false },
-            axisLabel: { distance: 28, color: '#8a8f98', fontSize: 11, fontWeight: 500,
+            axisLabel: { distance: 28, color: '#697386', fontSize: 11, fontWeight: 500,
                 formatter: function(v) { return ({0:'平静',30:'警戒',60:'极端'})[v] || ''; }},
             detail: { show: false },
             data: [{ value: vixVal }]
@@ -1509,9 +1509,9 @@ function buildQqqOption(metric, period) {
         backgroundColor: 'transparent',
         tooltip: {
             trigger: 'axis',
-            backgroundColor: '#1a1b1e',
-            borderColor: 'rgba(255,255,255,0.1)',
-            textStyle: { color: '#d0d6e0', fontSize: 12 },
+            backgroundColor: '#ffffff',
+            borderColor: '#e3e8ee',
+            textStyle: { color: '#0a2540', fontSize: 12 },
             formatter: function(params) {
                 var d = new Date(params[0].axisValue);
                 var dateStr = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
@@ -1523,10 +1523,10 @@ function buildQqqOption(metric, period) {
         grid: { left: 48, right: 20, top: 16, bottom: 36, containLabel: false },
         xAxis: {
             type: 'time',
-            axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
+            axisLine: { lineStyle: { color: '#d9e0e8' } },
             axisTick: { show: false },
             axisLabel: {
-                color: '#62666d', fontSize: 11,
+                color: '#697386', fontSize: 11,
                 formatter: function(v) {
                     var d = new Date(v);
                     return d.getFullYear() + '/' + String(d.getMonth()+1).padStart(2,'0');
@@ -1540,9 +1540,9 @@ function buildQqqOption(metric, period) {
             max: isRsi ? 100 : undefined,
             axisLine: { show: false },
             axisTick: { show: false },
-            splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } },
+            splitLine: { lineStyle: { color: '#f2f4f7' } },
             axisLabel: {
-                color: '#62666d', fontSize: 11,
+                color: '#697386', fontSize: 11,
                 formatter: function(v) {
                     if (isRsi) return v;
                     if (isPe) return v + '×';
@@ -1609,9 +1609,9 @@ function buildQqqPeRealOption() {
         backgroundColor: 'transparent',
         tooltip: {
             trigger: 'axis',
-            backgroundColor: '#1a1b1e',
-            borderColor: 'rgba(255,255,255,0.1)',
-            textStyle: { color: '#d0d6e0', fontSize: 12 },
+            backgroundColor: '#ffffff',
+            borderColor: '#e3e8ee',
+            textStyle: { color: '#0a2540', fontSize: 12 },
             formatter: function(params) {
                 if (!params.length) return '';
                 var date = params[0].axisValue;
@@ -1632,19 +1632,19 @@ function buildQqqPeRealOption() {
             show: true,
             type: 'scroll',
             top: 0,
-            textStyle: { color: '#8a8f98', fontSize: 11 },
+            textStyle: { color: '#697386', fontSize: 11 },
             itemWidth: 10,
             itemHeight: 4,
             pageIconColor: '#8a8f98',
-            pageTextStyle: { color: '#8a8f98' }
+            pageTextStyle: { color: '#697386' }
         },
         grid: { left: 48, right: 20, top: 40, bottom: 36 },
         xAxis: {
             type: 'time',
-            axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
+            axisLine: { lineStyle: { color: '#d9e0e8' } },
             axisTick: { show: false },
             axisLabel: {
-                color: '#62666d', fontSize: 11,
+                color: '#697386', fontSize: 11,
                 formatter: function(v) {
                     var d = new Date(v);
                     return d.getFullYear() + '/' + String(d.getMonth()+1).padStart(2,'0');
@@ -1655,9 +1655,9 @@ function buildQqqPeRealOption() {
             type: 'value',
             axisLine: { show: false },
             axisTick: { show: false },
-            splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } },
+            splitLine: { lineStyle: { color: '#f2f4f7' } },
             axisLabel: {
-                color: '#62666d', fontSize: 11,
+                color: '#697386', fontSize: 11,
                 formatter: function(v) { return v + '×'; }
             }
         },
@@ -1731,9 +1731,9 @@ function buildVixOption(period) {
         backgroundColor: 'transparent',
         tooltip: {
             trigger: 'axis',
-            backgroundColor: '#1a1b1e',
-            borderColor: 'rgba(255,255,255,0.1)',
-            textStyle: { color: '#d0d6e0', fontSize: 12 },
+            backgroundColor: '#ffffff',
+            borderColor: '#e3e8ee',
+            textStyle: { color: '#0a2540', fontSize: 12 },
             formatter: function(params) {
                 var d = new Date(params[0].axisValue);
                 var dateStr = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
@@ -1745,10 +1745,10 @@ function buildVixOption(period) {
         grid: { left: 40, right: 20, top: 16, bottom: 36, containLabel: false },
         xAxis: {
             type: 'time',
-            axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
+            axisLine: { lineStyle: { color: '#d9e0e8' } },
             axisTick: { show: false },
             axisLabel: {
-                color: '#62666d', fontSize: 11,
+                color: '#697386', fontSize: 11,
                 formatter: function(v) {
                     var d = new Date(v);
                     return d.getFullYear() + '/' + String(d.getMonth()+1).padStart(2,'0');
@@ -1759,8 +1759,8 @@ function buildVixOption(period) {
             type: 'value',
             axisLine: { show: false },
             axisTick: { show: false },
-            splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } },
-            axisLabel: { color: '#62666d', fontSize: 11 }
+            splitLine: { lineStyle: { color: '#f2f4f7' } },
+            axisLabel: { color: '#697386', fontSize: 11 }
         },
         visualMap: {
             show: false,
@@ -1844,7 +1844,7 @@ function buildLpOption(mode, period) {
             markLine: {
                 silent: true,
                 symbol: 'none',
-                lineStyle: { color: 'rgba(255,255,255,0.06)', type: 'dashed', width: 1 },
+                lineStyle: { color: '#f2f4f7', type: 'dashed', width: 1 },
                 data: [{ yAxis: 25 }, { yAxis: 50 }, { yAxis: 75 }]
             },
             data: data.map(function(d) { return [d.date, d[s.key]]; })
@@ -1855,9 +1855,9 @@ function buildLpOption(mode, period) {
         backgroundColor: 'transparent',
         tooltip: {
             trigger: 'axis',
-            backgroundColor: '#1a1b1e',
-            borderColor: 'rgba(255,255,255,0.1)',
-            textStyle: { color: '#d0d6e0', fontSize: 12 },
+            backgroundColor: '#ffffff',
+            borderColor: '#e3e8ee',
+            textStyle: { color: '#0a2540', fontSize: 12 },
             formatter: function(params) {
                 var d = new Date(params[0].axisValue);
                 var dateStr = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
@@ -1876,16 +1876,16 @@ function buildLpOption(mode, period) {
         legend: {
             show: mode === 'all',
             top: 0, right: 0,
-            textStyle: { color: '#8a8f98', fontSize: 12 },
+            textStyle: { color: '#697386', fontSize: 12 },
             itemWidth: 12, itemHeight: 4
         },
         grid: { left: 40, right: 20, top: mode === 'all' ? 30 : 12, bottom: 40, containLabel: false },
         xAxis: {
             type: 'time',
-            axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
+            axisLine: { lineStyle: { color: '#d9e0e8' } },
             axisTick: { show: false },
             axisLabel: {
-                color: '#62666d', fontSize: 11,
+                color: '#697386', fontSize: 11,
                 formatter: function(v) {
                     var d = new Date(v);
                     return (d.getMonth()+1)+'/'+d.getDate();
@@ -1896,8 +1896,8 @@ function buildLpOption(mode, period) {
             type: 'value', min: 0, max: 100, splitNumber: 4,
             axisLine: { show: false },
             axisTick: { show: false },
-            splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } },
-            axisLabel: { color: '#62666d', fontSize: 11 }
+            splitLine: { lineStyle: { color: '#f2f4f7' } },
+            axisLabel: { color: '#697386', fontSize: 11 }
         },
         series: series
     };
