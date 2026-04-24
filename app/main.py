@@ -4052,7 +4052,7 @@ async def api_jige_analyze(request: Request, symbol: str):
 
 
 # ---------------------------------------------------------------------------
-# 金渐成视角 — Jin View
+# 鸡哥视角 — Jin View
 # ---------------------------------------------------------------------------
 
 @app.get("/jin-view", response_class=HTMLResponse)
@@ -4212,7 +4212,7 @@ async def api_indicators_refresh():
 
 @app.post("/api/sell-analysis")
 async def api_sell_analysis(request: Request):
-    """双框架卖点分析：技术面（墨菲体系）+ 战略面（金渐成道势法术）→ AI综合裁决"""
+    """双框架卖点分析：技术面（墨菲体系）+ 战略面（鸡哥道势法术）→ AI综合裁决"""
     import asyncio, json as _json, re
 
     body = await request.json()
@@ -4257,7 +4257,7 @@ async def api_sell_analysis(request: Request):
 最近支撑位: ${ta_sr.get("nearest_support", "N/A")}
 技术描述: {ta_combined.get("description", "无")}
 
-【战略面（金渐成道势法术）】
+【战略面（鸡哥道势法术）】
 操作建议: {jin_signal.get("action", "无")} {jin_signal.get("emoji", "")}
 核心理由: {jin_signal.get("reason", "无")}
 目标价位: {jin_signal.get("zones", {})}

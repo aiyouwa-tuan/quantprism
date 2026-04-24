@@ -1,5 +1,5 @@
 """
-金渐成方法论评分引擎
+鸡哥方法论评分引擎
 道 → 势 → 法 → 术 四层框架
 """
 from __future__ import annotations

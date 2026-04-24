@@ -1,5 +1,5 @@
 """
-金渐成数据层
+鸡哥数据层
 
 优先级：
   1. VPS PostgreSQL (ssh + psql，本机/VPS 均可用)
