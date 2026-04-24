@@ -315,7 +315,202 @@
     padding: 7px 8px;
     border-top: 1px solid rgba(255,255,255,0.04);
 }
+
+/* ── 抄底信号面板 ─────────────────────────────── */
+.buy-signal-panel {
+    background: linear-gradient(135deg, #0f1011 0%, #141518 100%);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 22px 24px;
+    margin-bottom: 20px;
+}
+.buy-signal-panel.any-triggered {
+    border-color: rgba(34,197,94,0.45);
+    box-shadow: 0 0 0 1px rgba(34,197,94,0.18), 0 12px 40px rgba(34,197,94,0.08);
+}
+.buy-signal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.buy-signal-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #f7f8f8;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.buy-signal-subtitle {
+    font-size: 12px;
+    color: #8a8f98;
+    margin-top: 2px;
+}
+.buy-signal-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+.buy-signal-status.standby {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #8a8f98;
+}
+.buy-signal-status.triggered {
+    background: rgba(34,197,94,0.14);
+    border: 1px solid rgba(34,197,94,0.4);
+    color: #4ade80;
+    animation: buySignalPulse 2.2s ease-in-out infinite;
+}
+@keyframes buySignalPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(74,222,128,0.35); }
+    50%      { box-shadow: 0 0 0 6px rgba(74,222,128,0); }
+}
+.signals-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+}
+.signal-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    padding: 14px 14px 12px;
+    transition: border-color 0.2s, background 0.2s;
+}
+.signal-card.triggered {
+    background: rgba(34,197,94,0.08);
+    border-color: rgba(34,197,94,0.38);
+}
+.signal-card-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+.signal-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #3f4246;
+    flex-shrink: 0;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
+}
+.signal-card.triggered .signal-indicator {
+    background: #4ade80;
+    box-shadow: 0 0 0 3px rgba(74,222,128,0.18);
+}
+.signal-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #e4e6eb;
+}
+.signal-condition {
+    font-size: 11px;
+    color: #8a8f98;
+    margin-bottom: 10px;
+    line-height: 1.45;
+}
+.signal-progress {
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.06);
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+.signal-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #5e6ad2, #7c89e8);
+    border-radius: 2px;
+    transition: width 0.4s ease;
+}
+.signal-card.triggered .signal-progress-bar {
+    background: linear-gradient(90deg, #22c55e, #4ade80);
+}
+.signal-distance {
+    font-size: 11px;
+    color: #a5adb8;
+    line-height: 1.45;
+}
+.buy-signal-footer {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px dashed rgba(255,255,255,0.08);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    font-size: 11px;
+    color: #8a8f98;
+    line-height: 1.5;
+}
+.buy-signal-footer strong { color: #c4cdfd; font-weight: 600; }
+.buy-signal-error {
+    font-size: 12px;
+    color: #f87171;
+    padding: 10px 12px;
+    background: rgba(248,113,113,0.08);
+    border: 1px solid rgba(248,113,113,0.22);
+    border-radius: 8px;
+}
 </style>
+
+<!-- 抄底信号面板 (QQQ FULL_SYSTEM) -->
+{% if buy_signal %}
+<div class="buy-signal-panel {% if buy_signal.any_triggered %}any-triggered{% endif %}">
+    <div class="buy-signal-header">
+        <div>
+            <h2 class="buy-signal-title">
+                <span>QQQ 抄底信号 · FULL_SYSTEM</span>
+            </h2>
+            <div class="buy-signal-subtitle">
+                {% if buy_signal.qqq_price %}QQQ ${{ "%.2f"|format(buy_signal.qqq_price) }}{% endif %}
+                {% if buy_signal.vix_value %} · VIX {{ "%.2f"|format(buy_signal.vix_value) }}{% endif %}
+                · 历史 22 次触发 / 90.9% 胜率 / 1 年平均 +25.8%
+            </div>
+        </div>
+        <div class="buy-signal-status {% if buy_signal.any_triggered %}triggered{% else %}standby{% endif %}">
+            {% if buy_signal.any_triggered %}
+                买入信号已触发 ({{ buy_signal.trigger_count }}/{{ buy_signal.total or 5 }})
+            {% else %}
+                待机中 ({{ buy_signal.trigger_count or 0 }}/{{ buy_signal.total or 5 }})
+            {% endif %}
+        </div>
+    </div>
+
+    {% if buy_signal.error %}
+    <div class="buy-signal-error">信号加载中 · {{ buy_signal.error }}</div>
+    {% else %}
+    <div class="signals-grid">
+        {% for sig in buy_signal.signals %}
+        <div class="signal-card {% if sig.triggered %}triggered{% endif %}">
+            <div class="signal-card-head">
+                <span class="signal-indicator"></span>
+                <span class="signal-name">{{ sig.name }}</span>
+            </div>
+            <div class="signal-condition">{{ sig.condition }}</div>
+            <div class="signal-progress">
+                <div class="signal-progress-bar" style="width: {{ sig.progress_pct }}%"></div>
+            </div>
+            <div class="signal-distance">{{ sig.distance_text }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="buy-signal-footer">
+        <span>触发动作：<strong>重仓 70-80%</strong>，首次触发后再跌 8% 加仓</span>
+        <span>任一子信号触发即进入可执行状态</span>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
 
 <!-- 页面标题 -->
 <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:24px;">

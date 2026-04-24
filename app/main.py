@@ -3747,15 +3747,17 @@ async def sentiment_page(request: Request):
     from vix_metrics import fetch_vix
     from longport_client import fetch_market_temperature
     from fmp_client import fetch_qqq_top10_history
+    from buy_signal import compute_buy_signal
     import asyncio
     import json as _json
-    cnn, crypto, qqq, vix, lp_us, fmp = await asyncio.gather(
+    cnn, crypto, qqq, vix, lp_us, fmp, buy_sig = await asyncio.gather(
         asyncio.to_thread(fetch_cnn),
         asyncio.to_thread(fetch_crypto),
         asyncio.to_thread(fetch_qqq),
         asyncio.to_thread(fetch_vix),
         asyncio.to_thread(fetch_market_temperature, "US"),
         asyncio.to_thread(fetch_qqq_top10_history),
+        asyncio.to_thread(compute_buy_signal),
     )
     return templates.TemplateResponse("market_sentiment.html", {
         "request": request,
@@ -3765,6 +3767,7 @@ async def sentiment_page(request: Request):
         "vix": vix,
         "lp_us": lp_us,
         "fmp": fmp,
+        "buy_signal": buy_sig,
         "cnn_history_json": _json.dumps(cnn.get("history", [])),
         "crypto_history_json": _json.dumps(crypto.get("history", [])),
         "qqq_history_json": _json.dumps(qqq.get("history", {})),
