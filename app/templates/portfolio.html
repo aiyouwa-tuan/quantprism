@@ -1,85 +1,86 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="flex justify-between items-center mb-6">
+
+<div class="qp-page-head">
     <div>
-        <h1 class="text-xl font-bold text-white">投资组合</h1>
-        <p class="text-sm text-gray-500 mt-0.5">跨市场持仓 + 行业暴露 + 风险分布</p>
+        <div class="qp-crumb">交易 / 持仓管理</div>
+        <h1>投资组合</h1>
+        <div class="qp-subtitle">跨市场持仓 · 行业暴露 · 风险分布</div>
     </div>
-    <div class="flex items-center gap-2">
+    <div style="display:flex; gap:10px; align-items:center;">
         {% if regime %}
-        <div class="flex items-center gap-2 bg-dark-700 border border-dark-600 rounded-lg px-3 py-1.5">
-            <span class="w-2 h-2 rounded-full {{ 'bg-accent-green' if regime.regime in ['low_vol','normal'] else 'bg-accent-yellow' if regime.regime == 'mid_vol' else 'bg-accent-red' }}"></span>
-            <span class="text-xs text-gray-300">VIX {{ regime.vix }}</span>
-        </div>
+        <span class="qp-chip {{ 'qp-chip-live' if regime.regime in ['low_vol','normal'] else '' }}">
+            VIX <b style="color:{{ '#067647' if regime.regime in ['low_vol','normal'] else '#b45309' if regime.regime == 'mid_vol' else '#b42318' }}; font-family:'JetBrains Mono',monospace; margin-left:2px;">{{ regime.vix }}</b>
+        </span>
         {% endif %}
+        <a href="/" class="qp-btn-primary">扫描机会 →</a>
     </div>
 </div>
 
-<!-- 概览卡片 -->
-<div class="grid grid-cols-4 gap-3 mb-6">
-    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
-        <div class="text-xs text-gray-500">持仓数</div>
-        <div class="text-2xl font-bold text-white">{{ positions|length }}{% if goals %} <span class="text-sm text-gray-500">/ {{ goals.max_positions }}</span>{% endif %}</div>
+<!-- 概览 stat cards (E-style) -->
+<div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:20px;">
+    <div class="qp-stat-card">
+        <div class="qp-stat-label"><span>持仓数</span>{% if goals %}<span style="color:#8a94a6; font-weight:500;">/ {{ goals.max_positions }}</span>{% endif %}</div>
+        <div class="qp-stat-val">{{ positions|length }}</div>
+        <div class="qp-stat-sub">当前持有</div>
     </div>
-    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
-        <div class="text-xs text-gray-500">总风险</div>
-        <div class="text-2xl font-bold {{ 'text-accent-red' if total_risk_pct > 0.08 else 'text-accent-green' }}">{{ "%.1f"|format(total_risk_pct * 100) }}%</div>
-        <div class="mt-1 w-full bg-dark-800 rounded-full h-2">
-            <div class="h-2 rounded-full {{ 'bg-accent-green' if total_risk_pct < 0.05 else 'bg-accent-yellow' if total_risk_pct < 0.08 else 'bg-accent-red' }}"
-                 style="width: {{ [total_risk_pct * 100 * 10, 100]|min }}%"></div>
+
+    <div class="qp-stat-card">
+        <div class="qp-stat-label"><span>总风险</span><span class="qp-tag {{ 'qp-tag-down' if total_risk_pct > 0.08 else 'qp-tag-warn' if total_risk_pct > 0.05 else 'qp-tag-up' }}">{{ '偏高' if total_risk_pct > 0.08 else '中等' if total_risk_pct > 0.05 else '健康' }}</span></div>
+        <div class="qp-stat-val" style="color:{{ '#b42318' if total_risk_pct > 0.08 else '#b45309' if total_risk_pct > 0.05 else '#067647' }};">{{ "%.1f"|format(total_risk_pct * 100) }}%</div>
+        <div style="margin-top:8px; height:6px; background:#f2f4f7; border-radius:999px; overflow:hidden;">
+            <div style="height:100%; border-radius:999px; width:{{ [total_risk_pct * 100 * 10, 100]|min }}%; background:{{ '#b42318' if total_risk_pct > 0.08 else '#b45309' if total_risk_pct > 0.05 else 'linear-gradient(90deg,#635bff,#00d4ff)' }};"></div>
         </div>
     </div>
-    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
-        <div class="text-xs text-gray-500">市场分布</div>
-        <div class="flex gap-2 mt-1 flex-wrap">
+
+    <div class="qp-stat-card">
+        <div class="qp-stat-label"><span>市场分布</span></div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:4px;">
         {% for market, pos_list in by_market.items() %}
-        <span class="text-xs px-2 py-0.5 rounded-full {{ 'bg-accent-blue/20 text-accent-blue' if market == 'stock' else 'bg-accent-yellow/20 text-accent-yellow' if market == 'crypto' else 'bg-purple-500/20 text-purple-400' }}">
-            {{ market }} {{ pos_list|length }}
-        </span>
+            <span class="qp-tag {{ 'qp-tag-neutral' if market == 'stock' else 'qp-tag-warn' if market == 'crypto' else 'qp-tag-gray' }}" style="font-size:12px; padding:4px 10px;">{{ market }} <b style="margin-left:3px;">{{ pos_list|length }}</b></span>
         {% endfor %}
         </div>
+        <div class="qp-stat-sub" style="margin-top:8px;">{{ by_market|length }} 个市场</div>
     </div>
-    <div class="bg-dark-700 rounded-xl p-4 border border-dark-600">
-        <div class="text-xs text-gray-500">VIX 环境</div>
-        <div class="text-lg font-bold text-white mt-1">{{ regime.vix }}</div>
-        <div class="text-xs text-gray-500">{{ regime.description }}</div>
+
+    <div class="qp-stat-card">
+        <div class="qp-stat-label"><span>VIX 环境</span></div>
+        <div class="qp-stat-val">{{ regime.vix }}</div>
+        <div class="qp-stat-sub">{{ regime.description }}</div>
     </div>
 </div>
 
 <!-- 市场分组视图 -->
 {% for market, pos_list in by_market.items() %}
-<div class="bg-dark-700 rounded-xl border border-dark-600 mb-4">
-    <div class="px-5 py-3 border-b border-dark-600 flex justify-between items-center">
-        <div class="flex items-center gap-2">
-            <span class="w-2.5 h-2.5 rounded-full {{ 'bg-accent-blue' if market == 'stock' else 'bg-accent-yellow' if market == 'crypto' else 'bg-purple-500' }}"></span>
-            <h2 class="font-semibold text-white">{{ market|upper }}</h2>
-            <span class="text-xs text-gray-500">{{ pos_list|length }} 个持仓</span>
+{% set market_risk = pos_list|sum(attribute='risk_pct_of_account') %}
+<div style="background:#fff; border:1px solid #e3e8ee; border-radius:12px; margin-bottom:16px; box-shadow:0 1px 2px rgba(10,37,64,0.04);">
+    <div style="padding:16px 22px; border-bottom:1px solid #f2f4f7; display:flex; justify-content:space-between; align-items:center;">
+        <div style="display:flex; align-items:center; gap:10px;">
+            <span style="width:10px; height:10px; border-radius:50%; background:{{ '#635bff' if market == 'stock' else '#f79009' if market == 'crypto' else '#8b5cf6' }};"></span>
+            <h2 style="font-size:16px !important; font-weight:700 !important; letter-spacing:-0.3px !important;">{{ market|upper }}</h2>
+            <span style="font-size:12.5px; color:#697386;">· {{ pos_list|length }} 个持仓</span>
         </div>
-        {% set market_risk = pos_list|sum(attribute='risk_pct_of_account') %}
-        <span class="text-xs {{ 'text-accent-red' if market_risk > 0.05 else 'text-gray-400' }}">
-            风险 {{ "%.1f"|format(market_risk * 100) }}%
-        </span>
+        <span class="qp-tag {{ 'qp-tag-down' if market_risk > 0.05 else 'qp-tag-gray' }}">风险 {{ "%.1f"|format(market_risk * 100) }}%</span>
     </div>
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 p-4">
+    <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:10px; padding:16px 18px;" class="md:!grid-cols-4">
         {% for p in pos_list %}
-        <a href="/diagnose/{{ p.symbol }}" class="bg-dark-800 rounded-lg p-3 hover:bg-dark-600/50 transition block">
-            <div class="flex justify-between items-center">
-                <span class="text-white font-bold text-sm">{{ p.symbol }}</span>
+        <a href="/diagnose/{{ p.symbol }}" style="background:#f6f9fc; border:1px solid #e3e8ee; border-radius:10px; padding:14px; text-decoration:none; color:inherit; transition:all 0.15s; display:block;" onmouseover="this.style.background='#eef4ff';this.style.borderColor='#d9e6ff';" onmouseout="this.style.background='#f6f9fc';this.style.borderColor='#e3e8ee';">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-weight:700; font-size:14px; color:#0a2540; letter-spacing:-0.2px;">{{ p.symbol }}</span>
                 {% if p.unrealized_pnl and p.unrealized_pnl != 0 %}
-                <span class="text-xs font-bold {{ 'text-accent-green' if p.unrealized_pnl >= 0 else 'text-accent-red' }}">
+                <span style="font-size:12px; font-weight:700; font-family:'JetBrains Mono',monospace; color:{{ '#067647' if p.unrealized_pnl >= 0 else '#b42318' }};">
                     {{ '+' if p.unrealized_pnl >= 0 else '' }}${{ "%.0f"|format(p.unrealized_pnl) }}
                 </span>
                 {% endif %}
             </div>
-            <div class="text-xs text-gray-500 mt-1">
+            <div style="font-size:11.5px; color:#697386; margin-top:4px; font-family:'JetBrains Mono',monospace;">
                 {{ "%.0f"|format(p.quantity) }} @ ${{ "%.2f"|format(p.entry_price) }}
             </div>
-            <div class="mt-1.5 flex justify-between items-center">
-                <div class="flex-1 bg-dark-600 rounded-full h-1 mr-2">
-                    <div class="h-1 rounded-full {{ 'bg-accent-green' if (p.risk_pct_of_account or 0) < 0.02 else 'bg-accent-yellow' if (p.risk_pct_of_account or 0) < 0.03 else 'bg-accent-red' }}"
-                         style="width: {{ [(p.risk_pct_of_account or 0) * 100 * 20, 100]|min }}%"></div>
+            <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                <div style="flex:1; background:#e3e8ee; border-radius:999px; height:4px; overflow:hidden;">
+                    <div style="height:100%; border-radius:999px; width:{{ [(p.risk_pct_of_account or 0) * 100 * 20, 100]|min }}%; background:{{ '#067647' if (p.risk_pct_of_account or 0) < 0.02 else '#b45309' if (p.risk_pct_of_account or 0) < 0.03 else '#b42318' }};"></div>
                 </div>
-                <span class="text-[10px] text-gray-500">{{ "%.1f"|format((p.risk_pct_of_account or 0) * 100) }}%</span>
+                <span style="font-size:10.5px; color:#697386; font-family:'JetBrains Mono',monospace; font-weight:600;">{{ "%.1f"|format((p.risk_pct_of_account or 0) * 100) }}%</span>
             </div>
         </a>
         {% endfor %}
@@ -88,39 +89,46 @@
 {% endfor %}
 
 {% if not positions %}
-<div class="bg-dark-700 rounded-xl border border-dashed border-dark-500 p-16 text-center">
-    <svg class="w-10 h-10 text-gray-700 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
-    </svg>
-    <p class="text-gray-400 mb-1">暂无持仓</p>
-    <p class="text-gray-600 text-sm mb-4">从交易机会页面找到标的，或手动添加持仓</p>
-    <div class="flex gap-3 justify-center">
-        <a href="/" class="text-sm bg-accent-green text-dark-900 font-semibold px-4 py-2 rounded-lg hover:brightness-110">扫描机会</a>
-        <a href="/positions" class="text-sm bg-dark-600 text-gray-300 px-4 py-2 rounded-lg hover:bg-dark-500">手动添加</a>
+<div style="background:#fff; border:1px dashed #d9e0e8; border-radius:12px; padding:56px 24px; text-align:center;">
+    <div style="width:56px; height:56px; border-radius:16px; background:linear-gradient(135deg,#eef4ff,#f0fdff); display:flex; align-items:center; justify-content:center; margin:0 auto 16px; font-size:28px;">📊</div>
+    <div style="font-size:16px; font-weight:600; color:#0a2540; margin-bottom:4px;">暂无持仓</div>
+    <p style="font-size:13px; color:#697386; margin-bottom:20px;">从交易机会页面找到标的，或手动添加持仓</p>
+    <div style="display:flex; gap:10px; justify-content:center;">
+        <a href="/" class="qp-btn-primary">扫描机会</a>
+        <a href="/positions" class="qp-btn-ghost">手动添加</a>
     </div>
 </div>
 {% endif %}
 
 <!-- 完整持仓表 -->
 {% if positions %}
-<div class="bg-dark-700 rounded-xl border border-dark-600 mt-4">
-    <div class="px-5 py-3 border-b border-dark-600">
-        <h2 class="font-semibold text-white text-sm">全部持仓明细</h2>
+<div style="background:#fff; border:1px solid #e3e8ee; border-radius:12px; margin-top:16px; overflow:hidden; box-shadow:0 1px 2px rgba(10,37,64,0.04);">
+    <div style="padding:16px 22px; border-bottom:1px solid #e3e8ee; display:flex; justify-content:space-between; align-items:center;">
+        <h2 style="font-size:15px !important; font-weight:700 !important; letter-spacing:-0.2px !important;">全部持仓明细</h2>
+        <span style="font-size:12.5px; color:#697386;">{{ positions|length }} 条</span>
     </div>
-    <table class="w-full text-sm">
-        <thead><tr class="text-gray-500 text-xs border-b border-dark-600">
-            <th class="text-left px-5 py-2">代码</th><th class="text-left">市场</th><th class="text-right">入场价</th><th class="text-right">止损</th><th class="text-right">数量</th><th class="text-right">风险%</th><th class="text-right px-5">来源</th>
-        </tr></thead>
+    <table style="width:100%; border-collapse:collapse; font-size:13.5px;">
+        <thead>
+            <tr>
+                <th style="text-align:left; padding:10px 22px; background:#f6f9fc; color:#697386; font-weight:600; font-size:11.5px; letter-spacing:0.3px; text-transform:uppercase; border-bottom:1px solid #e3e8ee;">代码</th>
+                <th style="text-align:left; padding:10px 8px; background:#f6f9fc; color:#697386; font-weight:600; font-size:11.5px; letter-spacing:0.3px; text-transform:uppercase; border-bottom:1px solid #e3e8ee;">市场</th>
+                <th style="text-align:right; padding:10px 8px; background:#f6f9fc; color:#697386; font-weight:600; font-size:11.5px; letter-spacing:0.3px; text-transform:uppercase; border-bottom:1px solid #e3e8ee;">入场价</th>
+                <th style="text-align:right; padding:10px 8px; background:#f6f9fc; color:#697386; font-weight:600; font-size:11.5px; letter-spacing:0.3px; text-transform:uppercase; border-bottom:1px solid #e3e8ee;">止损</th>
+                <th style="text-align:right; padding:10px 8px; background:#f6f9fc; color:#697386; font-weight:600; font-size:11.5px; letter-spacing:0.3px; text-transform:uppercase; border-bottom:1px solid #e3e8ee;">数量</th>
+                <th style="text-align:right; padding:10px 8px; background:#f6f9fc; color:#697386; font-weight:600; font-size:11.5px; letter-spacing:0.3px; text-transform:uppercase; border-bottom:1px solid #e3e8ee;">风险%</th>
+                <th style="text-align:right; padding:10px 22px; background:#f6f9fc; color:#697386; font-weight:600; font-size:11.5px; letter-spacing:0.3px; text-transform:uppercase; border-bottom:1px solid #e3e8ee;">来源</th>
+            </tr>
+        </thead>
         <tbody>
         {% for p in positions %}
-        <tr class="border-b border-dark-600/50 hover:bg-dark-600/30">
-            <td class="px-5 py-2.5"><a href="/diagnose/{{ p.symbol }}" class="font-medium text-white hover:text-accent-blue">{{ p.symbol }}</a></td>
-            <td><span class="text-xs px-1.5 py-0.5 rounded {{ 'bg-accent-blue/20 text-accent-blue' if p.market == 'stock' else 'bg-accent-yellow/20 text-accent-yellow' if p.market == 'crypto' else 'bg-purple-500/20 text-purple-400' }}">{{ p.market }}</span></td>
-            <td class="text-right text-gray-300">${{ "%.2f"|format(p.entry_price) }}</td>
-            <td class="text-right text-gray-400">${{ "%.2f"|format(p.stop_loss) }}</td>
-            <td class="text-right text-gray-300">{{ p.quantity }}</td>
-            <td class="text-right {{ 'text-accent-red' if (p.risk_pct_of_account or 0) > 0.03 else 'text-gray-300' }}">{{ "%.1f"|format((p.risk_pct_of_account or 0) * 100) }}%</td>
-            <td class="text-right px-5 text-xs text-gray-500">{{ p.source or 'manual' }}</td>
+        <tr style="border-bottom:1px solid #f2f4f7;" onmouseover="this.style.background='#fafbfc';" onmouseout="this.style.background='';">
+            <td style="padding:14px 22px;"><a href="/diagnose/{{ p.symbol }}" style="font-weight:600; color:#0a2540; text-decoration:none;">{{ p.symbol }}</a></td>
+            <td style="padding:14px 8px;"><span class="qp-tag {{ 'qp-tag-neutral' if p.market == 'stock' else 'qp-tag-warn' if p.market == 'crypto' else 'qp-tag-gray' }}">{{ p.market }}</span></td>
+            <td style="padding:14px 8px; text-align:right; font-family:'JetBrains Mono',monospace; color:#0a2540;">${{ "%.2f"|format(p.entry_price) }}</td>
+            <td style="padding:14px 8px; text-align:right; font-family:'JetBrains Mono',monospace; color:#697386;">${{ "%.2f"|format(p.stop_loss) }}</td>
+            <td style="padding:14px 8px; text-align:right; font-family:'JetBrains Mono',monospace; color:#0a2540;">{{ p.quantity }}</td>
+            <td style="padding:14px 8px; text-align:right; font-family:'JetBrains Mono',monospace; font-weight:600; color:{{ '#b42318' if (p.risk_pct_of_account or 0) > 0.03 else '#0a2540' }};">{{ "%.1f"|format((p.risk_pct_of_account or 0) * 100) }}%</td>
+            <td style="padding:14px 22px; text-align:right; font-size:11.5px; color:#697386;">{{ p.source or 'manual' }}</td>
         </tr>
         {% endfor %}
         </tbody>

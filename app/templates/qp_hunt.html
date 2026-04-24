@@ -1,26 +1,24 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="flex justify-between items-center mb-6">
+<div class="qp-page-head">
     <div>
-        <h1 class="text-xl font-bold text-white">策略猎手</h1>
+        <div class="qp-crumb">策略 / 策略猎手</div>
+        <h1>策略猎手</h1>
         {% if goals %}
-        <p class="text-sm text-gray-400 mt-1">
-            基于你的目标
-            (<span class="text-accent-green">年化 {% if goals.annual_return_target %}{{ '%.0f'|format(goals.annual_return_target * 100) }}%{% else %}不限{% endif %}</span>,
-             回撤 &le; <span class="text-accent-red">{% if goals.max_drawdown %}{{ '%.0f'|format(goals.max_drawdown * 100) }}%{% else %}不限{% endif %}</span>)
-            全网搜索 + AI 生成
-        </p>
+        <div class="qp-subtitle">
+            基于你的目标 —
+            年化 <b style="color:#067647;">{% if goals.annual_return_target %}{{ '%.0f'|format(goals.annual_return_target * 100) }}%{% else %}不限{% endif %}</b> ·
+            回撤 ≤ <b style="color:#b42318;">{% if goals.max_drawdown %}{{ '%.0f'|format(goals.max_drawdown * 100) }}%{% else %}不限{% endif %}</b>
+            · 全网搜索 + AI 生成
+        </div>
         {% else %}
-        <p class="text-sm text-gray-400 mt-1">
-            请先 <a href="/goals" class="text-accent-blue hover:underline">设定目标</a>，系统将根据目标搜索匹配策略。
-        </p>
+        <div class="qp-subtitle">
+            请先 <a href="/goals" style="color:#635bff; font-weight:600;">设定目标</a>，系统将根据目标搜索匹配策略
+        </div>
         {% endif %}
     </div>
-    <button onclick="openAddModal()"
-            class="flex items-center gap-2 bg-dark-700 border border-dark-500 text-gray-300 px-4 py-2 rounded-lg text-sm font-medium hover:bg-dark-600 hover:border-accent-blue/50 hover:text-white transition">
-        <span class="text-base leading-none">＋</span> 添加我的策略
-    </button>
+    <button onclick="openAddModal()" class="qp-btn-ghost">＋ 添加我的策略</button>
 </div>
 
 <!-- 搜索区域 -->

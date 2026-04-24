@@ -1,9 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="mb-6">
-    <h1 class="text-xl font-bold text-white">回测实验室</h1>
-    <p class="text-sm text-gray-400 mt-1">验证策略历史表现，精确到每一天</p>
+<div class="qp-page-head">
+    <div>
+        <div class="qp-crumb">策略 / 回测实验室</div>
+        <h1>回测实验室</h1>
+        <div class="qp-subtitle">验证策略历史表现 · 精确到每一天</div>
+    </div>
+    <a href="/backtest/tasks" class="qp-btn-ghost">任务中心 →</a>
 </div>
 
 <!-- ═══ 顶层 Tab: 单次回测 | 策略对比 ═══ -->

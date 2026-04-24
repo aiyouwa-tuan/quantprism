@@ -2,16 +2,17 @@
 {% block content %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
-<div class="flex justify-between items-center mb-6">
+<div class="qp-page-head">
     <div>
-        <h1 class="text-2xl font-bold text-white">宏观经济</h1>
-        <p class="text-xs text-gray-500 mt-0.5">FRED 数据 · 1小时缓存</p>
+        <div class="qp-crumb">市场 / 宏观经济</div>
+        <h1>宏观经济</h1>
+        <div class="qp-subtitle">FRED 实时数据 · 大类资产与经济指标 · 1 小时缓存</div>
     </div>
-    <button hx-get="/api/macro-data" hx-target="#macro-content" hx-swap="outerHTML"
-            hx-indicator="#macro-loading"
-            class="text-xs px-3 py-1.5 bg-dark-600 hover:bg-dark-500 rounded-lg text-gray-400 hover:text-white transition-colors">
-        刷新数据
-    </button>
+    <div style="display:flex; gap:10px; align-items:center;">
+        <span class="qp-chip qp-chip-live">FRED 已连接</span>
+        <button hx-get="/api/macro-data" hx-target="#macro-content" hx-swap="outerHTML"
+                hx-indicator="#macro-loading" class="qp-btn-ghost">↻ 刷新</button>
+    </div>
 </div>
 
 <div id="macro-loading" class="htmx-indicator text-center py-4 text-xs text-gray-500">加载中...</div>
@@ -27,55 +28,37 @@
 {% else %}
 
 <!-- KPI Row -->
-<div class="grid grid-cols-4 gap-3 mb-6">
-    <!-- GDP -->
-    <div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
-        <div class="text-xs text-gray-500 mb-1">GDP (最新季度)</div>
+<div style="display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:20px;">
+    <div class="qp-stat-card">
+        <div class="qp-stat-label"><span>GDP 最新季度</span></div>
         {% if macro.gdp %}
-        <div class="text-xl font-bold text-white">${{ "%.1f"|format(macro.gdp[-1].value / 1000) }}T</div>
-        <div class="text-xs text-gray-500 mt-0.5">{{ macro.gdp[-1].date }}</div>
-        {% else %}
-        <div class="text-gray-600 text-sm">N/A</div>
-        {% endif %}
+        <div class="qp-stat-val">${{ "%.1f"|format(macro.gdp[-1].value / 1000) }}T</div>
+        <div class="qp-stat-sub">{{ macro.gdp[-1].date }}</div>
+        {% else %}<div class="qp-stat-val" style="color:#8a94a6;">N/A</div>{% endif %}
     </div>
-    <!-- CPI YoY -->
-    <div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
-        <div class="text-xs text-gray-500 mb-1">CPI 同比</div>
-        {% if macro.cpi %}
-        {% set latest_cpi = macro.cpi | selectattr("yoy_pct", "defined") | list | last %}
-        {% if latest_cpi %}
-        <div class="text-xl font-bold {{ 'text-accent-red' if latest_cpi.yoy_pct > 3 else 'text-accent-green' if latest_cpi.yoy_pct < 2 else 'text-accent-yellow' }}">
-            {{ "%.1f"|format(latest_cpi.yoy_pct) }}%
-        </div>
-        <div class="text-xs text-gray-500 mt-0.5">{{ latest_cpi.date }}</div>
-        {% else %}
-        <div class="text-gray-600 text-sm">N/A</div>
-        {% endif %}
-        {% else %}
-        <div class="text-gray-600 text-sm">N/A</div>
-        {% endif %}
+    <div class="qp-stat-card">
+        <div class="qp-stat-label"><span>CPI 同比</span>
+        {% if macro.cpi %}{% set latest_cpi = macro.cpi | selectattr("yoy_pct", "defined") | list | last %}{% if latest_cpi %}
+        <span class="qp-tag {{ 'qp-tag-down' if latest_cpi.yoy_pct > 3 else 'qp-tag-up' if latest_cpi.yoy_pct < 2 else 'qp-tag-warn' }}">{{ '偏高' if latest_cpi.yoy_pct > 3 else '目标内' if latest_cpi.yoy_pct < 2 else '中性' }}</span>
+        {% endif %}{% endif %}</div>
+        {% if macro.cpi and latest_cpi %}
+        <div class="qp-stat-val" style="color:{{ '#b42318' if latest_cpi.yoy_pct > 3 else '#067647' if latest_cpi.yoy_pct < 2 else '#b45309' }};">{{ "%.1f"|format(latest_cpi.yoy_pct) }}%</div>
+        <div class="qp-stat-sub">{{ latest_cpi.date }}</div>
+        {% else %}<div class="qp-stat-val" style="color:#8a94a6;">N/A</div>{% endif %}
     </div>
-    <!-- Fed Rate -->
-    <div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
-        <div class="text-xs text-gray-500 mb-1">联邦基金利率</div>
+    <div class="qp-stat-card">
+        <div class="qp-stat-label"><span>联邦基金利率</span></div>
         {% if macro.fed_rate %}
-        <div class="text-xl font-bold text-accent-blue">{{ "%.2f"|format(macro.fed_rate[-1].value) }}%</div>
-        <div class="text-xs text-gray-500 mt-0.5">{{ macro.fed_rate[-1].date }}</div>
-        {% else %}
-        <div class="text-gray-600 text-sm">N/A</div>
-        {% endif %}
+        <div class="qp-stat-val" style="color:#635bff;">{{ "%.2f"|format(macro.fed_rate[-1].value) }}%</div>
+        <div class="qp-stat-sub">{{ macro.fed_rate[-1].date }}</div>
+        {% else %}<div class="qp-stat-val" style="color:#8a94a6;">N/A</div>{% endif %}
     </div>
-    <!-- Unemployment -->
-    <div class="bg-dark-700 rounded-xl border border-dark-600 p-4">
-        <div class="text-xs text-gray-500 mb-1">失业率</div>
+    <div class="qp-stat-card">
+        <div class="qp-stat-label"><span>失业率</span>{% if macro.unemployment %}<span class="qp-tag {{ 'qp-tag-down' if macro.unemployment[-1].value > 5 else 'qp-tag-up' }}">{{ '偏高' if macro.unemployment[-1].value > 5 else '健康' }}</span>{% endif %}</div>
         {% if macro.unemployment %}
-        <div class="text-xl font-bold {{ 'text-accent-red' if macro.unemployment[-1].value > 5 else 'text-accent-green' }}">
-            {{ "%.1f"|format(macro.unemployment[-1].value) }}%
-        </div>
-        <div class="text-xs text-gray-500 mt-0.5">{{ macro.unemployment[-1].date }}</div>
-        {% else %}
-        <div class="text-gray-600 text-sm">N/A</div>
-        {% endif %}
+        <div class="qp-stat-val" style="color:{{ '#b42318' if macro.unemployment[-1].value > 5 else '#067647' }};">{{ "%.1f"|format(macro.unemployment[-1].value) }}%</div>
+        <div class="qp-stat-sub">{{ macro.unemployment[-1].date }}</div>
+        {% else %}<div class="qp-stat-val" style="color:#8a94a6;">N/A</div>{% endif %}
     </div>
 </div>
 
@@ -209,8 +192,8 @@ function toggleYcInfo() {
         maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
-            x: { grid: { color: '#232b3e' }, ticks: { color: '#6b7280', maxTicksLimit: 8, font: { size: 10 } } },
-            y: { grid: { color: '#232b3e' }, ticks: { color: '#6b7280', font: { size: 10 } } }
+            x: { grid: { color: '#f2f4f7' }, ticks: { color: '#697386', maxTicksLimit: 8, font: { size: 10 } } },
+            y: { grid: { color: '#f2f4f7' }, ticks: { color: '#697386', font: { size: 10 } } }
         }
     };
 

@@ -1,12 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="space-y-6">
-
-    <!-- Header -->
+<div class="qp-page-head">
     <div>
-        <h1 class="text-2xl font-bold text-white">&#x1F441; &#x89C2;&#x5BDF;&#x5217;&#x8868;</h1>
-        <p class="text-gray-400 mt-1 text-sm">&#x4ECE;&#x300C;&#x6807;&#x7684;&#x626B;&#x63CF;&#x300D;&#x52A0;&#x5165;&#x7684;&#x5173;&#x6CE8;&#x6807;&#x7684;</p>
+        <div class="qp-crumb">交易 / 观察列表</div>
+        <h1>观察列表</h1>
+        <div class="qp-subtitle">从「标的扫描」加入的关注标的 · 达到条件自动提醒</div>
     </div>
+    <a href="/scan" class="qp-btn-primary">+ 扫描标的</a>
+</div>
+<div class="space-y-6">
 
     <!-- Content -->
     {% if not items %}

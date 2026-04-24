@@ -1,51 +1,47 @@
 {% extends "base.html" %}
 {% block content %}
 <style>
-.jin-card { background:#111214; border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:16px; transition:border-color 0.2s, transform 0.15s; cursor:pointer; }
-.jin-card:hover { border-color:rgba(94,106,210,0.4); transform:translateY(-1px); }
-.jin-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; letter-spacing:0.03em; }
-.jin-badge-yellow { background:rgba(234,179,8,0.15); color:#facc15; border:1px solid rgba(234,179,8,0.3); }
-.jin-badge-red    { background:rgba(239,68,68,0.15);  color:#f87171; border:1px solid rgba(239,68,68,0.3); }
-.jin-badge-green  { background:rgba(34,197,94,0.15);  color:#4ade80; border:1px solid rgba(34,197,94,0.3); }
-.jin-badge-neutral{ background:rgba(148,163,184,0.1); color:#94a3b8; border:1px solid rgba(148,163,184,0.2); }
-.jin-progress-bg { background:rgba(255,255,255,0.07); border-radius:99px; height:5px; overflow:hidden; }
+.jin-card { background:#ffffff; border:1px solid #e3e8ee; border-radius:12px; padding:18px; transition:all 0.2s; cursor:pointer; box-shadow:0 1px 2px rgba(10,37,64,0.04); }
+.jin-card:hover { border-color:#635bff; transform:translateY(-1px); box-shadow:0 6px 20px rgba(99,91,255,0.12); }
+.jin-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:6px; font-size:11.5px; font-weight:600; letter-spacing:0.02em; }
+.jin-badge-yellow { background:#fef3c7; color:#b45309; }
+.jin-badge-red    { background:#fef1f2; color:#b42318; }
+.jin-badge-green  { background:#e6faf0; color:#067647; }
+.jin-badge-neutral{ background:#f2f4f7; color:#475467; }
+.jin-progress-bg { background:#eef4ff; border-radius:99px; height:5px; overflow:hidden; }
 .jin-progress-fill { height:100%; border-radius:99px; transition:width 0.4s ease; }
-.tier-card { background:#111214; border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:14px 16px; }
+.tier-card { background:#ffffff; border:1px solid #e3e8ee; border-radius:10px; padding:14px 16px; box-shadow:0 1px 2px rgba(10,37,64,0.04); }
 /* 卖点分析 */
-.sell-btn { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:5px; font-size:10px; font-weight:600; border:1px solid rgba(239,68,68,0.35); background:rgba(239,68,68,0.08); color:#f87171; cursor:pointer; transition:background 0.15s; }
-.sell-btn:hover { background:rgba(239,68,68,0.18); }
-.sell-panel { background:#0e1012; border:1px solid rgba(239,68,68,0.2); border-radius:8px; padding:12px 14px; margin-top:10px; font-size:11px; display:none; }
+.sell-btn { display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:600; border:1px solid #fca5a5; background:#fef2f2; color:#b42318; cursor:pointer; transition:all 0.15s; }
+.sell-btn:hover { background:#fee2e2; }
+.sell-panel { background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; padding:12px 14px; margin-top:10px; font-size:12px; display:none; color:#7f1d1d; }
 .sell-panel.active { display:block; }
-.verdict-pill { display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; letter-spacing:0.04em; }
-.verdict-EXIT   { background:rgba(239,68,68,0.2);   color:#f87171; border:1px solid rgba(239,68,68,0.4); }
-.verdict-REDUCE { background:rgba(249,115,22,0.2);  color:#fb923c; border:1px solid rgba(249,115,22,0.4); }
-.verdict-WATCH  { background:rgba(234,179,8,0.15);  color:#facc15; border:1px solid rgba(234,179,8,0.3); }
-.verdict-HOLD   { background:rgba(34,197,94,0.12);  color:#4ade80; border:1px solid rgba(34,197,94,0.3); }
-.conflict-tag { background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.2); border-radius:4px; padding:2px 6px; color:#fca5a5; font-size:10px; }
+.verdict-pill { display:inline-block; padding:3px 9px; border-radius:5px; font-size:11px; font-weight:700; letter-spacing:0.02em; }
+.verdict-EXIT   { background:#fef1f2; color:#b42318; }
+.verdict-REDUCE { background:#fff7ed; color:#c2410c; }
+.verdict-WATCH  { background:#fef3c7; color:#b45309; }
+.verdict-HOLD   { background:#e6faf0; color:#067647; }
+.conflict-tag { background:#fef1f2; border:1px solid #fca5a5; border-radius:5px; padding:2px 7px; color:#b42318; font-size:11px; }
 </style>
 
 <!-- 页头 -->
-<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:24px;">
+<div class="qp-page-head">
     <div>
-        <h1 style="font-size:20px; font-weight:650; color:#f7f8f8; letter-spacing:-0.4px; display:flex; align-items:center; gap:8px;">
-            <span style="font-size:22px;">🏮</span> 金渐成视角
-        </h1>
-        <p style="font-size:13px; color:#62666d; margin-top:4px;">道→势→法→术，美股科技 9 标的结构化操作建议</p>
+        <div class="qp-crumb">市场 / 金渐成视角</div>
+        <h1>🏮 金渐成视角</h1>
+        <div class="qp-subtitle">道 → 势 → 法 → 术 · 美股科技 9 标的结构化操作建议</div>
     </div>
-    <div style="display:flex; align-items:center; gap:12px;">
-        <span style="font-size:12px; color:#62666d;">更新于 <span id="jin-update-time">--</span></span>
-        <button onclick="refreshJin()" id="jin-refresh-btn"
-            style="padding:7px 14px; background:rgba(94,106,210,0.15); border:1px solid rgba(94,106,210,0.3); border-radius:6px; color:#7170ff; font-size:12px; cursor:pointer; font-weight:600;">
-            ↻ 刷新
-        </button>
+    <div style="display:flex; align-items:center; gap:10px;">
+        <span class="qp-chip">更新于 <span id="jin-update-time" style="color:#0a2540; font-weight:600; margin-left:4px;">--</span></span>
+        <button onclick="refreshJin()" id="jin-refresh-btn" class="qp-btn-ghost">↻ 刷新</button>
     </div>
 </div>
 
 <!-- 道的判断 -->
-<div style="background:rgba(34,197,94,0.06); border:1px solid rgba(34,197,94,0.2); border-radius:10px; padding:12px 16px; margin-bottom:20px; display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
-    <span style="font-size:13px; font-weight:600; color:#4ade80;">✅ 道：美股科技</span>
-    <span style="font-size:12px; color:#62666d;">规则透明，信息充分，AI 不可逆，长期确定性高</span>
-    <span style="margin-left:auto; font-size:12px; color:#3e3e44;">A股 ❌ &nbsp;|&nbsp; 中概股 ⚠️</span>
+<div style="background:linear-gradient(135deg,#ecfdf5,#f0fdfa); border:1px solid #a7f3d0; border-radius:12px; padding:14px 20px; margin-bottom:20px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; box-shadow:0 1px 2px rgba(10,37,64,0.04);">
+    <span style="font-size:14px; font-weight:700; color:#065f46;">✅ 道：美股科技</span>
+    <span style="font-size:12.5px; color:#047857;">规则透明 · 信息充分 · AI 不可逆 · 长期确定性高</span>
+    <span style="margin-left:auto; font-size:12.5px; color:#697386; font-weight:500;">A 股 ❌ &nbsp;|&nbsp; 中概股 ⚠️</span>
 </div>
 
 <!-- 加载状态 -->
