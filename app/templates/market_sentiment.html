@@ -1240,8 +1240,8 @@ makeGauge('cnn-gauge', {{ cnn.score }});
             anchor: { show: true, showAbove: true, size: 16,
                 itemStyle: { color: '#0f1011', borderColor: vixColor(vixVal), borderWidth: 3 }},
             axisTick: { show: false }, splitLine: { show: false },
-            axisLabel: { distance: 22, color: '#8a8f98', fontSize: 13, fontWeight: 500,
-                formatter: function(v) { return ({0:'平静',20:'正常',30:'警戒',40:'恐慌',60:'极端'})[v] || ''; }},
+            axisLabel: { distance: 28, color: '#8a8f98', fontSize: 11, fontWeight: 500,
+                formatter: function(v) { return ({0:'平静',30:'警戒',60:'极端'})[v] || ''; }},
             detail: { show: false },
             data: [{ value: vixVal }]
         }]
