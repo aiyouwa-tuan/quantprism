@@ -425,34 +425,35 @@
         {% endif %}
     </div>
 
-    <!-- 加密货币 -->
+    <!-- VIX 仪表盘（替代原加密货币卡片） -->
     <div class="fg-card">
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
             <div style="font-size:16px; color:#d0d6e0; font-weight:600;">
-                加密货币恐贪指数<span class="fg-info" data-tip="Alternative.me Crypto Fear & Greed — 5分量加权：波动率25% + 市场动量25% + 社媒情绪15% + BTC主导度10% + Google趋势10%。以BTC为主代表整个加密市场。">i</span>
+                VIX 恐慌指数<span class="fg-info" data-tip="CBOE 波动率指数，反映 S&P500 期权隐含的未来 30 天波动预期。<15 市场平静；15-20 正常；20-30 警戒；>30 恐慌；>40 极端恐慌。">i</span>
             </div>
-            <div style="font-size:12px; color:#62666d;">Alternative.me · BTC</div>
+            <div style="font-size:12px; color:#62666d;">CBOE · {{ vix.source or '.VIX.US' }}</div>
         </div>
-        {% if not crypto.error %}
+        {% if not vix.error %}
+        {% set vc = vix.current %}
         <div style="display:flex; align-items:center; gap:16px; margin-bottom:16px;">
-            <span style="font-size:64px; font-weight:700; color:{{ crypto.color }}; font-variant-numeric:tabular-nums; line-height:1;">{{ crypto.score }}</span>
+            <span style="font-size:64px; font-weight:700; color:{{ vc.color }}; font-variant-numeric:tabular-nums; line-height:1;">{{ vc.value }}</span>
             <div>
-                <div class="fg-zone-badge" style="background:{{ crypto.color }}22; color:{{ crypto.color }}; margin-bottom:6px;">{{ crypto.rating_zh or crypto.rating }}</div>
-                <div style="font-size:13px; color:#62666d;">满分 100</div>
+                <div class="fg-zone-badge" style="background:{{ vc.color }}22; color:{{ vc.color }}; margin-bottom:6px;">{{ vc.label }}</div>
+                <div style="font-size:13px; color:#62666d;">波动率 %</div>
             </div>
         </div>
-        <div id="crypto-gauge" style="height:220px;"></div>
+        <div id="vix-gauge-top" style="height:220px;"></div>
         <!-- 区间说明 -->
         <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-top:18px; border-top:1px solid rgba(255,255,255,0.05); padding-top:16px;">
-            {% for label, color in [('极恐', '#f87171'), ('恐惧', '#fb923c'), ('中性', '#facc15'), ('贪婪', '#4ade80'), ('极贪', '#22c55e')] %}
+            {% for label, color, val in [('<12 平静', '#4ade80', '12'), ('12-20 正常', '#facc15', '20'), ('20-30 警戒', '#fb923c', '30'), ('30-40 恐慌', '#f87171', '40'), ('>40 极端', '#dc2626', '50')] %}
             <div style="text-align:center;">
                 <div style="width:32px; height:5px; border-radius:3px; background:{{ color }}; margin:0 auto 6px;"></div>
-                <div style="font-size:12px; color:#8a8f98; font-weight:500;">{{ label }}</div>
+                <div style="font-size:11px; color:#8a8f98; font-weight:500;">{{ label }}</div>
             </div>
             {% endfor %}
         </div>
         {% else %}
-        <div style="height:280px; display:flex; align-items:center; justify-content:center; color:#62666d; font-size:14px;">数据不可用</div>
+        <div style="height:280px; display:flex; align-items:center; justify-content:center; color:#62666d; font-size:14px;">VIX 数据不可用</div>
         {% endif %}
     </div>
 </div>
@@ -567,15 +568,99 @@
                 <button class="tab-btn" id="cnn-period-6m" onclick="switchCnnPeriod('6m')">6M</button>
                 <button class="tab-btn active" id="cnn-period-1y" onclick="switchCnnPeriod('1y')">1Y</button>
             </div>
-            <!-- 指标 -->
-            <div style="display:flex; gap:4px; background:rgba(255,255,255,0.04); border-radius:8px; padding:3px;">
-                <button class="tab-btn active" id="tab-us" onclick="switchTab('us')">美股</button>
-                <button class="tab-btn" id="tab-crypto" onclick="switchTab('crypto')">加密货币</button>
-                <button class="tab-btn" id="tab-both" onclick="switchTab('both')">对比</button>
+            <!-- 指标（保留美股，隐藏加密） -->
+            <div style="display:none;">
+                <button id="tab-us" class="active"></button>
+                <button id="tab-crypto"></button>
+                <button id="tab-both"></button>
             </div>
         </div>
     </div>
     <div id="history-chart" style="height:280px;"></div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 📉 VIX 恐慌指数历史 -->
+<!-- ═══════════════════════════════════════ -->
+<div class="fg-card" style="margin-bottom:16px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+            <div style="font-size:16px; font-weight:600; color:#f7f8f8;">VIX 恐慌指数</div>
+            <div style="font-size:12px; color:#62666d;">CBOE 市场波动率</div>
+            <span class="fg-hover-wrap">
+                <span class="fg-hover-trigger">i</span>
+                <div class="fg-popover" style="width:440px;">
+                    <div class="fg-popover-header">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                        VIX 解读框架
+                    </div>
+                    <div style="font-size:11.5px; line-height:1.7; color:#d0d6e0;">
+                        <div>VIX = S&P 500 未来 30 天预期波动率（由期权价格反推）。市场用它衡量对恐慌的定价。</div>
+                        <div style="margin-top:8px;">
+                            <span style="color:#4ade80;">&lt;12</span> 极度平静（多头期）·
+                            <span style="color:#facc15;">12-20</span> 正常 ·
+                            <span style="color:#fb923c;">20-30</span> 警戒 ·
+                            <span style="color:#f87171;">&gt;30</span> 恐慌（常见买点）
+                        </div>
+                        <div style="margin-top:8px; padding:8px 10px; background:rgba(94,106,210,0.06); border-radius:5px; color:#8a8f98;">
+                            历史极值：2008 金融危机 80+ · 2020 疫情 82 · <strong style="color:#f87171;">2025-04 关税恐慌 52.3</strong>
+                        </div>
+                        <div style="margin-top:6px; font-size:10.5px; color:#62666d;">数据源：长桥 OpenAPI 代码 <code style="background:rgba(0,0,0,0.3); padding:1px 4px; border-radius:2px;">.VIX.US</code> · 日线 OHLC 覆盖 2005-至今 21+ 年 · yfinance 备用</div>
+                    </div>
+                </div>
+            </span>
+        </div>
+        <div style="font-size:11px; color:#62666d;">数据源 · {{ vix.source or '长桥 OpenAPI' }}</div>
+    </div>
+
+    {% if vix.error %}
+    <div style="padding:20px; text-align:center; color:#f87171; font-size:13px;">VIX 数据加载失败：{{ vix.error }}</div>
+    {% else %}
+    {% set vc = vix.current %}
+    <!-- 当前值 + 统计 -->
+    <div style="display:grid; grid-template-columns:1fr 3fr; gap:16px; margin-bottom:20px;">
+        <div style="padding:18px 20px; background:rgba(255,255,255,0.03); border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+            <div style="font-size:12px; color:#62666d; margin-bottom:8px;">当前 VIX</div>
+            <div style="display:flex; align-items:baseline; gap:10px;">
+                <span style="font-size:48px; font-weight:700; color:{{ vc.color }}; font-variant-numeric:tabular-nums; line-height:1;">{{ vc.value }}</span>
+            </div>
+            <div style="margin-top:8px;"><span style="font-size:11px; padding:2px 10px; border-radius:3px; background:{{ vc.color }}22; color:{{ vc.color }}; font-weight:600;">{{ vc.label }}</span></div>
+        </div>
+        <div style="padding:18px 20px; background:rgba(255,255,255,0.03); border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+            <div style="font-size:12px; color:#62666d; margin-bottom:12px;">各周期统计（月线）</div>
+            <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px;">
+                {% for period in ['3y', '5y', '10y', '20y'] %}
+                {% set s = vix.stats.get(period) %}
+                {% if s %}
+                <div style="text-align:center;">
+                    <div style="font-size:10px; color:#62666d; margin-bottom:4px; letter-spacing:0.05em;">近 {{ period|upper }}</div>
+                    <div style="font-size:15px; font-weight:600; color:#d0d6e0; font-variant-numeric:tabular-nums;">均值 {{ s.mean }}</div>
+                    <div style="font-size:10.5px; color:#62666d; margin-top:3px;">{{ s.min }}–{{ s.max }}</div>
+                    <div style="font-size:10px; color:#a5b4fc; margin-top:4px; font-weight:500;">当前分位 {{ s.percentile }}%</div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 历史图 -->
+    <div style="padding-top:16px; border-top:1px solid rgba(255,255,255,0.05);">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+            <div style="font-size:13px; font-weight:600; color:#d0d6e0;">VIX 历史走势</div>
+            <div style="display:flex; gap:4px; background:rgba(255,255,255,0.04); border-radius:8px; padding:3px; flex-wrap:wrap;">
+                <button class="tab-btn" id="vix-tab-3m" onclick="switchVixTab('3m')">3M</button>
+                <button class="tab-btn" id="vix-tab-6m" onclick="switchVixTab('6m')">6M</button>
+                <button class="tab-btn" id="vix-tab-1y" onclick="switchVixTab('1y')">1Y</button>
+                <button class="tab-btn" id="vix-tab-3y" onclick="switchVixTab('3y')">3Y</button>
+                <button class="tab-btn active" id="vix-tab-5y" onclick="switchVixTab('5y')">5Y</button>
+                <button class="tab-btn" id="vix-tab-10y" onclick="switchVixTab('10y')">10Y</button>
+                <button class="tab-btn" id="vix-tab-20y" onclick="switchVixTab('20y')">20Y</button>
+            </div>
+        </div>
+        <div id="vix-hist-chart" style="height:280px;"></div>
+    </div>
+    {% endif %}
 </div>
 
 <!-- ═══════════════════════════════════════ -->
@@ -724,90 +809,6 @@
             </div>
             <span style="color:#62666d;">← 低位 · 高位 →</span>
         </div>
-    </div>
-    {% endif %}
-</div>
-
-<!-- ═══════════════════════════════════════ -->
-<!-- 📉 VIX 恐慌指数历史 -->
-<!-- ═══════════════════════════════════════ -->
-<div class="fg-card" style="margin-bottom:16px;">
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
-        <div style="display:flex; align-items:center; gap:10px;">
-            <div style="font-size:16px; font-weight:600; color:#f7f8f8;">VIX 恐慌指数</div>
-            <div style="font-size:12px; color:#62666d;">CBOE 市场波动率</div>
-            <span class="fg-hover-wrap">
-                <span class="fg-hover-trigger">i</span>
-                <div class="fg-popover" style="width:440px;">
-                    <div class="fg-popover-header">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                        VIX 解读框架
-                    </div>
-                    <div style="font-size:11.5px; line-height:1.7; color:#d0d6e0;">
-                        <div>VIX = S&P 500 未来 30 天预期波动率（由期权价格反推）。市场用它衡量对恐慌的定价。</div>
-                        <div style="margin-top:8px;">
-                            <span style="color:#4ade80;">&lt;12</span> 极度平静（多头期）·
-                            <span style="color:#facc15;">12-20</span> 正常 ·
-                            <span style="color:#fb923c;">20-30</span> 警戒 ·
-                            <span style="color:#f87171;">&gt;30</span> 恐慌（常见买点）
-                        </div>
-                        <div style="margin-top:8px; padding:8px 10px; background:rgba(94,106,210,0.06); border-radius:5px; color:#8a8f98;">
-                            历史极值：2008 金融危机 80+ · 2020 疫情 82 · <strong style="color:#f87171;">2025-04 关税恐慌 52.3</strong>
-                        </div>
-                        <div style="margin-top:6px; font-size:10.5px; color:#62666d;">数据源：长桥 OpenAPI 代码 <code style="background:rgba(0,0,0,0.3); padding:1px 4px; border-radius:2px;">.VIX.US</code> · 日线 OHLC 覆盖 2005-至今 21+ 年 · yfinance 备用</div>
-                    </div>
-                </div>
-            </span>
-        </div>
-        <div style="font-size:11px; color:#62666d;">数据源 · {{ vix.source or '长桥 OpenAPI' }}</div>
-    </div>
-
-    {% if vix.error %}
-    <div style="padding:20px; text-align:center; color:#f87171; font-size:13px;">VIX 数据加载失败：{{ vix.error }}</div>
-    {% else %}
-    {% set vc = vix.current %}
-    <!-- 当前值 + 统计 -->
-    <div style="display:grid; grid-template-columns:1fr 3fr; gap:16px; margin-bottom:20px;">
-        <div style="padding:18px 20px; background:rgba(255,255,255,0.03); border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
-            <div style="font-size:12px; color:#62666d; margin-bottom:8px;">当前 VIX</div>
-            <div style="display:flex; align-items:baseline; gap:10px;">
-                <span style="font-size:48px; font-weight:700; color:{{ vc.color }}; font-variant-numeric:tabular-nums; line-height:1;">{{ vc.value }}</span>
-            </div>
-            <div style="margin-top:8px;"><span style="font-size:11px; padding:2px 10px; border-radius:3px; background:{{ vc.color }}22; color:{{ vc.color }}; font-weight:600;">{{ vc.label }}</span></div>
-        </div>
-        <div style="padding:18px 20px; background:rgba(255,255,255,0.03); border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
-            <div style="font-size:12px; color:#62666d; margin-bottom:12px;">各周期统计（月线）</div>
-            <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px;">
-                {% for period in ['3y', '5y', '10y', '20y'] %}
-                {% set s = vix.stats.get(period) %}
-                {% if s %}
-                <div style="text-align:center;">
-                    <div style="font-size:10px; color:#62666d; margin-bottom:4px; letter-spacing:0.05em;">近 {{ period|upper }}</div>
-                    <div style="font-size:15px; font-weight:600; color:#d0d6e0; font-variant-numeric:tabular-nums;">均值 {{ s.mean }}</div>
-                    <div style="font-size:10.5px; color:#62666d; margin-top:3px;">{{ s.min }}–{{ s.max }}</div>
-                    <div style="font-size:10px; color:#a5b4fc; margin-top:4px; font-weight:500;">当前分位 {{ s.percentile }}%</div>
-                </div>
-                {% endif %}
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-
-    <!-- 历史图 -->
-    <div style="padding-top:16px; border-top:1px solid rgba(255,255,255,0.05);">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
-            <div style="font-size:13px; font-weight:600; color:#d0d6e0;">VIX 历史走势</div>
-            <div style="display:flex; gap:4px; background:rgba(255,255,255,0.04); border-radius:8px; padding:3px; flex-wrap:wrap;">
-                <button class="tab-btn" id="vix-tab-3m" onclick="switchVixTab('3m')">3M</button>
-                <button class="tab-btn" id="vix-tab-6m" onclick="switchVixTab('6m')">6M</button>
-                <button class="tab-btn" id="vix-tab-1y" onclick="switchVixTab('1y')">1Y</button>
-                <button class="tab-btn" id="vix-tab-3y" onclick="switchVixTab('3y')">3Y</button>
-                <button class="tab-btn active" id="vix-tab-5y" onclick="switchVixTab('5y')">5Y</button>
-                <button class="tab-btn" id="vix-tab-10y" onclick="switchVixTab('10y')">10Y</button>
-                <button class="tab-btn" id="vix-tab-20y" onclick="switchVixTab('20y')">20Y</button>
-            </div>
-        </div>
-        <div id="vix-hist-chart" style="height:280px;"></div>
     </div>
     {% endif %}
 </div>
@@ -1212,7 +1213,40 @@ function switchCnnPeriod(p) {
 
 // Init
 makeGauge('cnn-gauge', {{ cnn.score }});
-makeGauge('crypto-gauge', {{ crypto.score }});
+{% if not vix.error %}
+(function() {
+    var el = document.getElementById('vix-gauge-top');
+    if (!el) return;
+    var vixVal = {{ vix.current.value }};
+    var chart = echarts.init(el, null, { renderer: 'canvas' });
+    function vixColor(v) {
+        if (v < 12) return '#4ade80';
+        if (v < 20) return '#facc15';
+        if (v < 30) return '#fb923c';
+        if (v < 40) return '#f87171';
+        return '#dc2626';
+    }
+    chart.setOption({
+        backgroundColor: 'transparent',
+        series: [{
+            type: 'gauge', startAngle: 200, endAngle: -20,
+            min: 0, max: 60, splitNumber: 6, radius: '90%', center: ['50%', '68%'],
+            axisLine: { lineStyle: { width: 20, color: [
+                [12/60,'#4ade80'],[20/60,'#facc15'],[30/60,'#fb923c'],[40/60,'#f87171'],[1,'#dc2626']
+            ]}},
+            pointer: { icon: 'triangle', length: '95%', width: 10, offsetCenter: [0,'5%'],
+                itemStyle: { color: vixColor(vixVal), shadowColor: vixColor(vixVal)+'88', shadowBlur: 12 }},
+            anchor: { show: true, showAbove: true, size: 16,
+                itemStyle: { color: '#0f1011', borderColor: vixColor(vixVal), borderWidth: 3 }},
+            axisTick: { show: false }, splitLine: { show: false },
+            axisLabel: { distance: 22, color: '#8a8f98', fontSize: 13, fontWeight: 500,
+                formatter: function(v) { return ({0:'平静',20:'正常',30:'警戒',40:'恐慌',60:'极端'})[v] || ''; }},
+            detail: { show: false },
+            data: [{ value: vixVal }]
+        }]
+    });
+})();
+{% endif %}
 histChart.setOption(buildHistOption('us'));
 
 // ── QQQ 历史走势图（价格 / RSI） ──────────────────────────────────
