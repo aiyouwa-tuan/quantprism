@@ -704,9 +704,9 @@
                 <!-- 指标 -->
                 <div style="display:flex; gap:4px; background:#fafbfc; border-radius:8px; padding:3px;">
                     <button class="tab-btn active" id="lp-tab-all" onclick="switchLpTab('all')">全部</button>
-                    <button class="tab-btn" id="lp-tab-temperature" onclick="switchLpTab('temperature')">温度</button>
-                    <button class="tab-btn" id="lp-tab-valuation" onclick="switchLpTab('valuation')">估值</button>
-                    <button class="tab-btn" id="lp-tab-sentiment" onclick="switchLpTab('sentiment')">情绪</button>
+                    <button class="tab-btn" id="lp-tab-temperature" onclick="switchLpTab('temperature')">温度<span class="fg-info" data-tip="长桥证券综合情绪指标（0-100），融合估值 + 情绪两层。越高代表市场越过热，越低越冷却。<30 冰点、30-50 温和、50-70 活跃、>70 过热。" style="margin-left:4px;">i</span></button>
+                    <button class="tab-btn" id="lp-tab-valuation" onclick="switchLpTab('valuation')">估值<span class="fg-info" data-tip="基于 PE、PB 等基本面指标计算的历史百分位（0-100）。数字越低代表当前估值越便宜、越有长线吸引力。" style="margin-left:4px;">i</span></button>
+                    <button class="tab-btn" id="lp-tab-sentiment" onclick="switchLpTab('sentiment')">情绪<span class="fg-info" data-tip="基于成交量、涨跌家数、资金流向等量价数据计算的情绪分位（0-100）。反映交易者短期贪婪/恐惧程度，与估值维度独立。" style="margin-left:4px;">i</span></button>
                 </div>
             </div>
         </div>

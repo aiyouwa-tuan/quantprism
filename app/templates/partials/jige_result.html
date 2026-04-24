@@ -45,19 +45,86 @@
 
 {# ── AI Analysis (rendered from markdown-like text) ── #}
 {% if analysis %}
-<div style="padding: 18px 22px 0; border-bottom: 1px solid var(--t-line-h, #2b333d);">
-  <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;
-              font-family:var(--mono,'IBM Plex Mono',monospace); font-size:10px;
-              color:var(--t-ink3,#6b7480); letter-spacing:0.12em; text-transform:uppercase;">
-    <span style="display:inline-flex;align-items:center;justify-content:center;
-                 width:18px;height:18px;border:1px solid var(--t-line-h,#2b333d);
-                 background:var(--t-panel,#0f1216); color:var(--t-ink,#e6eaef); font-size:9px;">AI</span>
-    <span style="color:var(--t-ink,#e6eaef); font-weight:500;">鸡哥分析报告 · JIGE ANALYSIS</span>
-    <span style="margin-left:auto;">{{ timestamp }}</span>
+<style>
+  .jige-ai-wrap {
+    margin: 18px 22px 20px;
+    background: linear-gradient(135deg, #f8faff 0%, #f4f7ff 50%, #fafcff 100%);
+    border: 1px solid #d9e6ff;
+    border-radius: 14px;
+    padding: 22px 26px 24px;
+    box-shadow: 0 2px 8px rgba(99,91,255,0.06), 0 0 0 1px rgba(255,255,255,0.6) inset;
+    position: relative;
+    overflow: hidden;
+  }
+  .jige-ai-wrap::before {
+    content: '';
+    position: absolute;
+    right: -80px; top: -80px;
+    width: 240px; height: 240px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(99,91,255,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .jige-ai-head {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 18px;
+    font-size: 11px;
+    color: #697386; letter-spacing: 0.12em; text-transform: uppercase;
+    position: relative;
+  }
+  .jige-ai-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 3px 9px;
+    background: linear-gradient(135deg, #635bff 0%, #00d4ff 100%);
+    color: #ffffff; font-weight: 700; font-size: 10px;
+    border-radius: 5px; letter-spacing: 0.05em;
+    box-shadow: 0 2px 6px rgba(99,91,255,0.3);
+  }
+  .jige-ai-title { color: #0a2540; font-weight: 700; letter-spacing: 0.08em; }
+  .jige-ai-ts { margin-left: auto; color: #8a94a6; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0; text-transform: none; }
+
+  .jige-analysis-body {
+    font-family: 'Inter', 'PingFang SC', system-ui, sans-serif;
+    font-size: 13.5px; line-height: 1.8;
+    color: #1a2e48;
+    word-break: break-word;
+    position: relative;
+  }
+  .jige-analysis-body h1, .jige-analysis-body h2, .jige-analysis-body h3 {
+    font-weight: 700 !important;
+    color: #0a2540 !important;
+    margin: 20px 0 8px !important;
+    letter-spacing: -0.3px !important;
+    padding-left: 10px;
+    border-left: 3px solid #635bff;
+  }
+  .jige-analysis-body h1 { font-size: 17px !important; }
+  .jige-analysis-body h2 { font-size: 15px !important; }
+  .jige-analysis-body h3 { font-size: 14px !important; border-left-color: #00d4ff; }
+  .jige-analysis-body h1:first-child, .jige-analysis-body h2:first-child, .jige-analysis-body h3:first-child { margin-top: 0 !important; }
+  .jige-analysis-body p { margin: 8px 0; }
+  .jige-analysis-body strong, .jige-analysis-body b { color: #0a2540; font-weight: 700; background: rgba(99,91,255,0.08); padding: 1px 5px; border-radius: 3px; }
+  .jige-analysis-body ul, .jige-analysis-body ol { margin: 8px 0; padding-left: 24px; }
+  .jige-analysis-body li { margin: 4px 0; }
+  .jige-analysis-body ul li::marker { color: #635bff; }
+  .jige-analysis-body code { background: #ffffff; border: 1px solid #e3e8ee; padding: 1px 6px; border-radius: 4px; font-size: 12px; color: #5548ff; }
+  .jige-analysis-body blockquote {
+    margin: 12px 0; padding: 10px 16px;
+    border-left: 3px solid #f79009;
+    background: #fff7ed; border-radius: 0 8px 8px 0;
+    color: #7c2d12; font-size: 12.5px;
+  }
+  .jige-analysis-body hr { border: none; border-top: 1px dashed #d9e6ff; margin: 18px 0; }
+  .jige-analysis-body a { color: #635bff; font-weight: 600; text-decoration: underline; text-decoration-style: dotted; }
+</style>
+
+<div class="jige-ai-wrap">
+  <div class="jige-ai-head">
+    <span class="jige-ai-badge">AI</span>
+    <span class="jige-ai-title">鸡哥分析报告 · JIGE ANALYSIS</span>
+    <span class="jige-ai-ts">{{ timestamp }}</span>
   </div>
-  <div class="jige-analysis-body" style="font-family:var(--sans-t,'IBM Plex Sans',sans-serif);
-       font-size:13px; line-height:1.78; color:var(--t-ink2,#aab3bd);
-       padding-bottom:18px; word-break:break-word;">{{ analysis | safe }}</div>
+  <div class="jige-analysis-body">{{ analysis | safe }}</div>
 </div>
 {% endif %}
 
