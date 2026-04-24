@@ -32,28 +32,23 @@
 {% endif %}
 
 <!-- Header -->
-<div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+<div class="qp-page-head">
     <div>
-        <h1 class="text-2xl font-bold text-white">持仓管理</h1>
-        <p class="text-xs text-gray-500 mt-0.5">IB 实时持仓 · 中式成本计算 · 直连 ibkr-service</p>
+        <div class="qp-crumb">交易 / 持仓管理</div>
+        <h1>持仓管理</h1>
+        <div class="qp-subtitle">IB 实时持仓 · 中式成本计算 · 直连 ibkr-service</div>
     </div>
-    <div class="flex items-center gap-2">
-        <!-- 隐私模式 -->
-        <button onclick="togglePrivacy()" id="privacy-btn"
-            class="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-dark-700 hover:bg-dark-600 border border-dark-600 rounded-lg text-gray-400 hover:text-white transition-colors">
-            <span id="privacy-icon">👁</span>
-            <span id="privacy-label">显示金额</span>
+    <div style="display:flex; align-items:center; gap:10px;">
+        <button onclick="togglePrivacy()" id="privacy-btn" class="qp-btn-ghost">
+            <span id="privacy-icon">👁</span> <span id="privacy-label">显示金额</span>
         </button>
-        <!-- 刷新（只读缓存，不触发 IB 写操作） -->
         <button
             hx-get="/api/portfolio/holdings-partial?sec_type=ALL"
             hx-target="#holdings-tbody"
             hx-swap="innerHTML"
             hx-indicator="#sync-loading"
-            class="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-accent-blue hover:bg-blue-600 rounded-lg text-white font-medium transition-colors">
-            🔄 刷新
-        </button>
-        <div id="sync-loading" class="htmx-indicator text-xs text-gray-500">加载中...</div>
+            class="qp-btn-primary">🔄 刷新</button>
+        <div id="sync-loading" class="htmx-indicator" style="font-size:12px; color:#697386;">加载中...</div>
     </div>
 </div>
 
