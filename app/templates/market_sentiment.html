@@ -469,7 +469,7 @@
     <div class="buy-signal-header">
         <div>
             <h2 class="buy-signal-title">
-                <span>QQQ 抄底信号 · FULL_SYSTEM</span>
+                <span>QQQ 抄底信号 · FULL_SYSTEM<span class="fg-info" data-tip="多信号并集抄底系统：5 个子条件任一触发即视为买入信号。回测 2005-2025（20 年）共触发 22 次，1 年内平均收益 +25.8%，胜率 90.9%。比单一指标更稳健。">i</span></span>
             </h2>
             <div class="buy-signal-subtitle">
                 {% if buy_signal.qqq_price %}QQQ ${{ "%.2f"|format(buy_signal.qqq_price) }}{% endif %}
@@ -489,12 +489,19 @@
     {% if buy_signal.error %}
     <div class="buy-signal-error">信号加载中 · {{ buy_signal.error }}</div>
     {% else %}
+    {% set _signal_tips = {
+        'VIX 极度恐慌': 'VIX 是市场恐慌指数。≥40 代表极度恐慌（2008、2020 级别），历史上这种水位往往对应短期底部，恐慌见顶时反弹概率很高。',
+        '3 年价格分位 ≤ 5%': '当前价格在过去 3 年区间内的排名处于最低 5%，也就是“砸到了 3 年大底”。历史上触达这条线常伴随深度均值回归机会。',
+        '距 52 周高点回撤 ≥ 20%': '从过去 1 年的最高点跌了 20% 以上，俗称进入“技术性熊市”。这是经典的逆向抄底区间。',
+        '宽度枯竭': '近 60 日内多次创 1 年新低后，最近 10 天不再有新低出现 — 说明卖压耗尽、空头动能衰竭，往往预示筑底。',
+        'VIX 持续恐慌后回落': 'VIX ≥ 25 连续 20 个交易日形成慢性恐慌后，首次回落到 25 以下 — 慢性恐慌开始消退，是典型的情绪拐点信号。',
+    } %}
     <div class="signals-grid">
         {% for sig in buy_signal.signals %}
         <div class="signal-card {% if sig.triggered %}triggered{% endif %}">
             <div class="signal-card-head">
                 <span class="signal-indicator"></span>
-                <span class="signal-name">{{ sig.name }}</span>
+                <span class="signal-name">{{ sig.name }}{% if _signal_tips.get(sig.name) %}<span class="fg-info" data-tip="{{ _signal_tips[sig.name] }}">i</span>{% endif %}</span>
             </div>
             <div class="signal-condition">{{ sig.condition }}</div>
             <div class="signal-progress">
@@ -694,7 +701,7 @@
         <!-- 综合温度 -->
         <div style="padding:16px 18px; background:rgba(255,255,255,0.03); border-radius:8px; border:1px solid rgba(255,255,255,0.05); position:relative;">
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-                <div style="font-size:12px; color:#8a8f98; font-weight:500;">🌡️ 综合温度</div>
+                <div style="font-size:12px; color:#8a8f98; font-weight:500;">🌡️ 综合温度<span class="fg-info" data-tip="长桥证券综合情绪指标（0-100），融合估值 + 情绪两层。越高代表市场越过热，越低越冷却。<30 冰点、30-50 温和、50-70 活跃、>70 过热。">i</span></div>
                 <span style="font-size:10px; padding:2px 8px; border-radius:3px; background:{{ lc.temp_color }}22; color:{{ lc.temp_color }}; font-weight:600;">{{ lc.description }}</span>
             </div>
             <div style="display:flex; align-items:baseline; gap:8px;">
@@ -705,7 +712,7 @@
         <!-- 估值 -->
         <div style="padding:16px 18px; background:rgba(255,255,255,0.03); border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-                <div style="font-size:12px; color:#8a8f98; font-weight:500;">💰 估值</div>
+                <div style="font-size:12px; color:#8a8f98; font-weight:500;">💰 估值<span class="fg-info" data-tip="基于 PE、PB 等基本面指标计算的历史百分位（0-100）。数字越低代表当前估值越便宜、越有长线吸引力。">i</span></div>
                 <span style="font-size:10px; color:#62666d;">PE/PB 分位</span>
             </div>
             <div style="display:flex; align-items:baseline; gap:8px;">
@@ -716,7 +723,7 @@
         <!-- 情绪 -->
         <div style="padding:16px 18px; background:rgba(255,255,255,0.03); border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-                <div style="font-size:12px; color:#8a8f98; font-weight:500;">🎭 情绪</div>
+                <div style="font-size:12px; color:#8a8f98; font-weight:500;">🎭 情绪<span class="fg-info" data-tip="基于成交量、涨跌家数、资金流向等量价数据计算的情绪分位（0-100）。反映交易者短期贪婪/恐惧程度，与估值维度独立。">i</span></div>
                 <span style="font-size:10px; color:#62666d;">资金/广度</span>
             </div>
             <div style="display:flex; align-items:baseline; gap:8px;">
@@ -898,7 +905,7 @@
         {% set q = qqq.current %}
         <!-- 价格 -->
         <div style="padding:14px 12px; background:rgba(255,255,255,0.03); border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
-            <div style="display:flex; align-items:center; gap:4px; font-size:11px; color:#62666d; margin-bottom:6px;">价格</div>
+            <div style="display:flex; align-items:center; gap:4px; font-size:11px; color:#62666d; margin-bottom:6px;">价格<span class="fg-info" data-tip="QQQ ETF 最新收盘价（美元）。下方“年涨”是过去 12 个月相对 1 年前的涨跌幅。">i</span></div>
             <div style="font-size:22px; font-weight:700; color:#f7f8f8; font-variant-numeric:tabular-nums;">${{ q.price }}</div>
             <div style="font-size:11px; color:{{ '#4ade80' if q.yoy_return_pct and q.yoy_return_pct > 0 else '#f87171' }}; margin-top:4px; font-weight:500;">
                 {{ '▲' if q.yoy_return_pct and q.yoy_return_pct > 0 else '▼' }} 年涨{{ q.yoy_return_pct }}%
