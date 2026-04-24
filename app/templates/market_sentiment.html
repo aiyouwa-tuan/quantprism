@@ -444,11 +444,12 @@
         </div>
         <div id="vix-gauge-top" style="height:220px;"></div>
         <!-- 区间说明 -->
-        <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-top:18px; border-top:1px solid rgba(255,255,255,0.05); padding-top:16px;">
-            {% for label, color, val in [('<12 平静', '#4ade80', '12'), ('12-20 正常', '#facc15', '20'), ('20-30 警戒', '#fb923c', '30'), ('30-40 恐慌', '#f87171', '40'), ('>40 极端', '#dc2626', '50')] %}
+        <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:4px; margin-top:18px; border-top:1px solid rgba(255,255,255,0.05); padding-top:16px;">
+            {% for range_str, zh, color in [('<12', '平静', '#4ade80'), ('12-20', '正常', '#facc15'), ('20-30', '警戒', '#fb923c'), ('30-40', '恐慌', '#f87171'), ('>40', '极端', '#dc2626')] %}
             <div style="text-align:center;">
-                <div style="width:32px; height:5px; border-radius:3px; background:{{ color }}; margin:0 auto 6px;"></div>
-                <div style="font-size:11px; color:#8a8f98; font-weight:500;">{{ label }}</div>
+                <div style="width:28px; height:4px; border-radius:3px; background:{{ color }}; margin:0 auto 5px;"></div>
+                <div style="font-size:9px; color:#52565e; margin-bottom:2px; letter-spacing:0;">{{ range_str }}</div>
+                <div style="font-size:11px; color:#8a8f98; font-weight:500;">{{ zh }}</div>
             </div>
             {% endfor %}
         </div>
