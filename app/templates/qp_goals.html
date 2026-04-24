@@ -1,10 +1,36 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="mb-6">
-    <h1 class="text-xl font-bold text-white">设定投资目标</h1>
-    <p class="text-sm text-gray-400 mt-1">至少填 1 个目标。系统根据你的目标自动推导策略约束条件。</p>
+<div class="qp-page-head">
+    <div>
+        <div class="qp-crumb">概览 / 今日仪表盘</div>
+        <h1>设定投资目标</h1>
+        <div class="qp-subtitle">至少填 1 个目标。系统根据你的目标自动推导策略约束条件。</div>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center;">
+        {% if goals %}
+        <span class="qp-chip qp-chip-live">已保存 · 最近更新</span>
+        {% else %}
+        <span class="qp-chip">未设定</span>
+        {% endif %}
+    </div>
 </div>
+
+{% if goals %}
+<section class="qp-hero" style="display:grid; grid-template-columns:1fr auto; gap:28px; align-items:center;">
+    <div>
+        <div class="qp-hero-eye">你的目标画像</div>
+        <h2 style="font-size:24px; margin-bottom:6px;">
+            年化 {% if goals.annual_return_target %}<span style="color:#067647;">{{ '%.0f'|format(goals.annual_return_target * 100) }}%</span>{% else %}<span style="color:#697386;">未设</span>{% endif %}
+            · 回撤 {% if goals.max_drawdown %}<span style="color:#b42318;">≤ {{ '%.0f'|format(goals.max_drawdown * 100) }}%</span>{% else %}<span style="color:#697386;">未设</span>{% endif %}
+        </h2>
+        <p>系统已根据你的目标匹配 {{ (constraints.strategies_count if constraints and constraints.strategies_count else '若干') }} 条适配策略，风险预算按 {{ goals.risk_per_trade or 2 }}% 单笔进行约束。</p>
+    </div>
+    <div style="display:flex; gap:10px;">
+        <a href="/hunt" class="qp-btn-ghost">查看推荐策略 →</a>
+    </div>
+</section>
+{% endif %}
 
 <form hx-post="/goals/save" hx-target="#derived-results" hx-swap="innerHTML" hx-indicator="#goal-spinner">
 

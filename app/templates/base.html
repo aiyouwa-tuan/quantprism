@@ -31,113 +31,51 @@
 
     <div class="flex flex-1">
     <!-- 左侧导航 -->
-    <nav style="width:224px; background:#ffffff; border-right:1px solid #e3e8ee; position:fixed; height:100%; z-index:10; overflow-y:auto; display:flex; flex-direction:column; padding:16px 10px; gap:2px;" class="hidden md:flex">
+    {% set _path = request.url.path if request else '' %}
+    <nav style="width:232px; background:#ffffff; border-right:1px solid #e3e8ee; position:fixed; height:100%; z-index:10; overflow-y:auto; display:flex; flex-direction:column; padding:22px 14px;" class="hidden md:flex">
 
-        <!-- Logo -->
-        <div style="display:flex; align-items:center; gap:8px; padding:4px 12px; margin-bottom:16px;">
-            <div class="qp-logo" style="width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:11px; flex-shrink:0;">QP</div>
+        <a href="/goals" style="display:flex; align-items:center; gap:10px; padding:0 10px; margin-bottom:24px; text-decoration:none;">
+            <div class="qp-logo" style="width:32px; height:32px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; flex-shrink:0;">Q</div>
             <span style="font-size:16px; font-weight:700; color:#0a2540; letter-spacing:-0.3px;">QuantPrism</span>
-        </div>
-
-        <!-- 概览 -->
-        <a href="/goals" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:6px; font-size:13px; text-decoration:none; transition:background 0.15s, color 0.15s; {{ 'background:#eef4ff; color:#635bff; font-weight:600;' if request and (request.url.path == '/goals' or request.url.path == '/portfolio') else 'color:#697386;' }}" onmouseover="if(!this.style.background||this.style.background==''){this.style.background='#f6f9fc';this.style.color='#0a2540';}" onmouseout="if(this.style.background=='rgb(246, 249, 252)'){this.style.background='';this.style.color='#697386';}">
-            <span style="width:16px; text-align:center; font-size:14px;">&#x1F4CA;</span>
-            概览
         </a>
 
-        <!-- STRATEGY -->
-        <div style="font-size:10px; color:#8a94a6; text-transform:uppercase; letter-spacing:0.1em; padding:0 12px; margin-top:16px; margin-bottom:4px; font-weight:510;">STRATEGY</div>
-        <div style="border-top:1px solid #f2f4f7; margin:0 12px 6px;"></div>
+        <div class="qp-nav-section" style="margin-top:4px;">概览</div>
+        <a href="/goals" class="qp-nav-link {{ 'qp-nav-active' if _path in ('/goals','/portfolio','/') else '' }}"><span class="qp-ic">▦</span>今日仪表盘</a>
 
-        <a href="/hunt" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:6px; font-size:13px; text-decoration:none; transition:background 0.15s, color 0.15s; {{ 'background:#eef4ff; color:#635bff; font-weight:600;' if request and '/hunt' in request.url.path else 'color:#697386;' }}" onmouseover="if(!this.style.background||this.style.background==''){this.style.background='#f6f9fc';this.style.color='#0a2540';}" onmouseout="if(this.style.background=='rgb(246, 249, 252)'){this.style.background='';this.style.color='#697386';}">
-            <span style="width:16px; text-align:center; font-size:14px;">&#x1F50D;</span>
-            策略猎手
-        </a>
+        <div class="qp-nav-section">策略</div>
+        <a href="/hunt" class="qp-nav-link {{ 'qp-nav-active' if '/hunt' in _path else '' }}"><span class="qp-ic">◈</span>策略猎手</a>
+        <a href="/backtest" class="qp-nav-link {{ 'qp-nav-active' if _path == '/backtest' else '' }}"><span class="qp-ic">⚗</span>回测实验室</a>
+        <a href="/backtest/tasks" class="qp-nav-link qp-nav-sub {{ 'qp-nav-active' if '/backtest/tasks' in _path else '' }}">任务中心</a>
 
-        <a href="/backtest" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:6px; font-size:13px; text-decoration:none; transition:background 0.15s, color 0.15s; {{ 'background:#eef4ff; color:#635bff; font-weight:600;' if request and request.url.path == '/backtest' else 'color:#697386;' }}" onmouseover="if(!this.style.background||this.style.background==''){this.style.background='#f6f9fc';this.style.color='#0a2540';}" onmouseout="if(this.style.background=='rgb(246, 249, 252)'){this.style.background='';this.style.color='#697386';}">
-            <span style="width:16px; text-align:center; font-size:14px;">&#x1F9EA;</span>
-            回测实验室
-        </a>
+        <div class="qp-nav-section">市场</div>
+        <a href="/scan" class="qp-nav-link {{ 'qp-nav-active' if '/scan' in _path else '' }}"><span class="qp-ic">⊙</span>标的扫描</a>
+        <a href="/macro" class="qp-nav-link {{ 'qp-nav-active' if '/macro' in _path else '' }}"><span class="qp-ic">◉</span>宏观经济</a>
+        <a href="/sentiment" class="qp-nav-link {{ 'qp-nav-active' if '/sentiment' in _path else '' }}"><span class="qp-ic">☀</span>情绪温度计</a>
+        <a href="/jige-advisor" class="qp-nav-link {{ 'qp-nav-active' if '/jige-advisor' in _path else '' }}"><span class="qp-ic">✦</span>鸡哥顾问</a>
+        <a href="/jin-view" class="qp-nav-link {{ 'qp-nav-active' if '/jin-view' in _path else '' }}"><span class="qp-ic">✺</span>金渐成视角</a>
+        <a href="/technical" class="qp-nav-link {{ 'qp-nav-active' if '/technical' in _path else '' }}"><span class="qp-ic">▲</span>技术分析</a>
 
-        <a href="/backtest/tasks" style="display:flex; align-items:center; gap:10px; padding:6px 12px 6px 38px; border-radius:6px; font-size:12px; text-decoration:none; transition:background 0.15s, color 0.15s; {{ 'background:#eef4ff; color:#635bff; font-weight:600;' if request and '/backtest/tasks' in request.url.path else 'color:#8a94a6;' }}" onmouseover="if(!this.style.background||this.style.background==''){this.style.background='#f6f9fc';this.style.color='#425466';}" onmouseout="if(this.style.background=='rgb(246, 249, 252)'){this.style.background='';this.style.color='#8a94a6';}">
-            任务中心
-        </a>
+        <div class="qp-nav-section">交易</div>
+        <a href="/portfolio" class="qp-nav-link {{ 'qp-nav-active' if _path == '/portfolio' else '' }}"><span class="qp-ic">◆</span>持仓管理</a>
+        <a href="/watchlist" class="qp-nav-link {{ 'qp-nav-active' if '/watchlist' in _path else '' }}"><span class="qp-ic">○</span>观察列表</a>
+        <a href="/risk" class="qp-nav-link {{ 'qp-nav-active' if _path == '/risk' else '' }}"><span class="qp-ic">⛨</span>风控护盾</a>
 
-        <!-- MARKET -->
-        <div style="font-size:10px; color:#8a94a6; text-transform:uppercase; letter-spacing:0.1em; padding:0 12px; margin-top:16px; margin-bottom:4px; font-weight:510;">MARKET</div>
-        <div style="border-top:1px solid #f2f4f7; margin:0 12px 6px;"></div>
-
-        <a href="/scan" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:6px; font-size:13px; text-decoration:none; transition:background 0.15s, color 0.15s; {{ 'background:#eef4ff; color:#635bff; font-weight:600;' if request and '/scan' in request.url.path else 'color:#697386;' }}" onmouseover="if(!this.style.background||this.style.background==''){this.style.background='#f6f9fc';this.style.color='#0a2540';}" onmouseout="if(this.style.background=='rgb(246, 249, 252)'){this.style.background='';this.style.color='#697386';}">
-            <span style="width:16px; text-align:center; font-size:14px;">&#x1F4E1;</span>
-            标的扫描
-        </a>
-
-        <a href="/macro" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:6px; font-size:13px; text-decoration:none; transition:background 0.15s, color 0.15s; {{ 'background:#eef4ff; color:#635bff; font-weight:600;' if request and '/macro' in request.url.path else 'color:#697386;' }}" onmouseover="if(!this.style.background||this.style.background==''){this.style.background='#f6f9fc';this.style.color='#0a2540';}" onmouseout="if(this.style.background=='rgb(246, 249, 252)'){this.style.background='';this.style.color='#697386';}">
-            <span style="width:16px; text-align:center; font-size:14px;">&#x1F310;</span>
-            宏观经济
-        </a>
-
-        <a href="/sentiment" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:6px; font-size:13px; text-decoration:none; transition:background 0.15s, color 0.15s; {{ 'background:#eef4ff; color:#635bff; font-weight:600;' if request and '/sentiment' in request.url.path else 'color:#697386;' }}" onmouseover="if(!this.style.background||this.style.background==''){this.style.background='#f6f9fc';this.style.color='#0a2540';}" onmouseout="if(this.style.background=='rgb(246, 249, 252)'){this.style.background='';this.style.color='#697386';}">
-            <span style="width:16px; text-align:center; font-size:14px;">&#x1F321;</span>
-            情绪温度计
-        </a>
-
-        <a href="/jige-advisor" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:6px; font-size:13px; text-decoration:none; transition:background 0.15s, color 0.15s; {{ 'background:#eef4ff; color:#635bff; font-weight:600;' if request and '/jige-advisor' in request.url.path else 'color:#697386;' }}" onmouseover="if(!this.style.background||this.style.background==''){this.style.background='#f6f9fc';this.style.color='#0a2540';}" onmouseout="if(this.style.background=='rgb(246, 249, 252)'){this.style.background='';this.style.color='#697386';}">
-            <span style="width:16px; text-align:center; font-size:14px;">&#x1F9E0;</span>
-            鸡哥顾问
-        </a>
-
-        <a href="/jin-view" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:6px; font-size:13px; text-decoration:none; transition:background 0.15s, color 0.15s; {{ 'background:#eef4ff; color:#635bff; font-weight:600;' if request and '/jin-view' in request.url.path else 'color:#697386;' }}" onmouseover="if(!this.style.background||this.style.background==''){this.style.background='#f6f9fc';this.style.color='#0a2540';}" onmouseout="if(this.style.background=='rgb(246, 249, 252)'){this.style.background='';this.style.color='#697386';}">
-            <span style="width:16px; text-align:center; font-size:14px;">&#x1F3EE;</span>
-            金渐成视角
-        </a>
-
-        <a href="/technical" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:6px; font-size:13px; text-decoration:none; transition:background 0.15s, color 0.15s; {{ 'background:#eef4ff; color:#635bff; font-weight:600;' if request and '/technical' in request.url.path else 'color:#697386;' }}" onmouseover="if(!this.style.background||this.style.background==''){this.style.background='#f6f9fc';this.style.color='#0a2540';}" onmouseout="if(this.style.background=='rgb(246, 249, 252)'){this.style.background='';this.style.color='#697386';}">
-            <span style="width:16px; text-align:center; font-size:14px;">&#x1F4D0;</span>
-            技术分析
-        </a>
-
-        <!-- TRADING -->
-        <div style="font-size:10px; color:#8a94a6; text-transform:uppercase; letter-spacing:0.1em; padding:0 12px; margin-top:16px; margin-bottom:4px; font-weight:510;">TRADING</div>
-        <div style="border-top:1px solid #f2f4f7; margin:0 12px 6px;"></div>
-
-        <a href="/portfolio" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:6px; font-size:13px; text-decoration:none; transition:background 0.15s, color 0.15s; {{ 'background:#eef4ff; color:#635bff; font-weight:600;' if request and request.url.path == '/portfolio' else 'color:#697386;' }}" onmouseover="if(!this.style.background||this.style.background==''){this.style.background='#f6f9fc';this.style.color='#0a2540';}" onmouseout="if(this.style.background=='rgb(246, 249, 252)'){this.style.background='';this.style.color='#697386';}">
-            <span style="width:16px; text-align:center; font-size:14px;">&#x1F4BC;</span>
-            持仓管理
-        </a>
-
-        <a href="/watchlist" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:6px; font-size:13px; text-decoration:none; transition:background 0.15s, color 0.15s; {{ 'background:#eef4ff; color:#635bff; font-weight:600;' if request and '/watchlist' in request.url.path else 'color:#697386;' }}" onmouseover="if(!this.style.background||this.style.background==''){this.style.background='#f6f9fc';this.style.color='#0a2540';}" onmouseout="if(this.style.background=='rgb(246, 249, 252)'){this.style.background='';this.style.color='#697386';}">
-            <span style="width:16px; text-align:center; font-size:14px;">&#x1F441;</span>
-            观察列表
-        </a>
-
-        <a href="/risk" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:6px; font-size:13px; text-decoration:none; transition:background 0.15s, color 0.15s; {{ 'background:#eef4ff; color:#635bff; font-weight:600;' if request and request.url.path == '/risk' else 'color:#697386;' }}" onmouseover="if(!this.style.background||this.style.background==''){this.style.background='#f6f9fc';this.style.color='#0a2540';}" onmouseout="if(this.style.background=='rgb(246, 249, 252)'){this.style.background='';this.style.color='#697386';}">
-            <span style="width:16px; text-align:center; font-size:14px;">&#x1F6E1;</span>
-            风控护盾
-        </a>
-
-        <!-- SYSTEM (pushed to bottom) -->
         <div style="flex:1;"></div>
-        <div style="border-top:1px solid #f2f4f7; margin:0 12px 6px;"></div>
-        <div style="font-size:10px; color:#8a94a6; text-transform:uppercase; letter-spacing:0.1em; padding:0 12px; margin-bottom:4px; font-weight:510;">SYSTEM</div>
-
-        <a href="/settings" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:6px; font-size:13px; text-decoration:none; transition:background 0.15s, color 0.15s; {{ 'background:#eef4ff; color:#635bff; font-weight:600;' if request and '/settings' in request.url.path else 'color:#697386;' }}" onmouseover="if(!this.style.background||this.style.background==''){this.style.background='#f6f9fc';this.style.color='#0a2540';}" onmouseout="if(this.style.background=='rgb(246, 249, 252)'){this.style.background='';this.style.color='#697386';}">
-            <span style="width:16px; text-align:center; font-size:14px;">&#x2699;</span>
-            系统配置
-        </a>
+        <div class="qp-nav-section">系统</div>
+        <a href="/settings" class="qp-nav-link {{ 'qp-nav-active' if '/settings' in _path else '' }}"><span class="qp-ic">⚙</span>系统配置</a>
     </nav>
 
     <!-- 主内容区 -->
-    <main class="md:ml-56 flex-1 min-h-screen flex flex-col">
+    <main class="qp-main-content flex-1 min-h-screen flex flex-col">
         <!-- 顶部状态栏 -->
-        <div style="display:flex; align-items:center; justify-content:flex-end; gap:12px; padding:10px 28px; border-bottom:1px solid #e3e8ee; background:rgba(255,255,255,0.85); backdrop-filter:blur(10px); flex-shrink:0;">
-            <div id="vix-indicator" style="font-size:12.5px; color:#697386; font-weight:500; font-feature-settings:'cv01','ss03';">
-                VIX: <span style="font-family:'Berkeley Mono',ui-monospace,monospace; font-feature-settings:normal;" class="font-mono">--</span>
+        <div class="qp-topbar">
+            <div id="vix-indicator" style="font-size:12.5px; color:#697386; font-weight:500;">
+                VIX: <span class="font-mono" style="font-family:'JetBrains Mono',ui-monospace,monospace; font-weight:700;">--</span>
             </div>
-            <span id="account-type-badge" style="padding:2px 8px; border-radius:4px; font-size:11px; font-weight:510; background:rgba(94,106,210,0.15); color:#7170ff; border:1px solid rgba(113,112,255,0.25); letter-spacing:0.05em; display:none;"></span>
+            <span id="account-type-badge" style="padding:3px 10px; border-radius:6px; font-size:11px; font-weight:700; background:#eef4ff; color:#635bff; border:1px solid #d9e6ff; letter-spacing:0.05em; display:none;"></span>
         </div>
 
-        <div class="flex-1 p-6">
+        <div class="qp-page-wrap">
             <!-- 移动端提示 -->
             <div class="block md:hidden" style="background:#ffffff; border:1px solid #e3e8ee; border-radius:10px; padding:14px; margin-bottom:16px; font-size:12.5px; color:#697386; text-align:center; box-shadow:0 1px 2px rgba(10,37,64,0.04);">
                 QuantPrism 在桌面端体验最佳
