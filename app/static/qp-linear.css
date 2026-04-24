@@ -1,119 +1,136 @@
-/* QuantPrism — Linear Design System (qp-linear.css)
-   Remaps the entire color/font system to Linear's design language.
-   Load this AFTER tailwind.min.css to override compiled utilities. */
+/* QuantPrism — Stripe Fintech Design System (qp-linear.css)
+   Remaps the entire color/font system to a Stripe/Ramp-inspired light palette.
+   Load this AFTER tailwind.min.css to override compiled utilities.
+   Filename kept for backward compatibility. */
 
-/* ═══ Google Fonts: Inter Variable ═══ */
 @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
 
-/* ═══ CSS Custom Properties (Linear Palette) ═══ */
+/* ═══ CSS Custom Properties (Stripe Fintech Palette — Light) ═══ */
 :root {
-  --qp-bg-page:      #08090a;
-  --qp-bg-panel:     #0f1011;
-  --qp-bg-surface:   #191a1b;
-  --qp-bg-hover:     #28282c;
+  /* Backgrounds — light, cool, trust-worthy */
+  --qp-bg-page:      #f6f9fc;
+  --qp-bg-panel:     #ffffff;
+  --qp-bg-surface:   #ffffff;
+  --qp-bg-hover:     #f6f9fc;
+  --qp-bg-subtle:    #fafbfc;
 
-  --qp-text-primary:   #f7f8f8;
-  --qp-text-secondary: #d0d6e0;
-  --qp-text-muted:     #8a8f98;
-  --qp-text-subtle:    #62666d;
+  /* Text */
+  --qp-text-primary:   #0a2540;
+  --qp-text-secondary: #1a2e48;
+  --qp-text-muted:     #425466;
+  --qp-text-subtle:    #697386;
 
-  --qp-accent:        #5e6ad2;
-  --qp-accent-active: #7170ff;
-  --qp-accent-hover:  #828fff;
+  /* Brand — Stripe indigo + cyan gradient */
+  --qp-accent:        #635bff;
+  --qp-accent-active: #5548ff;
+  --qp-accent-hover:  #4f46e5;
+  --qp-accent-soft:   #eef4ff;
+  --qp-accent-2:      #00d4ff;
+  --qp-gradient: linear-gradient(135deg, #635bff 0%, #00d4ff 100%);
 
-  --qp-border-subtle:   rgba(255, 255, 255, 0.05);
-  --qp-border-standard: rgba(255, 255, 255, 0.08);
-  --qp-border-solid:    #23252a;
+  /* Borders */
+  --qp-border-subtle:   #f2f4f7;
+  --qp-border-standard: #e3e8ee;
+  --qp-border-solid:    #d9e0e8;
 
-  --qp-success: #10b981;
-  --qp-success-alt: #27a644;
+  /* Status */
+  --qp-success:      #067647;
+  --qp-success-soft: #e6faf0;
+  --qp-danger:       #b42318;
+  --qp-danger-soft:  #fef1f2;
+  --qp-warn:         #b45309;
+  --qp-warn-soft:    #fef3c7;
+
+  /* Shadows */
+  --qp-shadow-sm: 0 1px 2px rgba(10,37,64,0.04);
+  --qp-shadow-md: 0 2px 5px rgba(10,37,64,0.06), 0 1px 2px rgba(10,37,64,0.04);
+  --qp-shadow-lg: 0 8px 24px rgba(10,37,64,0.08), 0 2px 4px rgba(10,37,64,0.04);
+  --qp-shadow-accent: 0 4px 12px rgba(99,91,255,0.25);
 }
 
 /* ═══ Global Typography ═══ */
 html, body, * {
   font-family: 'Inter', 'SF Pro Display', -apple-system, system-ui, sans-serif !important;
-  font-feature-settings: "cv01", "ss03" !important;
+  font-feature-settings: "cv01", "cv11", "ss01" !important;
 }
 
-/* Mono exceptions */
 pre, code, kbd, samp, .font-mono, [class*="mono"] {
-  font-family: 'Berkeley Mono', ui-monospace, 'SF Mono', Menlo, monospace !important;
+  font-family: 'JetBrains Mono', 'Berkeley Mono', ui-monospace, 'SF Mono', Menlo, monospace !important;
   font-feature-settings: normal !important;
+  font-variant-numeric: tabular-nums !important;
 }
 
 /* ═══ Body ═══ */
 body {
   background-color: var(--qp-bg-page) !important;
   color: var(--qp-text-secondary) !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* ═══ Scrollbar ═══ */
-::-webkit-scrollbar-track { background: var(--qp-bg-panel) !important; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent !important; }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.10) !important;
-  border-radius: 3px;
+  background: rgba(105,115,134,0.25) !important;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
-::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.18) !important; }
+::-webkit-scrollbar-thumb:hover { background: rgba(105,115,134,0.45) !important; background-clip: padding-box; }
 
-/* ═══ Tailwind dark-* color class remapping ═══ */
-/* These override the compiled Tailwind custom color utilities */
-
+/* ═══ Tailwind dark-* remapping → light surfaces ═══ */
 .bg-dark-900 { background-color: var(--qp-bg-page)    !important; }
 .bg-dark-800 { background-color: var(--qp-bg-panel)   !important; }
-.bg-dark-700 { background-color: var(--qp-bg-surface) !important; }
+.bg-dark-700 { background-color: var(--qp-bg-panel)   !important; }
 .bg-dark-600 { background-color: var(--qp-bg-hover)   !important; }
-.bg-dark-500 { background-color: rgba(255,255,255,0.06) !important; }
+.bg-dark-500 { background-color: var(--qp-bg-subtle)  !important; }
 
-/* Opacity variants */
-.bg-dark-800\/50 { background-color: rgba(15,16,17,0.5) !important; }
-.bg-dark-800\/80 { background-color: rgba(15,16,17,0.8) !important; }
+.bg-dark-800\/50 { background-color: rgba(255,255,255,0.7) !important; backdrop-filter: blur(8px); }
+.bg-dark-800\/80 { background-color: rgba(255,255,255,0.85) !important; backdrop-filter: blur(10px); }
 
-/* Border color remapping */
-.border-dark-900 { border-color: var(--qp-border-subtle)   !important; }
-.border-dark-800 { border-color: var(--qp-border-subtle)   !important; }
+.border-dark-900,
+.border-dark-800,
 .border-dark-700 { border-color: var(--qp-border-subtle)   !important; }
 .border-dark-600 { border-color: var(--qp-border-standard) !important; }
-.border-dark-500 { border-color: rgba(255,255,255,0.12)    !important; }
+.border-dark-500 { border-color: var(--qp-border-solid)    !important; }
 
-/* Hover overrides */
-.hover\:bg-dark-700:hover { background-color: rgba(255,255,255,0.04) !important; }
-.hover\:bg-dark-600:hover { background-color: rgba(255,255,255,0.07) !important; }
-.hover\:bg-dark-500:hover { background-color: rgba(255,255,255,0.10) !important; }
+.hover\:bg-dark-700:hover,
+.hover\:bg-dark-600:hover,
+.hover\:bg-dark-500:hover { background-color: var(--qp-bg-hover) !important; }
 
-/* Text color remapping */
+/* Text remapping — invert for light theme */
 .text-gray-100 { color: var(--qp-text-primary)   !important; }
-.text-gray-200 { color: var(--qp-text-secondary) !important; }
+.text-gray-200 { color: var(--qp-text-primary)   !important; }
 .text-gray-300 { color: var(--qp-text-secondary) !important; }
 .text-gray-400 { color: var(--qp-text-muted)     !important; }
 .text-gray-500 { color: var(--qp-text-subtle)    !important; }
 .text-gray-600 { color: var(--qp-text-subtle)    !important; }
 .text-white    { color: var(--qp-text-primary)   !important; }
 
-/* ═══ Brand Blue → Linear Indigo remapping ═══ */
-/* Background */
+/* ═══ Brand Blue → Stripe Indigo ═══ */
 .bg-blue-600,
 .bg-blue-500,
 .bg-blue-400 {
   background-color: var(--qp-accent) !important;
+  color: #ffffff !important;
 }
 .hover\:bg-blue-700:hover,
 .hover\:bg-blue-600:hover,
 .hover\:bg-blue-500:hover {
-  background-color: var(--qp-accent-hover) !important;
+  background-color: var(--qp-accent-active) !important;
 }
-/* Text */
-.text-blue-400 { color: var(--qp-accent-active) !important; }
-.text-blue-300 { color: var(--qp-accent-hover)  !important; }
-.text-blue-500 { color: var(--qp-accent)        !important; }
-/* Border */
-.border-blue-500 { border-color: var(--qp-accent)        !important; }
-.border-blue-400 { border-color: var(--qp-accent-active) !important; }
+.text-blue-400 { color: var(--qp-accent) !important; }
+.text-blue-300 { color: var(--qp-accent-hover) !important; }
+.text-blue-500 { color: var(--qp-accent) !important; }
+.border-blue-500 { border-color: var(--qp-accent) !important; }
+.border-blue-400 { border-color: var(--qp-accent) !important; }
 
-/* Focus rings */
 .focus\:ring-blue-500:focus,
 .focus\:border-blue-500:focus {
-  --tw-ring-color: var(--qp-accent-active) !important;
-  border-color: var(--qp-accent-active) !important;
+  --tw-ring-color: var(--qp-accent) !important;
+  border-color: var(--qp-accent) !important;
+  box-shadow: 0 0 0 3px rgba(99,91,255,0.15) !important;
 }
 
 /* ═══ Navigation ═══ */
@@ -121,29 +138,39 @@ nav {
   background-color: var(--qp-bg-panel) !important;
   border-right: 1px solid var(--qp-border-standard) !important;
 }
+nav a { color: var(--qp-text-muted) !important; transition: all 0.15s !important; }
+nav a:hover { background-color: var(--qp-bg-hover) !important; color: var(--qp-text-primary) !important; }
+
+/* Active nav — indigo tint */
+.qp-nav-active {
+  background-color: var(--qp-accent-soft) !important;
+  color: var(--qp-accent) !important;
+  font-weight: 600 !important;
+}
 
 /* ═══ Top Header Bar ═══ */
 .flex.items-center.justify-end.gap-3.px-6.py-2 {
-  background-color: rgba(15,16,17,0.8) !important;
-  border-bottom: 1px solid var(--qp-border-subtle) !important;
-  backdrop-filter: blur(8px);
+  background-color: rgba(255,255,255,0.85) !important;
+  border-bottom: 1px solid var(--qp-border-standard) !important;
+  backdrop-filter: blur(10px);
 }
 
-/* ═══ Logo ═══ */
+/* ═══ Logo — gradient mark ═══ */
 .qp-logo {
-  background: var(--qp-accent) !important;
-  box-shadow: 0 0 0 1px rgba(94,106,210,0.3);
+  background: var(--qp-gradient) !important;
+  box-shadow: var(--qp-shadow-accent) !important;
+  color: #ffffff !important;
 }
 
-/* ═══ PAPER Trading Badge ═══ */
+/* ═══ PAPER / LIVE Badges ═══ */
 .bg-orange-500\/20 {
-  background-color: rgba(94,106,210,0.15) !important;
+  background-color: var(--qp-accent-soft) !important;
 }
 .text-orange-400 {
-  color: var(--qp-accent-active) !important;
+  color: var(--qp-accent) !important;
 }
 .border-orange-500\/30 {
-  border-color: rgba(113,112,255,0.3) !important;
+  border-color: rgba(99,91,255,0.3) !important;
 }
 
 /* ═══ Input Fields ═══ */
@@ -155,17 +182,17 @@ input[type="search"],
 input[type="date"],
 textarea,
 select {
-  background-color: rgba(255,255,255,0.03) !important;
+  background-color: #ffffff !important;
   border: 1px solid var(--qp-border-standard) !important;
   color: var(--qp-text-primary) !important;
-  border-radius: 6px;
+  border-radius: 8px;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 input:focus,
 textarea:focus,
 select:focus {
-  border-color: var(--qp-accent-active) !important;
-  box-shadow: 0 0 0 1px var(--qp-accent-active) !important;
+  border-color: var(--qp-accent) !important;
+  box-shadow: 0 0 0 3px rgba(99,91,255,0.15) !important;
   outline: none !important;
 }
 input::placeholder,
@@ -175,109 +202,129 @@ textarea::placeholder {
 
 /* ═══ Tables ═══ */
 thead th {
-  color: var(--qp-text-muted) !important;
-  font-size: 11px !important;
-  font-weight: 510 !important;
-  letter-spacing: 0.06em !important;
+  color: var(--qp-text-subtle) !important;
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em !important;
   text-transform: uppercase !important;
-  background-color: var(--qp-bg-panel) !important;
+  background-color: var(--qp-bg-page) !important;
   border-bottom: 1px solid var(--qp-border-standard) !important;
 }
 tbody tr {
   border-bottom: 1px solid var(--qp-border-subtle) !important;
 }
 tbody tr:hover {
-  background-color: rgba(255,255,255,0.02) !important;
+  background-color: var(--qp-bg-subtle) !important;
 }
 
-/* ═══ Headings (letter-spacing for Linear feel) ═══ */
-h1 { font-size: 32px; font-weight: 400; line-height: 1.13; letter-spacing: -0.704px; color: var(--qp-text-primary); }
-h2 { font-size: 24px; font-weight: 400; line-height: 1.33; letter-spacing: -0.288px; color: var(--qp-text-primary); }
-h3 { font-size: 20px; font-weight: 590; line-height: 1.33; letter-spacing: -0.24px;  color: var(--qp-text-primary); }
-h4 { font-size: 16px; font-weight: 510; line-height: 1.50; color: var(--qp-text-primary); }
+/* ═══ Headings ═══ */
+h1 { font-size: 28px; font-weight: 700; line-height: 1.2; letter-spacing: -0.8px; color: var(--qp-text-primary); }
+h2 { font-size: 22px; font-weight: 700; line-height: 1.3; letter-spacing: -0.5px; color: var(--qp-text-primary); }
+h3 { font-size: 17px; font-weight: 700; line-height: 1.3; letter-spacing: -0.3px; color: var(--qp-text-primary); }
+h4 { font-size: 15px; font-weight: 600; line-height: 1.4; color: var(--qp-text-primary); }
 
 /* ═══ Buttons ═══ */
-
-/* Ghost button — default style for most UI buttons */
 button:not([class*="bg-"]),
 .btn-ghost {
-  background-color: rgba(255,255,255,0.03);
+  background-color: #ffffff;
   border: 1px solid var(--qp-border-standard);
-  color: var(--qp-text-secondary);
-  border-radius: 6px;
-  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+  color: var(--qp-text-primary);
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.15s;
+  box-shadow: var(--qp-shadow-sm);
 }
 button:not([class*="bg-"]):hover,
 .btn-ghost:hover {
-  background-color: rgba(255,255,255,0.06);
-  color: var(--qp-text-primary);
+  background-color: var(--qp-bg-hover);
+  border-color: var(--qp-border-solid);
+  box-shadow: var(--qp-shadow-md);
 }
 
-/* Primary / CTA buttons */
 .btn-primary,
 button.bg-blue-600,
 button.bg-accent-blue {
-  background-color: var(--qp-accent) !important;
+  background: var(--qp-gradient) !important;
   color: #ffffff !important;
   border: none !important;
-  border-radius: 6px;
-  font-weight: 510;
+  border-radius: 8px;
+  font-weight: 600;
+  box-shadow: var(--qp-shadow-accent);
 }
 .btn-primary:hover,
 button.bg-blue-600:hover {
-  background-color: var(--qp-accent-hover) !important;
+  filter: brightness(1.08);
+  box-shadow: 0 6px 16px rgba(99,91,255,0.35);
 }
 
-/* ═══ Cards (supplement qp-animations.css) ═══ */
+/* ═══ Cards ═══ */
 .qp-card {
-  background: rgba(255,255,255,0.02) !important;
+  background: var(--qp-bg-panel) !important;
   border: 1px solid var(--qp-border-standard) !important;
+  border-radius: 12px;
+  box-shadow: var(--qp-shadow-sm);
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
 .qp-card:hover {
-  background: rgba(255,255,255,0.04) !important;
-  border-color: rgba(255,255,255,0.12) !important;
+  background: var(--qp-bg-panel) !important;
+  border-color: var(--qp-border-solid) !important;
+  box-shadow: var(--qp-shadow-md);
   transform: none !important;
-  box-shadow: none !important;
 }
 
-/* ═══ Generic panel / card divs with bg-dark-700 ═══ */
 .rounded-xl.bg-dark-700,
 .rounded-lg.bg-dark-700,
 .rounded-xl.bg-dark-800,
 .rounded-lg.bg-dark-800 {
+  background: var(--qp-bg-panel) !important;
   border: 1px solid var(--qp-border-standard) !important;
+  box-shadow: var(--qp-shadow-sm);
 }
 
-/* ═══ Accent-specific Tailwind overrides (indigo) ═══ */
-/* accent-blue references in templates */
-.text-accent-blue { color: var(--qp-accent-active) !important; }
-.bg-accent-blue   { background-color: var(--qp-accent) !important; }
+/* ═══ Accent-specific ═══ */
+.text-accent-blue { color: var(--qp-accent) !important; }
+.bg-accent-blue   { background: var(--qp-gradient) !important; color: #fff !important; }
 .border-accent-blue { border-color: var(--qp-accent) !important; }
 
-/* ═══ Link styles ═══ */
+/* ═══ Links ═══ */
 a:not([class]) {
-  color: var(--qp-accent-active);
+  color: var(--qp-accent);
   text-decoration: none;
   transition: color 0.15s;
 }
 a:not([class]):hover {
-  color: var(--qp-accent-hover);
+  color: var(--qp-accent-active);
 }
 
-/* ═══ Status colors (preserved — functional, not brand) ═══ */
-.text-green-400, .text-green-500 { color: #4ade80 !important; }
-.text-red-400,   .text-red-500   { color: #f87171 !important; }
-.text-yellow-400, .text-yellow-500 { color: #facc15 !important; }
+/* ═══ Status colors ═══ */
+.text-green-400, .text-green-500 { color: var(--qp-success) !important; }
+.text-red-400,   .text-red-500   { color: var(--qp-danger) !important; }
+.text-yellow-400, .text-yellow-500 { color: var(--qp-warn) !important; }
 
-/* ═══ VIX & Regime indicators ═══ */
+.bg-green-500\/10, .bg-green-500\/20 { background-color: var(--qp-success-soft) !important; }
+.bg-red-500\/10,   .bg-red-500\/20   { background-color: var(--qp-danger-soft) !important; }
+.bg-yellow-500\/10,.bg-yellow-500\/20 { background-color: var(--qp-warn-soft) !important; }
+
+.border-green-500\/20, .border-green-500\/30 { border-color: #a7f3d0 !important; }
+.border-red-500\/20,   .border-red-500\/30   { border-color: #fca5a5 !important; }
+
+/* ═══ VIX indicator ═══ */
 #vix-indicator { color: var(--qp-text-muted); font-size: 12px; }
 
 /* ═══ Code blocks ═══ */
 pre, code {
-  background-color: rgba(255,255,255,0.04) !important;
+  background-color: var(--qp-bg-hover) !important;
   border: 1px solid var(--qp-border-standard) !important;
   border-radius: 6px;
-  color: var(--qp-text-secondary) !important;
+  color: var(--qp-text-primary) !important;
 }
+
+/* ═══ Misc utility overrides ═══ */
+.divide-dark-700 > * + *, .divide-dark-800 > * + * { border-color: var(--qp-border-subtle) !important; }
+.ring-dark-600, .ring-dark-700 { --tw-ring-color: var(--qp-border-standard) !important; }
+
+/* Rounded corners global bump */
+.rounded-lg { border-radius: 10px !important; }
+.rounded-xl { border-radius: 12px !important; }
+.rounded-2xl { border-radius: 16px !important; }
