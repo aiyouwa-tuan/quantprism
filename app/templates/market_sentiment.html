@@ -187,7 +187,7 @@
     position: absolute;
     top: calc(100% + 10px);
     left: 0;
-    background: #1a1b1e;
+    background: #ffffff;
     border: 1px solid rgba(255,255,255,0.1);
     color: #1a2e48;
     padding: 12px 14px;
@@ -216,7 +216,7 @@
     top: calc(100% + 5px);
     left: 4px;
     border: 5px solid transparent;
-    border-bottom-color: #1a1b1e;
+    border-bottom-color: #ffffff;
     opacity: 0;
     transition: opacity 0.18s ease;
     pointer-events: none;
@@ -264,7 +264,7 @@
     position: absolute;
     top: calc(100% + 10px);
     left: 0;
-    background: #1a1b1e;
+    background: #ffffff;
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 10px;
     padding: 16px 18px;
@@ -293,7 +293,7 @@
     top: -5px;
     left: 6px;
     width: 10px; height: 10px;
-    background: #1a1b1e;
+    background: #ffffff;
     border-left: 1px solid rgba(255,255,255,0.1);
     border-top: 1px solid rgba(255,255,255,0.1);
     transform: rotate(45deg);
@@ -329,7 +329,7 @@
 
 /* ── 抄底信号面板 ─────────────────────────────── */
 .buy-signal-panel {
-    background: linear-gradient(135deg, #0f1011 0%, #141518 100%);
+    background: linear-gradient(135deg, #ffffff 0%, #141518 100%);
     border: 1px solid #e3e8ee;
     border-radius: 14px;
     padding: 22px 24px;
@@ -414,7 +414,7 @@
     border-radius: 50%;
     background: #3f4246;
     flex-shrink: 0;
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
+    box-shadow: inset 0 0 0 1px #e3e8ee;
 }
 .signal-card.triggered .signal-indicator {
     background: #4ade80;
@@ -455,7 +455,7 @@
 .buy-signal-footer {
     margin-top: 14px;
     padding-top: 12px;
-    border-top: 1px dashed rgba(255,255,255,0.08);
+    border-top: 1px dashed #e3e8ee;
     display: flex;
     flex-wrap: wrap;
     gap: 6px 18px;
@@ -569,7 +569,7 @@
         </div>
         <div id="cnn-gauge" style="height:220px;"></div>
         <!-- 对比数据 -->
-        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:18px; border-top:1px solid rgba(255,255,255,0.05); padding-top:16px;">
+        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:18px; border-top:1px solid #f2f4f7; padding-top:16px;">
             {% for label, val in [('昨收', cnn.prev_close), ('上周', cnn.prev_week), ('上月', cnn.prev_month), ('去年', cnn.prev_year)] %}
             <div style="text-align:center;">
                 <div style="font-size:12px; color:#8a94a6; margin-bottom:4px;">{{ label }}</div>
@@ -601,7 +601,7 @@
         </div>
         <div id="vix-gauge-top" style="height:220px;"></div>
         <!-- 区间说明 -->
-        <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:4px; margin-top:18px; border-top:1px solid rgba(255,255,255,0.05); padding-top:16px;">
+        <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:4px; margin-top:18px; border-top:1px solid #f2f4f7; padding-top:16px;">
             {% for range_str, zh, color in [('<12', '平静', '#4ade80'), ('12-20', '正常', '#facc15'), ('20-30', '警戒', '#fb923c'), ('30-40', '恐慌', '#f87171'), ('>40', '极端', '#dc2626')] %}
             <div style="text-align:center;">
                 <div style="width:28px; height:4px; border-radius:3px; background:{{ color }}; margin:0 auto 5px;"></div>
@@ -654,7 +654,7 @@
     <!-- 三层当前数值 + 大字显示 -->
     <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:20px;">
         <!-- 综合温度 -->
-        <div style="padding:16px 18px; background:#fafbfc; border-radius:8px; border:1px solid rgba(255,255,255,0.05); position:relative;">
+        <div style="padding:16px 18px; background:#fafbfc; border-radius:8px; border:1px solid #f2f4f7; position:relative;">
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
                 <div style="font-size:12px; color:#697386; font-weight:500;">🌡️ 综合温度<span class="fg-info" data-tip="长桥证券综合情绪指标（0-100），融合估值 + 情绪两层。越高代表市场越过热，越低越冷却。<30 冰点、30-50 温和、50-70 活跃、>70 过热。">i</span></div>
                 <span style="font-size:10px; padding:2px 8px; border-radius:3px; background:{{ lc.temp_color }}22; color:{{ lc.temp_color }}; font-weight:600;">{{ lc.description }}</span>
@@ -665,7 +665,7 @@
             </div>
         </div>
         <!-- 估值 -->
-        <div style="padding:16px 18px; background:#fafbfc; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+        <div style="padding:16px 18px; background:#fafbfc; border-radius:8px; border:1px solid #f2f4f7;">
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
                 <div style="font-size:12px; color:#697386; font-weight:500;">💰 估值<span class="fg-info" data-tip="基于 PE、PB 等基本面指标计算的历史百分位（0-100）。数字越低代表当前估值越便宜、越有长线吸引力。">i</span></div>
                 <span style="font-size:10px; color:#8a94a6;">PE/PB 分位</span>
@@ -676,7 +676,7 @@
             </div>
         </div>
         <!-- 情绪 -->
-        <div style="padding:16px 18px; background:#fafbfc; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+        <div style="padding:16px 18px; background:#fafbfc; border-radius:8px; border:1px solid #f2f4f7;">
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
                 <div style="font-size:12px; color:#697386; font-weight:500;">🎭 情绪<span class="fg-info" data-tip="基于成交量、涨跌家数、资金流向等量价数据计算的情绪分位（0-100）。反映交易者短期贪婪/恐惧程度，与估值维度独立。">i</span></div>
                 <span style="font-size:10px; color:#8a94a6;">资金/广度</span>
@@ -689,7 +689,7 @@
     </div>
 
     <!-- 历史三层叠加图 + 切换 -->
-    <div style="padding-top:16px; border-top:1px solid rgba(255,255,255,0.05);">
+    <div style="padding-top:16px; border-top:1px solid #f2f4f7;">
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
             <div style="font-size:13px; font-weight:600; color:#1a2e48;">历史走势</div>
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
@@ -777,14 +777,14 @@
     {% set vc = vix.current %}
     <!-- 当前值 + 统计 -->
     <div style="display:grid; grid-template-columns:1fr 3fr; gap:16px; margin-bottom:20px;">
-        <div style="padding:18px 20px; background:#fafbfc; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+        <div style="padding:18px 20px; background:#fafbfc; border-radius:8px; border:1px solid #f2f4f7;">
             <div style="font-size:12px; color:#8a94a6; margin-bottom:8px;">当前 VIX</div>
             <div style="display:flex; align-items:baseline; gap:10px;">
                 <span style="font-size:48px; font-weight:700; color:{{ vc.color }}; font-variant-numeric:tabular-nums; line-height:1;">{{ vc.value }}</span>
             </div>
             <div style="margin-top:8px;"><span style="font-size:11px; padding:2px 10px; border-radius:3px; background:{{ vc.color }}22; color:{{ vc.color }}; font-weight:600;">{{ vc.label }}</span></div>
         </div>
-        <div style="padding:18px 20px; background:#fafbfc; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+        <div style="padding:18px 20px; background:#fafbfc; border-radius:8px; border:1px solid #f2f4f7;">
             <div style="font-size:13px; color:#8a94a6; margin-bottom:12px;">各周期统计（月线）</div>
             <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px;">
                 {% for period in ['3y', '5y', '10y', '20y'] %}
@@ -803,7 +803,7 @@
     </div>
 
     <!-- 历史图 -->
-    <div style="padding-top:16px; border-top:1px solid rgba(255,255,255,0.05);">
+    <div style="padding-top:16px; border-top:1px solid #f2f4f7;">
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
             <div style="font-size:13px; font-weight:600; color:#1a2e48;">VIX 历史走势</div>
             <div style="display:flex; gap:4px; background:#fafbfc; border-radius:8px; padding:3px; flex-wrap:wrap;">
@@ -859,7 +859,7 @@
     <div style="display:grid; grid-template-columns:repeat(6,1fr); gap:10px; margin-bottom:20px;">
         {% set q = qqq.current %}
         <!-- 价格 -->
-        <div style="padding:14px 12px; background:#fafbfc; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+        <div style="padding:14px 12px; background:#fafbfc; border-radius:8px; border:1px solid #f2f4f7;">
             <div style="display:flex; align-items:center; gap:4px; font-size:11px; color:#8a94a6; margin-bottom:6px;">价格<span class="fg-info" data-tip="QQQ ETF 最新收盘价（美元）。下方“年涨”是过去 12 个月相对 1 年前的涨跌幅。">i</span></div>
             <div style="font-size:22px; font-weight:700; color:#0a2540; font-variant-numeric:tabular-nums;">${{ q.price }}</div>
             <div style="font-size:11px; color:{{ '#4ade80' if q.yoy_return_pct and q.yoy_return_pct > 0 else '#f87171' }}; margin-top:4px; font-weight:500;">
@@ -867,7 +867,7 @@
             </div>
         </div>
         <!-- RSI -->
-        <div style="padding:14px 12px; background:#fafbfc; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+        <div style="padding:14px 12px; background:#fafbfc; border-radius:8px; border:1px solid #f2f4f7;">
             <div style="display:flex; align-items:center; gap:4px; font-size:11px; color:#8a94a6; margin-bottom:6px;">
                 RSI-14<span class="fg-info" data-tip="Wilder 14日相对强弱指数。>70 超买，<30 超卖。基于近 6 个月日线价格用 ta-lib 式 EMA 平滑算法计算。">i</span>
             </div>
@@ -878,7 +878,7 @@
             </div>
         </div>
         <!-- PE -->
-        <div style="padding:14px 12px; background:#fafbfc; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+        <div style="padding:14px 12px; background:#fafbfc; border-radius:8px; border:1px solid #f2f4f7;">
             <div style="display:flex; align-items:center; gap:4px; font-size:11px; color:#8a94a6; margin-bottom:6px;">
                 市盈率 PE<span class="fg-info" data-tip="Trailing PE = 当前价格 / 过去 12 个月每股收益。ETF 的 PE 反映持仓加权平均。纳指 100 历史均值约 24-26，现值为溢价区间。">i</span>
             </div>
@@ -886,7 +886,7 @@
             <div style="font-size:11px; color:#8a94a6; margin-top:4px;">trailing</div>
         </div>
         <!-- PB -->
-        <div style="padding:14px 12px; background:#fafbfc; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+        <div style="padding:14px 12px; background:#fafbfc; border-radius:8px; border:1px solid #f2f4f7;">
             <div style="display:flex; align-items:center; gap:4px; font-size:11px; color:#8a94a6; margin-bottom:6px;">
                 市净率 PB<span class="fg-info" data-tip="Price to Book = 当前价格 / 每股净资产。yfinance 给出的是 ETF 单位 PB，与持仓加权 PB 可能存在差异。科技股 PB 普遍高（轻资产）。">i</span>
             </div>
@@ -894,7 +894,7 @@
             <div style="font-size:11px; color:#8a94a6; margin-top:4px;">price/book</div>
         </div>
         <!-- 股息率 -->
-        <div style="padding:14px 12px; background:#fafbfc; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+        <div style="padding:14px 12px; background:#fafbfc; border-radius:8px; border:1px solid #f2f4f7;">
             <div style="display:flex; align-items:center; gap:4px; font-size:11px; color:#8a94a6; margin-bottom:6px;">
                 股息率<span class="fg-info" data-tip="过去 12 个月分红 / 当前股价。QQQ 是科技成长型 ETF，股息率普遍低于 1%。适合做总回报型配置而非收益流。">i</span>
             </div>
@@ -913,7 +913,7 @@
     </div>
 
     <!-- 历史走势图 — 双 Tab（指标 × 周期） -->
-    <div style="padding-top:16px; border-top:1px solid rgba(255,255,255,0.05);">
+    <div style="padding-top:16px; border-top:1px solid #f2f4f7;">
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; gap:12px; flex-wrap:wrap;">
             <div style="font-size:13px; font-weight:600; color:#1a2e48; display:flex; align-items:center; gap:6px;">
                 QQQ 历史走势
@@ -959,11 +959,11 @@
         </div>
         <div id="qqq-hist-chart" style="height:280px;"></div>
         <!-- 分位条（仅价格模式显示） -->
-        <div id="qqq-pct-bar" style="display:flex; align-items:center; gap:12px; margin-top:12px; padding:10px 14px; background:rgba(255,255,255,0.02); border-radius:6px; font-size:11px;">
+        <div id="qqq-pct-bar" style="display:flex; align-items:center; gap:12px; margin-top:12px; padding:10px 14px; background:#f2f4f7; border-radius:6px; font-size:11px;">
             <span style="color:#8a94a6;">当前价格分位：</span>
             <span id="qqq-pct-label" style="font-weight:600; color:#facc15; font-variant-numeric:tabular-nums;">—</span>
             <div style="flex:1; height:6px; background:linear-gradient(90deg, #4ade80 0%, #facc15 50%, #f87171 100%); border-radius:3px; position:relative;">
-                <div id="qqq-pct-marker" style="position:absolute; top:-4px; width:2px; height:14px; background:#f7f8f8; box-shadow:0 0 0 2px #0f1011;"></div>
+                <div id="qqq-pct-marker" style="position:absolute; top:-4px; width:2px; height:14px; background:#f7f8f8; box-shadow:0 0 0 2px #ffffff;"></div>
             </div>
             <span style="color:#8a94a6;">← 低位 · 高位 →</span>
         </div>
@@ -1075,7 +1075,7 @@
             </div>
             {% endfor %}
         </div>
-        <div style="margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.05); font-size:11px; color:#8a94a6; line-height:1.6;">
+        <div style="margin-top:12px; padding-top:12px; border-top:1px solid #f2f4f7; font-size:11px; color:#8a94a6; line-height:1.6;">
             CNN 指数 = VIX + 涨跌幅广度 + Put/Call比 + 52周高低点 + 垃圾债利差 + 动量 + 避险需求 (7指标等权)
         </div>
     </div>
@@ -1097,7 +1097,7 @@
     <div class="fg-drawer-body">
     <div style="font-size:12px; color:#697386; margin-bottom:14px;">记住这 7 个指标 = 看懂美股情绪的底层逻辑。每个指标先 Z-Score 标准化 → Min-Max 缩放到 0-100 → 7 个平均 → 最终分数。</div>
 
-    <div style="overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
+    <div style="overflow:hidden; border-radius:8px; border:1px solid #f2f4f7;">
         <table style="width:100%; border-collapse:collapse; font-size:12px;">
             <thead>
                 <tr style="background:#fafbfc;">
@@ -1117,7 +1117,7 @@
                     (6, '市场波动率', 'VIX vs 50日均线', 'VIX 低', True),
                     (7, '避险需求', '股票 vs 国债20日收益差', '国债跑赢', False),
                 ] %}
-                <tr style="border-top:1px solid rgba(255,255,255,0.05);">
+                <tr style="border-top:1px solid #f2f4f7;">
                     <td style="padding:10px 12px; color:#8a94a6; font-family:'Berkeley Mono',ui-monospace,monospace; font-size:11px;">{{ num }}</td>
                     <td style="padding:10px 12px; color:#0a2540; font-weight:510;">{{ name }}</td>
                     <td style="padding:10px 12px; color:#697386;">{{ source }}</td>
@@ -1275,7 +1275,7 @@ function makeGauge(domId, score) {
                 showAbove: true,
                 size: 16,
                 itemStyle: {
-                    color: '#0f1011',
+                    color: '#ffffff',
                     borderColor: scoreColor(score),
                     borderWidth: 3
                 }
@@ -1451,7 +1451,7 @@ makeGauge('cnn-gauge', {{ cnn.score }});
             pointer: { icon: 'triangle', length: '95%', width: 10, offsetCenter: [0,'5%'],
                 itemStyle: { color: vixColor(vixVal), shadowColor: vixColor(vixVal)+'88', shadowBlur: 12 }},
             anchor: { show: true, showAbove: true, size: 16,
-                itemStyle: { color: '#0f1011', borderColor: vixColor(vixVal), borderWidth: 3 }},
+                itemStyle: { color: '#ffffff', borderColor: vixColor(vixVal), borderWidth: 3 }},
             axisTick: { show: false }, splitLine: { show: false },
             axisLabel: { distance: 28, color: '#697386', fontSize: 11, fontWeight: 500,
                 formatter: function(v) { return ({0:'平静',30:'警戒',60:'极端'})[v] || ''; }},
